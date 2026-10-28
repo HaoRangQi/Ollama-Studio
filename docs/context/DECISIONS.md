@@ -2,7 +2,7 @@
 
 > 只记录已确认的决策与明确的待决策项。建议、猜测、计划不要写成“已决定”。
 >
-> 最后核验：2026-10-27；范围：仓库代码、配置、依赖、代理与本次第一阶段接入。
+> 最后核验：2026-10-29；范围：仓库代码、配置、依赖、代理、下载、缓存、菜单栏封装与本次第一阶段接入。
 
 ## 已确认（有仓库证据）
 
@@ -131,7 +131,7 @@
 
 ### D-117 Hugging Face 作为默认模型搜索来源
 
-- **状态**：已确认（2026-10-28 实现并验证）。
+- **状态**：部分被 D-141 替代（2026-10-29）：搜索与 HF 文件列表保留，下载改由服务端直下，不再依赖 `ollama pull hf.co`；默认渠道后续改为 ModelScope。
 - **内容**：PullScreen 搜索默认使用 Hugging Face；通过同源 `/api/hf/*` 代理调用 `https://huggingface.co/api/models`，参数为 `search`、`filter=gguf`、`sort=downloads`、`direction=-1`、`limit=24`、`expand[]=siblings`。前端从 `siblings` 的 `.gguf` 文件名推导量化标签，点击标签填入 `ollama pull hf.co/<repo>:<quant>`。Ollama 官方来源保留为第二选项。
 - **依据/来源**：`src/api/catalog.ts`、`src/screens/PullScreen.tsx`、`vite.config.ts`、`server.ts`、`RUNBOOK.md` 搜索代理记录；用户 2026-10-28 提出“Hugging Face 渠道查询会更好”。
 - **理由**：Hugging Face 提供结构化 JSON、下载量排序和 GGUF 仓库过滤，比解析 ollama.com HTML 更稳定、结果更丰富。
@@ -271,7 +271,7 @@
 - **内容**：失败任务卡显示“将重跑”的具体命令并提供“重试”，按原参数重新创建后台任务；pull 任务可“编辑命令”，把 `ollama pull <model>` 填回输入框并聚焦，由用户修正后再次提交。`DownloadTask.source` 保存 ModelScope 的 `namespace/name/file/quant/modelName` 并写入 `ollama_download_task_v1`，刷新后仍可重试；旧任务没有 `kind/source` 时，`targetPath` 以 `.gguf` 结尾推断为 ModelScope，否则用 `targetPath` 作为文件名回退。仅对 `pull model manifest: file does not exist` 且模型名含 `/`、不以 `hf.co/` 开头的错误追加 Hugging Face / ModelScope 提示，不自动改写命令。
 - **依据/来源**：`src/App.tsx`、`src/types.ts`、`src/lib/downloadTask.ts`、`src/screens/PullScreen.tsx`、`RUNBOOK.md` 13。
 - **理由**：失败后只能关闭并重新搜索/输入，操作成本高；ModelScope 任务的关键参数（尤其子目录中的 `file`）无法从展示字段完整恢复，必须随任务持久化。原样重跑无法修正用户输错的模型标签，编辑入口让“重跑下载命令”可见且可修正。
-- **范围/风险**：重试是重新下载而非断点续传；ModelScope 仍受单文件 20 GB 与网络限制（R-039）；提示与来源推断依赖既有字段（`.gguf`、Ollama 英文错误文本），上游格式变化时可能失效；不自动改写命令，用户仍需自行使用 `hf.co/` 前缀或 ModelScope 渠道（R-045）。
+- **范围/风险**：重试是重新下载而非断点续传；ModelScope 仍受单文件 20 GB 与网络限制（R-039）；提示与来源推断依赖既有字段（`.gguf`、Ollama 英文错误文本），上游格式变化时可能失效；不自动改写命令，用户仍需自行使用 `hf.co/` 前缀或 ModelScope 渠道（R-045）。D-141 扩展后，`source` 也支持 Hugging Face 的 `repo/file/quant/modelName`。
 
 ### D-136 从 Ollama manifest 导出当前量化的 GGUF
 
@@ -304,6 +304,30 @@
 - **依据/来源**：`README.md`、`README.zh-CN.md`、`AGENTS.md`、`PROJECT_INDEX.md`、`docs/context/MAP.md`。
 - **理由**：仓库面向公开访问，英文 README 便于更广泛的读者快速理解项目；保留中文版本不丢失已有的详细说明。分语言截图避免英文主版本出现中文界面残留，浅色主题在 GitHub 与普通显示器上更易阅读。
 - **范围/风险**：两份 README 需要同时维护，功能或验证状态变化时必须同步；截图依赖 mock 演示数据，不能当作真实设备或真实模型证据。
+
+### D-140 缓存 orphan 默认不勾选，清理改为回收站
+
+- **状态**：已确认（2026-10-29）。
+- **内容**：修复 `server/cache.ts`：解析 `manifests-v2` symlink（`readlink`/`realpath`）、保护 manifest blob 自身、递归 manifest list、合并 `metadata/sha256-*.json` 的 digest；任何 manifest 解析失败、悬空 symlink 或越界目标都将 `scanComplete=false` 并拒绝 orphan（409）。`cleanCache(['orphan'])` 先重新扫描，将 orphan 通过同盘 `rename` 移入 `OLLAMA_MODELS/.ollama-studio-trash/<timestamp>-<id>/`，返回 `quarantinedBytes` 与 `quarantinePath`；移动失败只记录错误，不删除。UI 默认 `orphan:false`，勾选后二次确认，清理结果展示回收站路径。
+- **依据/来源**：`server/cache.ts`、`server/cache.test.ts`、`src/api/cache.ts`、`src/screens/TelemetryScreen.tsx`、`RUNBOOK.md` 14；2026-10-28 两个模型误删事故（R-042）。
+- **理由**：Ollama 0.40.7 的 v2 manifest 是 symlink，旧扫描只处理普通文件，导致模型 blob 被判 orphan；`rm` 没有恢复路径。默认关闭 + 回收站 + manifest/metadata 多层保护，把误判代价从“永久丢失”降为“可恢复”。
+- **范围/风险**：回收站不自动清理，会暂时占用磁盘；metadata 保护可能让陈旧 metadata 对应的 blob 无法通过本功能回收；不提供 UI 一键恢复，需手动把 `sha256-*` 移回 `blobs/`；真实清理仍需用户确认。
+
+### D-141 Hugging Face 下载改为服务端直下 GGUF
+
+- **状态**：已确认（2026-10-29）。
+- **内容**：新增 `server/huggingface.ts` 和 `/api/downloads` 的 `kind: "huggingface"` 任务。搜索结果从 HF `siblings` 返回 `files`，前端把量化映射到具体 GGUF；服务端用 Node `fetch` 请求 `https://huggingface.co/<repo>/resolve/<revision>/<file>?download=true`，跟随 302 到 CDN，流式写入临时目录后执行 `ollama create`。直接输入 `hf.co/<repo>:<quant>` 时前端改走同一任务；未提供文件路径时，服务端读取 HF API 文件列表并按量化解析。任务保留 `repo/file/quant/modelName`，允许刷新后接回、暂停后重试；模型名默认为 `<repo>:<quant>`。Catalog 的 HF 结果补充 `files`，并排除分片与 `mmproj`/`projector`，避免把投影层当成对话权重。
+- **依据/来源**：`server/huggingface.ts`、`server/huggingface.test.ts`、`server/downloads.ts`、`src/api/catalog.ts`、`src/api/downloads.ts`、`src/App.tsx`、`src/screens/PullScreen.tsx`、`src/lib/downloadTask.ts`、`RUNBOOK.md` 13；2026-10-29 真实小文件下载 + 假 `ollama` CLI 验证，以及 CDP 验证 UI 请求体。
+- **理由**：本机代理把 `huggingface.co` 与 CDN 解析到 `198.18.x.x` fake-IP；Ollama 自带 `hf.co` pull 会拒绝非公网重定向目标，但 Node `fetch` 可正常跟随到 CDN。把下载从 Ollama 客户端移到本地服务，既绕过该限制，也与 ModelScope 的服务端下载模式一致。
+- **范围/风险**：依赖本机 Ollama CLI 执行 `ollama create`；单文件上限 20 GB；无断点续传，暂停后恢复会重新下载；分片 GGUF 与多模态 projector 不会自动拼接/下载；HF API 或 CDN 不可达时任务失败（R-024、R-049）。应用默认仍以 ModelScope 为第一渠道，HF 作为第二渠道。
+
+### D-142 macOS 菜单栏封装采用 Swift/AppKit + 内置 Node 服务
+
+- **状态**：已确认（2026-10-29）。
+- **内容**：新增可选的 `macos/menu-bar/`：Swift `NSStatusItem` 菜单栏程序，内嵌 Node 运行时、esbuild 产物 `server.js` 与 `dist/`，启动时监听 `127.0.0.1:3210`，菜单提供打开 Web、打开日志、退出；`npm run build:menu` 构建 `.app` 与 DMG。前端与生产服务器保持不变，菜单栏 App 只是复用同一套 Web UI 的可选桌面入口。
+- **依据/来源**：`macos/menu-bar/main.swift`、`build.sh`、`Info.plist`、`package.json`、`RUNBOOK.md` 19；用户要求“菜单栏图标 + 打开 Web + 退出 + 打包 DMG”。
+- **理由**：不引入 Electron/Tauri，不改变现有 Web 形态；Swift 菜单栏壳体积小、常驻状态栏，浏览器继续承担主界面，下载、聊天等服务端能力可直接复用。
+- **范围/风险**：仅 macOS；固定端口 3210；ad-hoc 签名、未公证、无登录项/自动更新；内置 `server/package.json` 必须声明 `{"type":"module"}`；未验证安装到 `/Applications`、Finder 启动代理继承与真实模型下载（R-050）。
 
 ## 待决策（尚未决定）
 

@@ -6,7 +6,15 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist', 'server.js', 'node_modules', 'coverage', '.npm-cache', 'public/assets']
+    ignores: [
+      'dist',
+      'build',
+      'server.js',
+      'node_modules',
+      'coverage',
+      '.npm-cache',
+      'public/assets'
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

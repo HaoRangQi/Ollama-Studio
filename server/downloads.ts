@@ -3,6 +3,12 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { GgufImportError } from './importGguf';
 import { readJsonBody } from './http';
 import { buildModelScopeFileUrl, pullFromModelScope } from './modelscope';
+import {
+  buildHuggingFaceFileUrl,
+  normalizeHuggingFaceRepo,
+  pullFromHuggingFace,
+  validateHuggingFaceRevision
+} from './huggingface';
 
 /**
  * 后台下载任务：下载由服务端持有，浏览器只轮询进度。
@@ -10,7 +16,7 @@ import { buildModelScopeFileUrl, pullFromModelScope } from './modelscope';
  */
 const JOB_TTL_MS = 5 * 60 * 1000;
 
-export type DownloadKind = 'pull' | 'modelscope';
+export type DownloadKind = 'pull' | 'modelscope' | 'huggingface';
 export type DownloadStatus = 'running' | 'success' | 'error' | 'cancelled';
 
 export interface ModelScopeTarget {
@@ -20,6 +26,17 @@ export interface ModelScopeTarget {
   revision?: string;
   model?: string;
 }
+
+/** HF 任务允许先只给 repo + quant，由服务端解析出具体 GGUF 文件。 */
+export interface HuggingFaceTarget {
+  repo: string;
+  file?: string;
+  quant?: string;
+  revision?: string;
+  model?: string;
+}
+
+export type DownloadTarget = ModelScopeTarget | HuggingFaceTarget;
 
 export interface DownloadJobSnapshot {
   id: string;
@@ -32,8 +49,8 @@ export interface DownloadJobSnapshot {
   completed: number;
   total: number;
   error?: string;
-  /** ModelScope 任务保留原始定位信息，便于暂停后或刷新后重新发起。 */
-  target?: ModelScopeTarget;
+  /** 远程 GGUF 任务保留原始定位信息，便于暂停后或刷新后重新发起。 */
+  target?: DownloadTarget;
   startedAt: number;
   updatedAt: number;
 }
@@ -78,7 +95,7 @@ function createJob(
   key: string,
   model: string,
   layerStatus: string,
-  target?: ModelScopeTarget
+  target?: DownloadTarget
 ): DownloadJob {
   const now = Date.now();
   const job: DownloadJob = {
@@ -241,6 +258,42 @@ async function runModelScopeJob(job: DownloadJob, target: ModelScopeTarget, olla
   }
 }
 
+async function runHuggingFaceJob(job: DownloadJob, target: HuggingFaceTarget, ollamaHost: string) {
+  try {
+    await pullFromHuggingFace({
+      ...target,
+      ollamaHost,
+      signal: job.controller.signal,
+      onResolve: (file) => {
+        // 直接输入 hf.co/<repo>:<quant> 时，文件路径要等服务端解析后才知道；
+        // 回写到 target，刷新页面后仍能按同一文件重试。
+        target.file = file.path;
+        job.total = file.size || job.total;
+        job.updatedAt = Date.now();
+      },
+      onProgress: ({ downloaded, total }) => {
+        job.completed = downloaded;
+        job.total = total;
+        job.layerStatus = 'downloading';
+        job.updatedAt = Date.now();
+      },
+      onStage: (stage) => {
+        job.layerStatus = stage;
+        job.updatedAt = Date.now();
+      }
+    });
+    done(job);
+  } catch (error) {
+    if (job.controller.signal.aborted) {
+      job.status = 'cancelled';
+      job.layerStatus = 'cancelled';
+      job.updatedAt = Date.now();
+      return;
+    }
+    fail(job, error instanceof Error ? error.message : String(error));
+  }
+}
+
 function readString(body: Record<string, unknown>, key: string): string {
   return typeof body[key] === 'string' ? (body[key] as string).trim() : '';
 }
@@ -275,6 +328,43 @@ function startFromBody(body: Record<string, unknown>, ollamaHost: string): Downl
     };
     const job = createJob('modelscope', key, `${namespace}/${name}`, 'downloading', target);
     void runModelScopeJob(job, target, ollamaHost);
+    return snapshot(job);
+  }
+
+  if (kind === 'huggingface') {
+    const repo = readString(body, 'repo');
+    const file = readString(body, 'file');
+    const quant = readString(body, 'quant');
+    const revision = readString(body, 'revision') || undefined;
+    if (!repo) {
+      throw new GgufImportError('缺少 repo。', 400);
+    }
+    normalizeHuggingFaceRepo(repo);
+    validateHuggingFaceRevision(revision || 'main');
+    if (file) {
+      // 先校验路径，避免为非法参数创建必然失败的任务
+      buildHuggingFaceFileUrl({ repo, file, revision });
+    }
+
+    const target: HuggingFaceTarget = {
+      repo,
+      file: file || undefined,
+      quant: quant || undefined,
+      revision,
+      model: readString(body, 'model') || undefined
+    };
+    const key = `huggingface:${repo}@${revision || 'main'}:${file || quant}`;
+    const running = findRunning(key);
+    if (running) return snapshot(running);
+
+    const job = createJob(
+      'huggingface',
+      key,
+      `${repo}${quant ? `:${quant}` : ''}`,
+      'resolving',
+      target
+    );
+    void runHuggingFaceJob(job, target, ollamaHost);
     return snapshot(job);
   }
 

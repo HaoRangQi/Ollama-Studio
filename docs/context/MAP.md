@@ -2,7 +2,7 @@
 
 > 目录、版本、配置与部署关系。定位修改对象时读；版本以 `package.json` / `package-lock.json` 为准。
 >
-> 最后核验：2026-10-28；范围：仓库根目录、`src/`、`server/`、`server.ts`、构建/类型/测试/CI 配置、脚本、已安装依赖、真实拉取/删除/克隆/创建、ModelScope 搜索/下载、后台下载任务、缓存扫描/清理（fixture）、GGUF 导出（fixture + 真实 0.8B）、系统指标与 daemon 只读检测、令牌鉴权、持久化与 headless DOM 冒烟。已执行安装、`typecheck`、`lint`、`format:check`、`test`、`build`、代理与鉴权验证；未执行 daemon 自动重启/停止。
+> 最后核验：2026-10-29；范围：仓库根目录、`src/`、`server/`、`server.ts`、`macos/menu-bar/`、构建/类型/测试/CI 配置、脚本、已安装依赖、真实拉取/删除/克隆/创建、ModelScope / Hugging Face 搜索与下载、后台下载任务、缓存扫描/清理（fixture）、GGUF 导出（fixture + 真实 0.8B）、系统指标与 daemon 只读检测、令牌鉴权、持久化、Chat 导航视觉与 headless DOM 冒烟。已执行安装、`typecheck`、`lint`、`format:check`、`test`、`build`、菜单栏 App 构建/启动、代理与鉴权验证；未执行 daemon 自动重启/停止。
 
 ## 目录结构
 
@@ -22,7 +22,8 @@ ollama-studio/
 ├── server/http.ts             # 共用 JSON body 读取（64 KB 上限）
 ├── server/importGguf.ts       # 开发/生产共用的 GGUF 上传、CLI 预检与 ollama create
 ├── server/modelscope.ts       # ModelScope 搜索、GGUF 下载与 ollama create
-├── server/downloads.ts        # 服务端后台下载任务（pull / modelscope），内存 Map + 5 分钟 TTL
+├── server/huggingface.ts      # Hugging Face 文件解析、服务端直下 GGUF 与 ollama create
+├── server/downloads.ts        # 服务端后台下载任务（pull / modelscope / huggingface），内存 Map + 5 分钟 TTL
 ├── server/cache.ts            # Ollama 模型目录与临时目录扫描、明细、清理与文件管理器定位
 ├── server/exportGguf.ts       # manifest → GGUF 导出（model/projector、目录校验、重名、APFS clone）
 ├── server/metrics.ts          # 磁盘/内存/CPU 指标，macOS ioreg GPU 解析，ANE 不可用说明
@@ -34,6 +35,14 @@ ollama-studio/
 ├── README.zh-CN.md              # 中文版
 ├── AGENTS.md
 ├── PROJECT_INDEX.md
+├── macos/menu-bar/              # 可选 macOS 菜单栏封装（Swift + 内置 Node）
+│   ├── main.swift               # NSStatusItem、内置服务、打开 Web/日志、退出
+│   ├── build.sh                 # npm run build:menu：前端 + server.js + Node runtime + 图标 + ad-hoc 签名 + DMG
+│   ├── Info.plist
+│   ├── make-icon.swift
+│   ├── make-app-icon.swift
+│   └── assets/                  # menu-iconTemplate*.png
+├── build/                       # 菜单栏 .app / DMG 产物（gitignore）
 ├── docs/context/
 │   ├── NOW.md
 │   ├── MAP.md
@@ -155,17 +164,17 @@ ChatScreen
 ### 拉取与下载任务
 
 ```text
-App.startPullDownload / runModelScopeDownload
-├─ POST /api/downloads { kind: 'pull' | 'modelscope', ... } → server/downloads.ts
-├─ 服务端消费 Ollama NDJSON（或执行 ModelScope 下载）并聚合 total/completed
+App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
+├─ POST /api/downloads { kind: 'pull' | 'modelscope' | 'huggingface', ... } → server/downloads.ts
+├─ 服务端消费 Ollama NDJSON、执行 ModelScope 下载，或用 server/huggingface.ts 直下 GGUF 后 ollama create
 ├─ 前端每 900ms GET /api/downloads/<id> → 进度/速度/错误
-├─ saveDownloadTask() → localStorage: ollama_download_task_v1（元数据 + ModelScope source）
+├─ saveDownloadTask() → localStorage: ollama_download_task_v1（元数据 + 远程 source）
 └─ 刷新/重新打开 → GET /api/downloads → 接回运行中的任务（首次自动切到拉取页）
 ```
 
-- 暂停/取消：`DELETE /api/downloads/<id>`；继续按 `kind` 分流，ModelScope 用服务端快照的 `target` 重新创建任务。
-- 失败重试：任务卡显示“将重跑”的命令并提供“重试”，按原参数重新创建任务；pull 任务可“编辑命令”，把命令填回顶部输入框。ModelScope 优先用持久化的 `DownloadTask.source`（`namespace/name/file/quant/modelName`），刷新后也可用；旧任务没有 `kind/source` 时按 `.gguf` 文件名推断 ModelScope，否则回退 `targetPath`。`pull model manifest: file does not exist` 且模型名含 `/` 时，客户端追加 `hf.co/` 或 ModelScope 提示。
-- 缓存清理：`TelemetryScreen` → `GET /api/cache`（只读扫描）→ `POST /api/cache/cleanup`（重新扫描后删除勾选类别）；manifest 解析失败锁 orphan、下载进行中锁 partial（D-133）。
+- 暂停/取消：`DELETE /api/downloads/<id>`；继续按 `kind` 分流，ModelScope / Hugging Face 用服务端快照的 `target` 重新创建任务。
+- 失败重试：任务卡显示“将重跑”的命令并提供“重试”，按原参数重新创建任务；pull 任务可“编辑命令”，把命令填回顶部输入框。ModelScope 优先用持久化的 `DownloadTask.source`（`namespace/name/file/quant/modelName`），Hugging Face 用 `repo/file/quant/modelName`；刷新后也可用；旧任务没有 `kind/source` 时按 `.gguf` 文件名推断 ModelScope，否则回退 `targetPath`。`pull model manifest: file does not exist` 且模型名含 `/` 时，客户端追加 `hf.co/` 或 ModelScope 提示。
+- 缓存清理：`TelemetryScreen` → `GET /api/cache`（只读扫描）→ `POST /api/cache/cleanup`（重新扫描后处理勾选类别；orphan 移入 `.ollama-studio-trash`，partial/temp 直接删除）；manifest 解析失败、v2 symlink 悬空锁 orphan，下载进行中锁 partial（D-133、D-137）。
 - GGUF 上传：`importGguf` → `/api/import`（同源）→ `server/importGguf.ts`；先校验 `.gguf` 与空文件，再预检 `ollama --version`，最后 `ollama create`。
 - GGUF 导出：`ModelsScreen` 的导出按钮/菜单 → `src/api/export.ts` → `POST /api/export` → `server/exportGguf.ts`；解析 `manifests/` 或 `manifests-v2/`（默认 registry 同时尝试 `registry.ollama.ai` 与 `ollama.com`），复制 `model` 层，`projector` 层写成 `*-mmproj.gguf`，默认目录 `~/Downloads/Ollama Studio`，重名追加序号（D-136）。
 - 系统指标：`TelemetryScreen` 挂载时与每 5 秒（页面可见时）读取 `/api/metrics`；磁盘用 `statfs`，内存/CPU 用 `os`，GPU 用 macOS `ioreg`，ANE 固定不可用（D-138）。
@@ -174,7 +183,7 @@ App.startPullDownload / runModelScopeDownload
 ### 模型库搜索（只读）
 
 - ModelScope（默认）：`/api/modelscope/search?q=...` → 服务端追加 `gguf`、并发拉取文件列表并推导量化；下载由 `server/downloads.ts` 调 `pullFromModelScope`。
-- Hugging Face：`/api/hf/api/models?search=...&filter=gguf&sort=downloads&expand[]=siblings` → JSON；`src/api/catalog.ts` 提取 id/downloads/likes/tags，并从 `.gguf` 文件名推断量化。
+- Hugging Face：搜索走 `/api/hf/api/models?search=...&filter=gguf&sort=downloads&expand[]=siblings` → JSON；`src/api/catalog.ts` 提取 id/downloads/likes/tags、`files` 与量化（排除分片和 mmproj）。下载由 `server/downloads.ts` 调 `server/huggingface.ts`：服务端请求 `https://huggingface.co/<repo>/resolve/<revision>/<file>` 并跟随 302 到 CDN，下载后执行 `ollama create`；直接输入 `hf.co/<repo>:<quant>` 且缺少文件路径时，读取 HF API 文件列表按量化解析（D-141）。
 - Ollama 官方：`/api/catalog/search?q=...` → 转发 `https://ollama.com/search` HTML；`DOMParser` 提取 `a[href^="/library/"]`、`h2`、`p`。
 - 搜索代理都是只读；失败时 UI 显示官网兜底链接。
 
@@ -231,6 +240,7 @@ App.startPullDownload / runModelScopeDownload
   - `build`：`npm run build:web && npm run build:server`
   - `build:web`：`vite build`
   - `build:server`：`esbuild server.ts --bundle --platform=node --format=esm --outfile=server.js --packages=external`
+  - `build:menu`：`bash macos/menu-bar/build.sh`，生成 `.app` 与 DMG（仅 macOS）
   - `start`：`node server.js`
   - `preview`：`vite preview --host=127.0.0.1`
   - `typecheck`：`tsc --noEmit`
@@ -314,9 +324,10 @@ App.startPullDownload / runModelScopeDownload
 
 - **本次核验环境**（2026-10-28，仅记录，不作为版本要求）：Node.js `v24.22.0`，npm `11.19.1`，Ollama `0.40.7`。
 - `package.json` 没有 `engines` 字段；最低 Node 版本待核实。
-- 已存在 `node_modules/`、`package-lock.json`、`dist/`、`server.js`；已初始化 Git（`main`，本地基线提交，无远端）。
+- 已存在 `node_modules/`、`package-lock.json`、`dist/`、`server.js`、`build/`；Git 分支 `main`，远端 `origin` 为 GitHub（HaoRangQi/Ollama-Studio）。
 - 开发：`npm run dev` → `127.0.0.1:3000`；`npm run dev:lan` → `0.0.0.0:3000`。
 - 生产：`npm run build && npm start` → 默认 `127.0.0.1:3000`，Express 静态托管 + `/ollama` 代理。
+- 菜单栏：`npm run build:menu` → `build/Ollama Studio Menu.app` 与 DMG；App 内嵌 Node 与 `server.js`，监听 `127.0.0.1:3210`；ad-hoc 签名、未公证（`RUNBOOK.md` 19）。
 - `npm run preview` 默认端口按 Vite 约定为 `4173`，未验证。
 - 仓库内没有部署配置（Docker、Vercel、Netlify、Cloud Run 等均未发现）。
 - README 链接的 AI Studio 应用是否仍在线、是否对应本仓库版本：待核实。

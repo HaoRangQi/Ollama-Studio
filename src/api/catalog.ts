@@ -10,7 +10,7 @@ export interface CatalogSearchResult {
   likes?: number;
   tags?: string[];
   quants?: string[];
-  /** ModelScope only: GGUF paths available inside the repository. */
+  /** Remote GGUF sources: GGUF paths available inside the repository. */
   files?: string[];
   pipelineTag?: string;
   lastModified?: string;
@@ -30,13 +30,27 @@ interface HuggingFaceModel {
 
 const SPLIT_GGUF = /-\d{5}-of-\d{5}\.gguf$/i;
 const QUANT_GGUF = /((?:IQ|Q)\d(?:_[A-Z0-9]+)*|BF16|F16|F32)\.gguf$/i;
+const PROJECTOR_GGUF = /(?:^|[/_.-])(?:mmproj|projector)(?:[/_.-]|$)/i;
 
-function extractQuants(siblings: HuggingFaceModel['siblings']): string[] {
-  const quants = new Set<string>();
+/** Hugging Face 的 mmproj 也是 GGUF，但它不是可独立对话的模型权重。 */
+export function isProjectorGguf(file: string): boolean {
+  return PROJECTOR_GGUF.test(file);
+}
+
+export function extractGgufFiles(siblings: HuggingFaceModel['siblings']): string[] {
+  const files = new Set<string>();
   for (const file of siblings ?? []) {
     const path = file.rfilename ?? '';
-    if (!/\.gguf$/i.test(path) || SPLIT_GGUF.test(path)) continue;
-    const match = path.match(QUANT_GGUF);
+    if (!/\.gguf$/i.test(path) || SPLIT_GGUF.test(path) || isProjectorGguf(path)) continue;
+    files.add(path);
+  }
+  return Array.from(files).slice(0, 40);
+}
+
+function extractQuants(files: string[]): string[] {
+  const quants = new Set<string>();
+  for (const file of files) {
+    const match = file.match(QUANT_GGUF);
     if (match?.[1] && !match[1].endsWith('_')) {
       quants.add(match[1].toUpperCase());
     }
@@ -106,15 +120,18 @@ export async function searchOllamaCatalog(
 }
 
 /**
- * Maps a quantization label (e.g. `Q4_K_M`) to the ModelScope file that
+ * Maps a quantization label (e.g. `Q4_K_M`) to the remote GGUF file that
  * contains it, so the download action knows exactly which blob to fetch.
  */
-export function findModelScopeFile(files: string[] | undefined, quant: string): string | undefined {
+export function findQuantFile(files: string[] | undefined, quant: string): string | undefined {
   if (!files?.length || !quant) return undefined;
   const escaped = quant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`(?:^|[-_.])${escaped}\\.gguf$`, 'i');
   return files.find((file) => pattern.test(file));
 }
+
+/** 保留旧名称，避免既有调用方和测试同时改动。 */
+export const findModelScopeFile = findQuantFile;
 
 interface ModelScopeSearchItem {
   name: string;
@@ -183,8 +200,8 @@ export async function searchModelScopeCatalog(
 
 /**
  * Searches Hugging Face for GGUF repositories. The API returns JSON, which is
- * more stable than parsing the Ollama website. `expand[]=siblings` lets us
- * derive quantization tags for `ollama pull hf.co/<repo>:<quant>` commands.
+ * more stable than parsing the Ollama website. `expand[]=siblings` provides
+ * both quantization tags and the exact file path used by the local downloader.
  */
 export async function searchHuggingFaceCatalog(
   query: string,
@@ -238,6 +255,7 @@ export async function searchHuggingFaceCatalog(
         .filter((tag) => tag !== 'gguf')
         .slice(0, 4)
         .join(' · ');
+      const files = extractGgufFiles(model.siblings);
       return {
         source: 'huggingface' as const,
         name: id,
@@ -248,7 +266,8 @@ export async function searchHuggingFaceCatalog(
         downloads: model.downloads,
         likes: model.likes,
         tags: tags.slice(0, 6),
-        quants: extractQuants(model.siblings),
+        quants: extractQuants(files),
+        files,
         pipelineTag: model.pipeline_tag,
         lastModified: model.lastModified
       };

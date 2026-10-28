@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DownloadTask } from '../types';
 import {
   DOWNLOAD_TASK_KEY,
+  isHuggingFaceTask,
+  isModelScopeTask,
   loadDownloadTask,
   markInterrupted,
   parseDownloadTask
@@ -67,6 +69,19 @@ describe('parseDownloadTask', () => {
     };
     expect(parseDownloadTask({ ...task, kind: 'modelscope', source })?.source).toEqual(source);
     expect(parseDownloadTask({ ...task, source: { namespace: 1 } })?.source).toBeUndefined();
+  });
+
+  it('keeps a Hugging Face source and does not confuse it with ModelScope', () => {
+    const source = {
+      repo: 'saidutta69/MiniCPM-V-4.7-1B-heretic',
+      file: 'MiniCPM-V-4.7-1B-heretic-Q4_K_M.gguf',
+      quant: 'Q4_K_M',
+      modelName: 'saidutta69/MiniCPM-V-4.7-1B-heretic:Q4_K_M'
+    };
+    const parsed = parseDownloadTask({ ...task, kind: 'huggingface', source });
+    expect(parsed?.source).toEqual(source);
+    expect(parsed && isHuggingFaceTask(parsed)).toBe(true);
+    expect(parsed && isModelScopeTask(parsed)).toBe(false);
   });
 });
 

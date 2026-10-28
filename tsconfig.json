@@ -22,5 +22,5 @@
     "esModuleInterop": true,
     "noEmit": true
   },
-  "exclude": ["dist", "server.js", "node_modules"]
+  "exclude": ["dist", "build", "server.js", "node_modules"]
 }

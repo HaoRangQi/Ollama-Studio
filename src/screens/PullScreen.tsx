@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { CuratedHubModel, DownloadTask } from '../types';
 import { INITIAL_CURATED_MODELS } from '../data/mockData';
 import {
-  findModelScopeFile,
+  findQuantFile,
   searchHuggingFaceCatalog,
   searchModelScopeCatalog,
   searchOllamaCatalog
@@ -11,7 +11,7 @@ import type { CatalogSearchResult, CatalogSource } from '../api/catalog';
 import { CatalogResultRow } from '../components/CatalogResultRow';
 import { useAppTheme } from '../context/ThemeContext';
 import { readStorageJson, writeStorageJson } from '../lib/storage';
-import { isModelScopeTask } from '../lib/downloadTask';
+import { isGgufTask, isModelScopeTask } from '../lib/downloadTask';
 
 /** 手动复现 ModelScope 下载时可执行的命令（应用内走服务端下载 + ollama create）。 */
 const buildModelScopeCommand = (modelId: string, file: string) => {
@@ -45,6 +45,12 @@ interface PullScreenProps {
     quant: string;
     modelName: string;
   }) => void;
+  onStartHuggingFaceDownload: (target: {
+    repo: string;
+    file?: string;
+    quant: string;
+    modelName: string;
+  }) => void;
 }
 
 export const PullScreen: React.FC<PullScreenProps> = ({
@@ -57,7 +63,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   selectedQuant,
   onImportGguf,
   onStartNewDownload,
-  onStartModelScopeDownload
+  onStartModelScopeDownload,
+  onStartHuggingFaceDownload
 }) => {
   const { t, language } = useAppTheme();
   const [pullInput, setPullInput] = useState('ollama pull deepseek-r1:14b');
@@ -122,7 +129,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
 
   // 失败的 pull 任务只记录了模型名；把可编辑的命令填回输入框，便于修正后重跑。
   const handleEditFailedCommand = () => {
-    if (!downloadTask.error || isModelScopeTask(downloadTask)) return;
+    if (!downloadTask.error || isGgufTask(downloadTask)) return;
     setPullInput(`ollama pull ${downloadTask.modelName}`);
     window.requestAnimationFrame(() => {
       const input = document.getElementById('pull-command-input') as HTMLInputElement | null;
@@ -233,7 +240,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   const handleUseCatalogModel = (result: CatalogSearchResult, quant?: string) => {
     if (result.source === 'modelscope') {
       const chosen = quant ?? result.quants?.[0];
-      const file = chosen ? findModelScopeFile(result.files, chosen) : undefined;
+      const file = chosen ? findQuantFile(result.files, chosen) : undefined;
       if (!file) {
         showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
         return;
@@ -249,6 +256,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
       return;
     }
 
+    // 保留 Ollama CLI 命令作为参考；应用内拉取会识别 hf.co/ 并改走服务端直下。
     const command =
       result.source === 'huggingface'
         ? `ollama pull hf.co/${result.name}:${quant}`
@@ -259,13 +267,14 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   };
 
   const handleDownloadCatalogModel = (result: CatalogSearchResult, quant?: string) => {
+    const chosen = quant ?? result.quants?.[0];
+
     if (result.source === 'modelscope') {
-      const chosen = quant ?? result.quants?.[0];
       if (!chosen) {
         showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
         return;
       }
-      const file = findModelScopeFile(result.files, chosen);
+      const file = findQuantFile(result.files, chosen);
       const [namespace, name] = result.name.split('/');
       if (!file || !namespace || !name) {
         showToast(language === 'zh' ? '未找到对应的 GGUF 文件' : 'No matching GGUF file found');
@@ -284,16 +293,30 @@ export const PullScreen: React.FC<PullScreenProps> = ({
       return;
     }
 
-    if (result.source === 'huggingface' && !quant) {
-      showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
+    if (result.source === 'huggingface') {
+      if (!chosen) {
+        showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
+        return;
+      }
+      // 搜索结果通常带 files；缺失时交给服务端按 quant 再解析一次。
+      const file = findQuantFile(result.files, chosen);
+      const target = `hf.co/${result.name}:${chosen}`;
+      setPullInput(`ollama pull ${target}`);
+      onStartHuggingFaceDownload({
+        repo: result.name,
+        file,
+        quant: chosen,
+        modelName: `${result.name}:${chosen}`
+      });
+      showToast(language === 'zh' ? `已开始下载：${target}` : `Downloading: ${target}`);
+      revealDownloadTask();
       return;
     }
 
-    const target = result.source === 'huggingface' ? `hf.co/${result.name}:${quant}` : result.name;
-
-    setPullInput(`ollama pull ${target}`);
-    onStartNewDownload(target);
-    showToast(language === 'zh' ? `已开始下载：${target}` : `Downloading: ${target}`);
+    if (!result.name) return;
+    setPullInput(`ollama pull ${result.name}`);
+    onStartNewDownload(result.name);
+    showToast(language === 'zh' ? `已开始下载：${result.name}` : `Downloading: ${result.name}`);
     revealDownloadTask();
   };
 
@@ -597,8 +620,10 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 (() => {
                   const errorText = downloadTask.error as string;
                   const isExpanded = expandedError === errorText;
-                  const retryCommand = isModelScopeTask(downloadTask)
-                    ? `ModelScope · ${downloadTask.source?.file ?? downloadTask.targetPath}`
+                  const retryCommand = isGgufTask(downloadTask)
+                    ? `${isModelScopeTask(downloadTask) ? 'ModelScope' : 'Hugging Face'} · ${
+                        downloadTask.source?.file || downloadTask.targetPath || downloadTask.quant
+                      }`
                     : `ollama pull ${downloadTask.modelName}`;
                   return (
                     <div className="px-1">
@@ -628,7 +653,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                                 : 'Show full error'}
                           </button>
                         )}
-                        {!isModelScopeTask(downloadTask) && (
+                        {!isGgufTask(downloadTask) && (
                           <button
                             onClick={handleEditFailedCommand}
                             className="text-[11px] text-[var(--primary-accent)] hover:underline cursor-pointer"
@@ -961,8 +986,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 : 'Search ModelScope GGUF repos (the gguf keyword is added automatically). Pick a quant and download: the local server fetches the file and registers it with ollama create.'
               : catalogSource === 'huggingface'
                 ? language === 'zh'
-                  ? '输入关键词搜索 Hugging Face 的 GGUF 仓库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。选择量化标签后填入 ollama pull hf.co/<repo>:<quant>。'
-                  : 'Search Hugging Face GGUF repos. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return. Pick a quant tag to fill ollama pull hf.co/<repo>:<quant>.'
+                  ? '输入关键词搜索 Hugging Face 的 GGUF 仓库；选择量化后由本地服务直接下载并执行 ollama create，不依赖 Ollama 的 hf.co pull。'
+                  : 'Search Hugging Face GGUF repos. Pick a quant and the local server downloads the GGUF directly, then registers it with ollama create; no hf.co pull required.'
                 : language === 'zh'
                   ? '输入关键词搜索 ollama.com 的公共模型库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。'
                   : 'Search the public ollama.com catalog. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return.'}

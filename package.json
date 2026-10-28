@@ -11,6 +11,7 @@
     "build": "npm run build:web && npm run build:server",
     "build:web": "vite build",
     "build:server": "esbuild server.ts --bundle --platform=node --format=esm --outfile=server.js --packages=external",
+    "build:menu": "bash macos/menu-bar/build.sh",
     "start": "node server.js",
     "preview": "vite preview --host=127.0.0.1",
     "clean": "rm -rf dist server.js coverage",

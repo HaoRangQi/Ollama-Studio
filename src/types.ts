@@ -64,8 +64,8 @@ export interface CuratedHubModel {
   tagNoteEn?: string;
 }
 
-/** 下载来源：Ollama 原生 pull，或 ModelScope 服务端下载 + ollama create。 */
-export type DownloadKind = 'pull' | 'modelscope';
+/** 下载来源：Ollama 原生 pull，或远程仓库下载 GGUF + ollama create。 */
+export type DownloadKind = 'pull' | 'modelscope' | 'huggingface';
 
 /** ModelScope 任务的原始仓库信息；失败重试与刷新后恢复都需要它。 */
 export interface ModelScopeDownloadSource {
@@ -75,6 +75,16 @@ export interface ModelScopeDownloadSource {
   quant: string;
   modelName: string;
 }
+
+/** Hugging Face 任务同样保留仓库和文件信息，避免重试时退回 ollama pull。 */
+export interface HuggingFaceDownloadSource {
+  repo: string;
+  file: string;
+  quant: string;
+  modelName: string;
+}
+
+export type DownloadSource = ModelScopeDownloadSource | HuggingFaceDownloadSource;
 
 export interface DownloadTask {
   /** 服务端后台任务 ID（`dl-…`）；下载在服务端继续，刷新后据此重新接上。 */
@@ -95,8 +105,8 @@ export interface DownloadTask {
   isComplete?: boolean;
   isInterrupted?: boolean;
   error?: string;
-  /** 仅 ModelScope 任务：重试时重建下载所需的仓库与文件信息。 */
-  source?: ModelScopeDownloadSource;
+  /** 远程 GGUF 任务：重试时重建下载所需的仓库与文件信息。 */
+  source?: DownloadSource;
 }
 
 export interface ChatAttachment {

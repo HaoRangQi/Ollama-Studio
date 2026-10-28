@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NavScreen, OllamaModel, DownloadTask, ModelScopeDownloadSource } from './types';
+import {
+  NavScreen,
+  OllamaModel,
+  DownloadTask,
+  ModelScopeDownloadSource,
+  HuggingFaceDownloadSource
+} from './types';
 import { INITIAL_MODELS } from './data/mockData';
 import { ThemeProvider, useAppTheme } from './context/ThemeContext';
 import { useOllama } from './hooks/useOllama';
@@ -22,6 +28,7 @@ import {
 import type { DownloadJob } from './api/downloads';
 import {
   clearDownloadTask,
+  isHuggingFaceTask,
   isModelScopeTask,
   loadDownloadTask,
   saveDownloadTask
@@ -41,6 +48,7 @@ import { TelemetryScreen } from './screens/TelemetryScreen';
 import { ModelfileLabScreen } from './screens/ModelfileLabScreen';
 
 type ModelScopeDownloadTarget = ModelScopeDownloadSource;
+type HuggingFaceDownloadTarget = HuggingFaceDownloadSource;
 
 const formatSpeed = (bytesPerSecond: number) => {
   if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return '—';
@@ -55,8 +63,28 @@ const explainPullError = (message: string, model: string, zh: boolean): string =
   if (!/manifest.*does not exist/i.test(message)) return message;
   if (!model.includes('/') || model.startsWith('hf.co/')) return message;
   return zh
-    ? `${message}\n提示：Ollama registry 中没有该路径。若这是 Hugging Face 仓库，请使用 hf.co/${model}:<量化>；网络不通时可在拉取页选择 ModelScope 渠道直接下载 GGUF。`
-    : `${message}\nHint: Ollama's registry has no such path. For Hugging Face repos use hf.co/${model}:<quant>; if HF is blocked, download the GGUF via ModelScope.`;
+    ? `${message}\n提示：Ollama registry 中没有该路径。若这是 Hugging Face 仓库，请使用 hf.co/${model}:<量化>（应用内会改走本地服务直下）；也可在拉取页选择 Hugging Face / ModelScope 渠道。`
+    : `${message}\nHint: Ollama's registry has no such path. For Hugging Face repos use hf.co/${model}:<quant> (the app downloads it via the local server); you can also pick the Hugging Face or ModelScope channel.`;
+};
+
+/**
+ * 把 `hf.co/<repo>:<quant>` 转成服务端直下任务。
+ * 应用内不再把这串命令交给 Ollama，避免其拒绝代理/CDN 的非公网重定向目标。
+ */
+const parseHuggingFacePullTarget = (modelTag: string): HuggingFaceDownloadTarget | null => {
+  if (!/^hf\.co\//i.test(modelTag)) return null;
+  const raw = modelTag.replace(/^hf\.co\//i, '').trim();
+  if (!raw.includes('/')) return null;
+  const colon = raw.lastIndexOf(':');
+  const repo = (colon >= 0 ? raw.slice(0, colon) : raw).trim();
+  const quant = colon >= 0 ? raw.slice(colon + 1).trim() : '';
+  if (!repo) return null;
+  return {
+    repo,
+    file: '',
+    quant,
+    modelName: `${repo}${quant ? `:${quant}` : ''}`
+  };
 };
 
 const formatRemaining = (seconds: number, zh: boolean) => {
@@ -98,8 +126,9 @@ function MainApp() {
     return loadDownloadTask() ?? IDLE_DOWNLOAD_TASK;
   });
   const [selectedQuant, setSelectedQuant] = useState<string>('Q4_K_M');
-  // ModelScope 任务不走 ollama pull，恢复时需要原始仓库与文件名
+  // 远程 GGUF 任务不走 ollama pull，恢复时需要原始仓库与文件名
   const modelScopeTargetRef = useRef<ModelScopeDownloadTarget | null>(null);
+  const huggingFaceTargetRef = useRef<HuggingFaceDownloadTarget | null>(null);
   const refreshModelsRef = useRef<(() => Promise<unknown>) | null>(null);
   const adoptedRef = useRef(false);
 
@@ -208,9 +237,15 @@ function MainApp() {
   const buildTaskFromJob = useCallback(
     (job: DownloadJob, targetPath?: string): DownloadTask => {
       const isModelScope = job.kind === 'modelscope';
-      const quant = job.model.includes(':')
-        ? job.model.slice(job.model.lastIndexOf(':') + 1)
-        : selectedQuant;
+      const isHuggingFace = job.kind === 'huggingface';
+      const isGguf = isModelScope || isHuggingFace;
+      const target = job.target;
+      const targetQuant =
+        target && 'quant' in target && typeof target.quant === 'string' ? target.quant : '';
+      const quant =
+        targetQuant ||
+        (job.model.includes(':') ? job.model.slice(job.model.lastIndexOf(':') + 1) : selectedQuant);
+      const remoteFile = target && 'file' in target ? target.file : undefined;
       return {
         id: job.id,
         kind: job.kind,
@@ -224,12 +259,12 @@ function MainApp() {
         totalGb: 0,
         targetPath:
           targetPath ??
-          (isModelScope
-            ? (job.target?.file.split('/').pop() ?? '')
+          (isGguf
+            ? (remoteFile?.split('/').pop() ?? '')
             : job.model.startsWith('hf.co/')
               ? job.model
               : `~/.ollama/models/manifests/${job.model}`),
-        sha256: isModelScope
+        sha256: isGguf
           ? zh
             ? '下载后由 ollama create 注册'
             : 'Registered via ollama create'
@@ -241,25 +276,94 @@ function MainApp() {
         isComplete: false,
         error: undefined,
         source:
-          isModelScope && job.target
+          isModelScope && target && 'namespace' in target
             ? {
-                namespace: job.target.namespace,
-                name: job.target.name,
-                file: job.target.file,
+                namespace: target.namespace,
+                name: target.name,
+                file: target.file,
                 quant,
-                modelName: job.target.model ?? job.model
+                modelName: target.model ?? job.model
               }
-            : undefined
+            : isHuggingFace && target && 'repo' in target
+              ? {
+                  repo: target.repo,
+                  file: target.file ?? '',
+                  quant,
+                  modelName: target.model ?? job.model
+                }
+              : undefined
       };
     },
     [selectedQuant, zh]
   );
 
+  // Hugging Face 不走 ollama pull：服务端直连下载 GGUF 后再 ollama create
+  const startHuggingFaceDownload = async (target: HuggingFaceDownloadTarget) => {
+    const filename = target.file.split('/').pop() ?? '';
+
+    modelScopeTargetRef.current = null;
+    huggingFaceTargetRef.current = target;
+    setCurrentScreen('pull');
+
+    try {
+      const job = await startDownloadJob({
+        kind: 'huggingface',
+        repo: target.repo,
+        file: target.file || undefined,
+        quant: target.quant || undefined,
+        model: target.modelName
+      });
+      setDownloadTask({
+        ...buildTaskFromJob(job, filename || undefined),
+        quant: target.quant,
+        targetPath: filename,
+        source: target
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setDownloadTask({
+        id: `failed-${Date.now()}`,
+        kind: 'huggingface',
+        modelName: target.modelName || target.repo,
+        quant: target.quant,
+        layerStatus: zh ? '无法开始下载' : 'Could not start download',
+        speed: '—',
+        remainingTime: '—',
+        progress: 0,
+        downloadedGb: 0,
+        totalGb: 0,
+        targetPath: filename,
+        sha256: '—',
+        isPaused: false,
+        isActive: true,
+        isComplete: false,
+        error: message,
+        source: target
+      });
+    }
+  };
+
+  const handleStartHuggingFaceDownload = (target: {
+    repo: string;
+    file?: string;
+    quant: string;
+    modelName: string;
+  }) => {
+    void startHuggingFaceDownload({ ...target, file: target.file ?? '' });
+  };
+
   const startPullDownload = async (modelTag: string) => {
     const name = modelTag.trim();
     if (!name) return;
 
+    const huggingFaceTarget = parseHuggingFacePullTarget(name);
+    if (huggingFaceTarget) {
+      await startHuggingFaceDownload(huggingFaceTarget);
+      return;
+    }
+
     modelScopeTargetRef.current = null;
+    huggingFaceTargetRef.current = null;
     setCurrentScreen('pull');
 
     try {
@@ -278,7 +382,7 @@ function MainApp() {
         progress: 0,
         downloadedGb: 0,
         totalGb: 0,
-        targetPath: name.startsWith('hf.co/') ? name : `~/.ollama/models/manifests/${name}`,
+        targetPath: `~/.ollama/models/manifests/${name}`,
         sha256: '—',
         isPaused: false,
         isActive: true,
@@ -297,6 +401,7 @@ function MainApp() {
     const filename = target.file.split('/').pop() ?? target.file;
 
     modelScopeTargetRef.current = target;
+    huggingFaceTargetRef.current = null;
     setCurrentScreen('pull');
 
     try {
@@ -352,10 +457,18 @@ function MainApp() {
         .sort((a, b) => b.startedAt - a.startedAt)[0];
       if (!running) return;
       // 恢复暂停所需的原始仓库信息只存在服务端任务里
-      if (running.kind === 'modelscope' && running.target) {
+      if (running.kind === 'modelscope' && running.target && 'namespace' in running.target) {
         modelScopeTargetRef.current = {
           ...running.target,
           quant: selectedQuant,
+          modelName: running.target.model ?? running.model
+        };
+      }
+      if (running.kind === 'huggingface' && running.target && 'repo' in running.target) {
+        huggingFaceTargetRef.current = {
+          repo: running.target.repo,
+          file: running.target.file ?? '',
+          quant: running.target.quant ?? selectedQuant,
           modelName: running.target.model ?? running.model
         };
       }
@@ -424,13 +537,15 @@ function MainApp() {
       }
 
       const pct = job.total > 0 ? Math.min(100, (job.completed / job.total) * 100) : 0;
-      const isModelScope = job.kind === 'modelscope';
+      const isGguf = job.kind === 'modelscope' || job.kind === 'huggingface';
       const succeeded = job.status === 'success';
       const failed = job.status === 'error';
       const cancelled = job.status === 'cancelled';
 
       setDownloadTask((previous) => {
         if (previous.id !== jobId || previous.isPaused || !previous.isActive) return previous;
+        const hfTarget =
+          job.kind === 'huggingface' && job.target && 'repo' in job.target ? job.target : undefined;
         return {
           ...previous,
           layerStatus: cancelled
@@ -438,25 +553,40 @@ function MainApp() {
               ? '已取消'
               : 'Cancelled'
             : succeeded
-              ? isModelScope
+              ? isGguf
                 ? zh
                   ? '下载完成，已注册到 Ollama'
                   : 'Downloaded and registered'
                 : zh
                   ? '拉取完成'
                   : 'Pull complete'
-              : isModelScope
+              : isGguf
                 ? job.layerStatus === 'creating'
                   ? zh
                     ? '正在用 ollama create 注册模型…'
                     : 'Registering with ollama create…'
-                  : zh
-                    ? '正在下载 GGUF…'
-                    : 'Downloading GGUF…'
+                  : job.layerStatus === 'resolving'
+                    ? zh
+                      ? '正在解析 GGUF 文件…'
+                      : 'Resolving GGUF file…'
+                    : zh
+                      ? '正在下载 GGUF…'
+                      : 'Downloading GGUF…'
                 : job.layerStatus || previous.layerStatus,
           progress: succeeded ? 100 : Number(pct.toFixed(1)),
           downloadedGb: Number((job.completed / 1e9).toFixed(2)),
           totalGb: Number((job.total / 1e9).toFixed(2)),
+          targetPath: hfTarget?.file
+            ? (hfTarget.file.split('/').pop() ?? previous.targetPath)
+            : previous.targetPath,
+          source: hfTarget
+            ? {
+                repo: hfTarget.repo,
+                file: hfTarget.file ?? '',
+                quant: hfTarget.quant ?? previous.quant,
+                modelName: hfTarget.model ?? previous.modelName
+              }
+            : previous.source,
           speed:
             succeeded || failed || cancelled
               ? '—'
@@ -475,12 +605,12 @@ function MainApp() {
           isComplete: succeeded,
           isActive: !cancelled,
           error: failed
-            ? isModelScope
+            ? isGguf
               ? job.error || (zh ? '下载失败' : 'Download failed')
               : explainPullError(job.error || (zh ? '下载失败' : 'Download failed'), job.model, zh)
             : undefined,
           sha256: succeeded
-            ? isModelScope
+            ? isGguf
               ? zh
                 ? '已通过 ollama create 注册'
                 : 'Registered via ollama create'
@@ -544,16 +674,63 @@ function MainApp() {
       return;
     }
 
+    if (downloadTask.kind === 'huggingface') {
+      const cached =
+        huggingFaceTargetRef.current ??
+        (downloadTask.source && 'repo' in downloadTask.source ? downloadTask.source : null);
+      const repo =
+        cached?.repo ??
+        (downloadTask.modelName.includes(':')
+          ? downloadTask.modelName.slice(0, downloadTask.modelName.lastIndexOf(':'))
+          : downloadTask.modelName);
+      if (!repo) return;
+      void startHuggingFaceDownload({
+        repo,
+        file: cached?.file ?? downloadTask.targetPath,
+        quant: cached?.quant ?? downloadTask.quant,
+        modelName: cached?.modelName ?? downloadTask.modelName
+      });
+      return;
+    }
+
     void startPullDownload(downloadTask.modelName);
   };
 
-  // 失败后原样重跑；ModelScope 任务优先用持久化的 source，刷新后也能重试
+  // 失败后原样重跑；远程 GGUF 任务优先用持久化的 source，刷新后也能重试
   const handleRetryDownload = () => {
     if (!downloadTask.error) return;
 
+    if (isHuggingFaceTask(downloadTask)) {
+      const source =
+        downloadTask.source && 'repo' in downloadTask.source
+          ? downloadTask.source
+          : huggingFaceTargetRef.current;
+      if (source) {
+        void startHuggingFaceDownload(source);
+        return;
+      }
+      const repo = downloadTask.modelName.includes(':')
+        ? downloadTask.modelName.slice(0, downloadTask.modelName.lastIndexOf(':'))
+        : downloadTask.modelName;
+      if (repo) {
+        void startHuggingFaceDownload({
+          repo,
+          file: downloadTask.targetPath,
+          quant: downloadTask.quant,
+          modelName: downloadTask.modelName
+        });
+        return;
+      }
+      setDownloadTask((previous) => ({
+        ...previous,
+        layerStatus: zh ? '无法恢复下载信息，请重新搜索' : 'Source info lost; search again'
+      }));
+      return;
+    }
+
     if (isModelScopeTask(downloadTask)) {
       const source = downloadTask.source ?? modelScopeTargetRef.current;
-      if (source) {
+      if (source && 'namespace' in source) {
         void startModelScopeDownload(source);
         return;
       }
@@ -581,6 +758,7 @@ function MainApp() {
 
   const handleCancelDownload = () => {
     modelScopeTargetRef.current = null;
+    huggingFaceTargetRef.current = null;
     void cancelDownloadJob(downloadTask.id);
     clearDownloadTask();
     setDownloadTask((previous) => ({
@@ -704,6 +882,7 @@ function MainApp() {
               onImportGguf={handleImportGguf}
               onStartNewDownload={handleStartNewDownload}
               onStartModelScopeDownload={handleStartModelScopeDownload}
+              onStartHuggingFaceDownload={handleStartHuggingFaceDownload}
             />
           )}
 

@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
-import { readdir, readFile, realpath, rm, stat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
+import { mkdir, readdir, readFile, readlink, realpath, rename, rm, stat } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,11 +12,12 @@ import { hasRunningDownloads } from './downloads';
  * Ollama 的 blob 缓存清理。
  *
  * 只处理三类明确可回收的文件，且始终以「重新扫描」的结果为准：
- * - orphan：没有被任何 manifest 引用的完整 blob
+ * - orphan：没有被任何 manifest 引用的完整 blob，移入模型目录内的回收站而非直接删除
  * - partial：`*-partial` 与 `*-partial-N` 下载中间文件
  * - temp：本应用在系统临时目录下的 `ollama-studio-*` 残留
  *
- * manifest 解析失败时禁止清理 orphan，避免误删仍被引用的权重。
+ * manifest 解析失败、symlink 悬空或 metadata 异常时禁止清理 orphan，
+ * 避免误删仍被引用的权重。
  * 报告携带每类前 MAX_ITEMS 条明细；`POST /api/cache/reveal` 可在系统文件管理器中定位文件。
  */
 const BLOB_NAME = /^sha256-([0-9a-f]{64})$/;
@@ -24,6 +26,8 @@ const CHUNK_NAME = /^sha256-[0-9a-f]{64}-partial-\d+$/;
 /** 最近仍在写入的文件不动：Ollama 自己也可能在下载。 */
 const RECENT_MS = 10 * 60 * 1000;
 const TEMP_PREFIX = 'ollama-studio-';
+/** 未引用权重不直接删除，先移到模型目录内的回收站，保留恢复机会。 */
+const TRASH_DIR = '.ollama-studio-trash';
 /** 每类最多随报告返回的明细条数，避免超大目录撑爆响应。 */
 const MAX_ITEMS = 500;
 
@@ -76,7 +80,12 @@ export interface CacheReport {
 }
 
 export interface CleanupResult {
+  /** 本次处理的总字节数；其中 quarantinedBytes 只是移入回收站，未立即释放。 */
   freedBytes: number;
+  /** 移入回收站的 orphan 字节数。 */
+  quarantinedBytes: number;
+  /** 本次回收站目录；没有移动 orphan 时为 null。 */
+  quarantinePath: string | null;
   removed: Record<CleanupTarget, number>;
   skippedRecent: number;
   errors: string[];
@@ -98,49 +107,185 @@ function finalizeCategory(items: CacheItem[]): CacheCategory {
   };
 }
 
+interface ManifestDocument {
+  config?: { digest?: string };
+  layers?: Array<{ digest?: string }>;
+  /** manifest list：子 manifest 仍是 blob，需要递归解析。 */
+  manifests?: Array<{ digest?: string }>;
+}
+
 /** 读取 manifests/ 与 manifests-v2/ 下所有 manifest 引用的 digest。 */
 async function readManifestDigests(modelsDir: string): Promise<{
   digests: Set<string>;
   complete: boolean;
 }> {
+  const blobsDir = path.join(modelsDir, 'blobs');
+  let blobsReal = blobsDir;
+  try {
+    blobsReal = await realpath(blobsDir);
+  } catch {
+    // blobs 目录不存在时，下面的 manifest 解析会标记不完整。
+  }
+
   const digests = new Set<string>();
+  const seenManifestBlobs = new Set<string>();
+  const seenManifestFiles = new Set<string>();
   let complete = true;
+
+  const addDigest = (value: unknown): string | null => {
+    if (typeof value !== 'string') return null;
+    const match = /^(?:sha256:)?([0-9a-f]{64})$/i.exec(value.trim());
+    if (!match) return null;
+    const digest = match[1].toLowerCase();
+    digests.add(digest);
+    return digest;
+  };
+
+  async function readManifestFile(file: string): Promise<void> {
+    let real: string;
+    try {
+      real = await realpath(file);
+    } catch {
+      complete = false;
+      return;
+    }
+    if (seenManifestFiles.has(real)) return;
+    seenManifestFiles.add(real);
+    try {
+      const parsed = JSON.parse(await readFile(real, 'utf8')) as ManifestDocument;
+      await parseManifest(parsed);
+    } catch {
+      // 解析失败：保留保守状态，禁止后续清理 orphan。
+      complete = false;
+    }
+  }
+
+  async function readManifestBlob(digest: string): Promise<void> {
+    if (seenManifestBlobs.has(digest)) return;
+    seenManifestBlobs.add(digest);
+    // manifest 自身也是 blob。v2 的 manifest 是 symlink 指向它；
+    // 只保护 config/layers 会把 manifest blob 当成 orphan 删掉。
+    digests.add(digest);
+    const blobPath = path.join(blobsDir, `sha256-${digest}`);
+    let real: string;
+    try {
+      real = await realpath(blobPath);
+    } catch {
+      complete = false;
+      return;
+    }
+    if (!isInside(blobsReal, real)) {
+      complete = false;
+      return;
+    }
+    await readManifestFile(real);
+  }
+
+  async function parseManifest(parsed: ManifestDocument): Promise<void> {
+    let references = 0;
+    if (parsed.config?.digest) {
+      references += 1;
+      if (!addDigest(parsed.config.digest)) complete = false;
+    }
+    for (const layer of parsed.layers ?? []) {
+      if (!layer?.digest) {
+        complete = false;
+        continue;
+      }
+      references += 1;
+      if (!addDigest(layer.digest)) complete = false;
+    }
+    for (const child of parsed.manifests ?? []) {
+      if (!child?.digest) {
+        complete = false;
+        continue;
+      }
+      references += 1;
+      const digest = addDigest(child.digest);
+      if (!digest) {
+        complete = false;
+        continue;
+      }
+      await readManifestBlob(digest);
+    }
+    // 空 manifest 无法证明任何 blob 被引用；保守锁定，避免把模型权重当 orphan。
+    if (references === 0) complete = false;
+  }
 
   const walk = async (directory: string): Promise<void> => {
     let entries;
     try {
       entries = await readdir(directory, { withFileTypes: true });
-    } catch {
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') complete = false;
       return;
     }
     for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue;
       const full = path.join(directory, entry.name);
       if (entry.isDirectory()) {
         await walk(full);
         continue;
       }
-      if (!entry.isFile() || entry.name.startsWith('.')) continue;
-      try {
-        const parsed = JSON.parse(await readFile(full, 'utf8')) as {
-          config?: { digest?: string };
-          layers?: Array<{ digest?: string }>;
-        };
-        if (parsed.config?.digest) {
-          digests.add(parsed.config.digest.replace(/^sha256:/, ''));
+      if (entry.isSymbolicLink()) {
+        let target: string;
+        try {
+          target = await readlink(full);
+        } catch {
+          complete = false;
+          continue;
         }
-        for (const layer of parsed.layers ?? []) {
-          if (layer?.digest) digests.add(layer.digest.replace(/^sha256:/, ''));
+        const resolved = path.resolve(path.dirname(full), target);
+        if (!isInside(blobsDir, resolved)) {
+          complete = false;
+          continue;
         }
-      } catch {
-        // 解析失败：保留保守状态，禁止后续删除 orphan
-        complete = false;
+        const match = BLOB_NAME.exec(path.basename(resolved));
+        if (!match) {
+          complete = false;
+          continue;
+        }
+        await readManifestBlob(match[1]);
+        continue;
       }
+      if (!entry.isFile()) continue;
+      await readManifestFile(full);
     }
   };
 
   await walk(path.join(modelsDir, 'manifests'));
   await walk(path.join(modelsDir, 'manifests-v2'));
   return { digests, complete };
+}
+
+/**
+ * Ollama 会为部分 blob 保存 GGUF 元数据。把 metadata 中的 digest 也当作保护项，
+ * 作为 manifest 解析之外的第二层保险；无法解析 metadata 不影响扫描结论。
+ */
+async function readMetadataDigests(modelsDir: string): Promise<Set<string>> {
+  const digests = new Set<string>();
+  let entries;
+  try {
+    entries = await readdir(path.join(modelsDir, 'metadata'), { withFileTypes: true });
+  } catch {
+    return digests;
+  }
+  for (const entry of entries) {
+    if (entry.isDirectory()) continue;
+    const match = /^sha256-([0-9a-f]{64})\.json$/i.exec(entry.name);
+    if (match) digests.add(match[1].toLowerCase());
+  }
+  return digests;
+}
+
+async function collectProtectedDigests(modelsDir: string): Promise<{
+  digests: Set<string>;
+  complete: boolean;
+}> {
+  const manifest = await readManifestDigests(modelsDir);
+  const metadata = await readMetadataDigests(modelsDir);
+  for (const digest of metadata) manifest.digests.add(digest);
+  return manifest;
 }
 
 interface ScannedBlob {
@@ -241,7 +386,7 @@ async function scanTempDirs(): Promise<{ entries: TempEntry[]; skippedRecent: nu
 export async function scanCache(): Promise<CacheReport> {
   const modelsDir = resolveModelsDir();
   const [{ digests, complete }, blobs, temp] = await Promise.all([
-    readManifestDigests(modelsDir),
+    collectProtectedDigests(modelsDir),
     scanBlobs(modelsDir),
     scanTempDirs()
   ]);
@@ -319,11 +464,19 @@ function parseTargets(value: unknown): CleanupTarget[] {
   return Array.from(new Set(targets));
 }
 
+function createQuarantineDir(modelsDir: string): Promise<string> {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const directory = path.join(modelsDir, TRASH_DIR, `${timestamp}-${randomUUID().slice(0, 8)}`);
+  return mkdir(directory, { recursive: true }).then(() => directory);
+}
+
 export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
   const targets = parseTargets(rawTargets);
   const report = await scanCache();
   const result: CleanupResult = {
     freedBytes: 0,
+    quarantinedBytes: 0,
+    quarantinePath: null,
     removed: { orphan: 0, partial: 0, temp: 0 },
     skippedRecent: 0,
     errors: []
@@ -333,21 +486,46 @@ export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
     if (!report.scanComplete) {
       throw new GgufImportError('manifest 解析失败，已禁止清理未引用文件。', 409);
     }
-    // 重新计算一次引用关系，扫描与删除之间可能有新模型创建
+    // 重新计算一次引用关系，扫描与移动之间可能有新模型创建
     const modelsDir = report.modelsDir;
-    const { digests } = await readManifestDigests(modelsDir);
+    const { digests, complete } = await collectProtectedDigests(modelsDir);
+    if (!complete) {
+      throw new GgufImportError('manifest 解析失败，已禁止清理未引用文件。', 409);
+    }
     const blobs = await scanBlobs(modelsDir);
-    for (const blob of blobs) {
-      if (blob.kind !== 'blob') continue;
-      if (digests.has(blob.name.slice('sha256-'.length))) continue;
+    const orphanBlobs = blobs.filter(
+      (blob) => blob.kind === 'blob' && !digests.has(blob.name.slice('sha256-'.length))
+    );
+
+    if (orphanBlobs.length > 0) {
+      let quarantineDir: string;
       try {
-        await rm(path.join(modelsDir, 'blobs', blob.name), { force: true });
-        result.removed.orphan += 1;
-        result.freedBytes += blob.bytes;
+        quarantineDir = await createQuarantineDir(modelsDir);
+        result.quarantinePath = quarantineDir;
       } catch (error) {
         result.errors.push(
-          `${blob.name}: ${error instanceof Error ? error.message : String(error)}`
+          `回收站创建失败: ${error instanceof Error ? error.message : String(error)}`
         );
+        quarantineDir = '';
+      }
+
+      if (quarantineDir) {
+        for (const blob of orphanBlobs) {
+          try {
+            // 同盘 rename：不复制大文件，也保留文件内容与时间戳。
+            await rename(
+              path.join(modelsDir, 'blobs', blob.name),
+              path.join(quarantineDir, blob.name)
+            );
+            result.removed.orphan += 1;
+            result.freedBytes += blob.bytes;
+            result.quarantinedBytes += blob.bytes;
+          } catch (error) {
+            result.errors.push(
+              `${blob.name}: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        }
       }
     }
   }

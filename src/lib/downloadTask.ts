@@ -1,4 +1,4 @@
-import type { DownloadTask, ModelScopeDownloadSource } from '../types';
+import type { DownloadSource, DownloadTask } from '../types';
 import { readStorageJson, removeStorageKey, writeStorageJson } from './storage';
 
 export const DOWNLOAD_TASK_KEY = 'ollama_download_task_v1';
@@ -7,21 +7,39 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** 旧任务可能没有 kind：GGUF 文件名或已保存的 source 都说明它是 ModelScope 任务。 */
-export function isModelScopeTask(task: DownloadTask): boolean {
-  return task.kind === 'modelscope' || Boolean(task.source) || /\.gguf$/i.test(task.targetPath);
+/** 远程 GGUF 任务不能按 pull 重试，两者都要走服务端下载 + ollama create。 */
+export function isGgufTask(task: DownloadTask): boolean {
+  return task.kind === 'modelscope' || task.kind === 'huggingface' || isLegacyGgufTask(task);
 }
 
-function parseSource(value: unknown): ModelScopeDownloadSource | undefined {
+/** 旧任务可能没有 kind：GGUF 文件名或已保存的 ModelScope source 说明它是远程 GGUF 任务。 */
+export function isModelScopeTask(task: DownloadTask): boolean {
+  if (task.kind === 'huggingface') return false;
+  if (task.source && 'repo' in task.source) return false;
+  if (task.kind === 'modelscope') return true;
+  return isLegacyGgufTask(task) || Boolean(task.source && 'namespace' in task.source);
+}
+
+export function isHuggingFaceTask(task: DownloadTask): boolean {
+  return task.kind === 'huggingface' || Boolean(task.source && 'repo' in task.source);
+}
+
+function isLegacyGgufTask(task: DownloadTask): boolean {
+  if (task.kind) return task.kind !== 'pull';
+  return /\.gguf$/i.test(task.targetPath);
+}
+
+function parseSource(value: unknown): DownloadSource | undefined {
   if (!isRecord(value)) return undefined;
-  const { namespace, name, file, quant, modelName } = value;
-  if (
-    typeof namespace !== 'string' ||
-    typeof name !== 'string' ||
-    typeof file !== 'string' ||
-    typeof quant !== 'string' ||
-    typeof modelName !== 'string'
-  ) {
+  const { file, quant, modelName } = value;
+  if (typeof file !== 'string' || typeof quant !== 'string' || typeof modelName !== 'string') {
+    return undefined;
+  }
+  if (typeof value.repo === 'string') {
+    return { repo: value.repo, file, quant, modelName };
+  }
+  const { namespace, name } = value;
+  if (typeof namespace !== 'string' || typeof name !== 'string') {
     return undefined;
   }
   return { namespace, name, file, quant, modelName };
@@ -44,13 +62,15 @@ export function parseDownloadTask(value: unknown): DownloadTask | null {
   // 旧任务没有 kind：targetPath 是 GGUF 文件名说明它原本走 ModelScope，
   // 不能按 pull 重试（会再次得到 pull model manifest: file does not exist）。
   const kind: DownloadTask['kind'] =
-    value.kind === 'modelscope'
-      ? 'modelscope'
-      : value.kind === 'pull'
-        ? 'pull'
-        : /\.gguf$/i.test(targetPath)
-          ? 'modelscope'
-          : undefined;
+    value.kind === 'huggingface'
+      ? 'huggingface'
+      : value.kind === 'modelscope'
+        ? 'modelscope'
+        : value.kind === 'pull'
+          ? 'pull'
+          : /\.gguf$/i.test(targetPath)
+            ? 'modelscope'
+            : undefined;
 
   return {
     id: value.id,

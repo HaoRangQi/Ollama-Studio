@@ -42,7 +42,12 @@ export interface CacheReport {
 }
 
 export interface CleanupResult {
+  /** 本次处理的总字节数；其中 quarantinedBytes 只是移入回收站。 */
   freedBytes: number;
+  /** 移入回收站的 orphan 字节数。 */
+  quarantinedBytes: number;
+  /** 本次回收站目录；没有移动 orphan 时为 null。 */
+  quarantinePath: string | null;
   removed: Record<CleanupTarget, number>;
   skippedRecent: number;
   errors: string[];

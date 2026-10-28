@@ -3,6 +3,22 @@ import type { DownloadKind } from '../types';
 
 export type DownloadJobStatus = 'running' | 'success' | 'error' | 'cancelled';
 
+export interface ModelScopeTarget {
+  namespace: string;
+  name: string;
+  file: string;
+  revision?: string;
+  model?: string;
+}
+
+export interface HuggingFaceTarget {
+  repo: string;
+  file?: string;
+  quant?: string;
+  revision?: string;
+  model?: string;
+}
+
 export interface DownloadJob {
   id: string;
   kind: DownloadKind;
@@ -12,14 +28,8 @@ export interface DownloadJob {
   completed: number;
   total: number;
   error?: string;
-  /** ModelScope 任务附带，用于暂停或刷新后重新发起。 */
-  target?: {
-    namespace: string;
-    name: string;
-    file: string;
-    revision?: string;
-    model?: string;
-  };
+  /** 远程 GGUF 任务附带，用于暂停或刷新后重新发起。 */
+  target?: ModelScopeTarget | HuggingFaceTarget;
   startedAt: number;
   updatedAt: number;
 }
@@ -31,6 +41,14 @@ export type DownloadJobInput =
       namespace: string;
       name: string;
       file: string;
+      revision?: string;
+      model?: string;
+    }
+  | {
+      kind: 'huggingface';
+      repo: string;
+      file?: string;
+      quant?: string;
       revision?: string;
       model?: string;
     };

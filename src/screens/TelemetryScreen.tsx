@@ -5,7 +5,7 @@ import { useOllama } from '../hooks/useOllama';
 import { OLLAMA_BASE, unloadModel } from '../api/ollama';
 import { formatBytes } from '../api/ollamaMapper';
 import { cleanupCache, fetchCacheReport, revealCachePath } from '../api/cache';
-import type { CacheItem, CacheReport, CleanupTarget } from '../api/cache';
+import type { CacheItem, CacheReport, CleanupResult, CleanupTarget } from '../api/cache';
 import { fetchSystemMetrics } from '../api/metrics';
 import type { SystemMetrics } from '../api/metrics';
 import { controlDaemon, fetchDaemonInfo } from '../api/daemon';
@@ -121,10 +121,11 @@ export const TelemetryScreen: React.FC = () => {
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [cleanupBusy, setCleanupBusy] = useState(false);
   const [cleanupTargets, setCleanupTargets] = useState<Record<CleanupTarget, boolean>>({
-    orphan: true,
+    orphan: false,
     partial: true,
     temp: true
   });
+  const [lastCleanup, setLastCleanup] = useState<CleanupResult | null>(null);
   const [expandedCategory, setExpandedCategory] = useState<CleanupTarget | null>(null);
   const [revealBusyPath, setRevealBusyPath] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
@@ -225,19 +226,49 @@ export const TelemetryScreen: React.FC = () => {
         return sum + cacheReport.temp.bytes;
       }, 0)
     : 0;
+  const selectedQuarantineBytes =
+    cacheReport && selectedTargets.includes('orphan') ? cacheReport.blobs.orphan.bytes : 0;
 
   const handleCleanup = async () => {
     if (cleanupBusy || selectedTargets.length === 0) return;
+    if (selectedTargets.includes('orphan')) {
+      const confirmed = window.confirm(
+        language === 'zh'
+          ? '未引用权重会先移入模型目录下的 .ollama-studio-trash 回收站，不会立即永久删除；确认继续？'
+          : 'Unreferenced weights will be moved to .ollama-studio-trash under the models folder instead of being deleted permanently. Continue?'
+      );
+      if (!confirmed) return;
+    }
+
     setCleanupBusy(true);
     setCacheError(null);
     try {
       const result = await cleanupCache(selectedTargets);
       setCacheReport(result.report);
+      setLastCleanup(result);
       setCleanupOpen(false);
+
+      const quarantined = result.quarantinedBytes ?? 0;
+      const freed = Math.max(0, result.freedBytes - quarantined);
+      const messages: string[] = [];
+      if (quarantined > 0) {
+        messages.push(
+          language === 'zh'
+            ? `已移入回收站 ${formatBytes(quarantined)}`
+            : `Moved ${formatBytes(quarantined)} to quarantine`
+        );
+      }
+      if (freed > 0) {
+        messages.push(
+          language === 'zh' ? `已释放 ${formatBytes(freed)}` : `Freed ${formatBytes(freed)}`
+        );
+      }
       showToast(
-        language === 'zh'
-          ? `已释放 ${formatBytes(result.freedBytes)}`
-          : `Freed ${formatBytes(result.freedBytes)}`
+        messages.length > 0
+          ? messages.join(language === 'zh' ? '，' : '; ')
+          : language === 'zh'
+            ? '清理完成'
+            : 'Cleanup complete'
       );
       if (result.errors.length > 0) {
         setCacheError(result.errors[0]);
@@ -1192,6 +1223,40 @@ export const TelemetryScreen: React.FC = () => {
                   : 'A download is running; unfinished files are locked.'}
               </p>
             )}
+            {lastCleanup?.quarantinePath && lastCleanup.quarantinedBytes > 0 && (
+              <div className="flex items-start gap-2 rounded-xl border border-dashed border-[var(--app-border)] bg-[var(--app-surface)] p-2.5 text-[10px] text-[var(--app-text-muted)]">
+                <span className="material-symbols-outlined text-[15px] shrink-0 text-[#ffbd2e]">
+                  inventory_2
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="leading-relaxed">
+                    {language === 'zh'
+                      ? `上次清理已将 ${formatBytes(lastCleanup.quarantinedBytes)} 移入回收站；确认模型正常后可手动删除该目录。`
+                      : `${formatBytes(lastCleanup.quarantinedBytes)} was moved to quarantine; delete that folder manually once the models look correct.`}
+                  </p>
+                  <p
+                    className="mt-0.5 break-all font-code text-[9px] opacity-80"
+                    title={lastCleanup.quarantinePath}
+                  >
+                    {lastCleanup.quarantinePath}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleReveal(lastCleanup.quarantinePath!)}
+                  disabled={revealBusyPath !== null}
+                  aria-label={
+                    language === 'zh' ? '在文件管理器中显示回收站' : 'Reveal quarantine folder'
+                  }
+                  title={
+                    language === 'zh' ? '在文件管理器中显示回收站' : 'Reveal quarantine folder'
+                  }
+                  className="w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[var(--app-text-muted)] hover:text-[var(--primary-accent)] hover:bg-[var(--app-surface-highest)] transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  <span className="material-symbols-outlined text-[14px]">folder_open</span>
+                </button>
+              </div>
+            )}
           </div>
 
           <button
@@ -1538,9 +1603,17 @@ export const TelemetryScreen: React.FC = () => {
 
             <p className="text-[12px] text-[var(--app-text-muted)] leading-relaxed">
               {language === 'zh'
-                ? '只删除未完成下载、未被任何模型引用的 blob 与本应用临时目录。已安装的模型及其权重不会被删除。展开每一类可查看逐文件明细与完整路径。'
-                : 'Only unfinished downloads, blobs not referenced by any model, and this app’s temp folders are removed. Installed models and their weights stay untouched. Expand a category to inspect each file and its full path.'}
+                ? '未完成下载与本应用临时目录会直接删除；扫描确认未被任何 manifest 引用的完整权重会先移入模型目录下的 .ollama-studio-trash 回收站，可手动移回 blobs/ 恢复。展开每一类可查看逐文件明细与完整路径。'
+                : 'Unfinished downloads and this app’s temp folders are deleted directly. Complete weights that the scan finds unreferenced by any manifest are first moved to .ollama-studio-trash under the models folder, where they can be moved back to blobs/ to restore. Expand a category to inspect each file and its full path.'}
             </p>
+
+            {!cacheReport.scanComplete && (
+              <p className="rounded-xl border border-[#ffbd2e]/40 bg-[#ffbd2e]/10 px-3 py-2 text-[11px] leading-relaxed text-[#ffbd2e]">
+                {language === 'zh'
+                  ? 'manifest 目录存在损坏或悬空链接，未引用权重已锁定。请先修复或重新拉取相关模型，再执行清理。'
+                  : 'The manifest store has broken or dangling links, so unreferenced weights are locked. Repair or re-pull the affected models before cleaning.'}
+              </p>
+            )}
 
             <div className="flex flex-col gap-2">
               {[
@@ -1569,22 +1642,25 @@ export const TelemetryScreen: React.FC = () => {
                 {
                   key: 'orphan' as const,
                   icon: 'link_off',
-                  label: language === 'zh' ? '未引用权重' : 'Unreferenced blobs',
+                  label:
+                    language === 'zh' ? '未引用权重（高风险）' : 'Unreferenced blobs (high risk)',
                   detail:
                     language === 'zh'
                       ? `${cacheReport.blobs.orphan.files} 个完整 blob`
                       : `${cacheReport.blobs.orphan.files} complete blobs`,
                   explanation:
                     language === 'zh'
-                      ? '这些 blob 没有被任何模型 manifest 引用，通常是删除模型或多版本切换后的残留。'
-                      : 'These blobs are not referenced by any model manifest — usually leftovers from deleted models or version switches.',
+                      ? '扫描未发现任何 manifest 引用这些完整 blob。默认不勾选；勾选后会先移入 .ollama-studio-trash 回收站，而不是立即永久删除。'
+                      : 'No manifest references these complete blobs in the scan. Off by default; if selected, they are moved to .ollama-studio-trash instead of being deleted immediately.',
                   bytes: cacheReport.blobs.orphan.bytes,
                   files: cacheReport.blobs.orphan.files,
                   items: cacheReport.blobs.orphan.items,
                   hidden: cacheReport.blobs.orphan.hidden,
                   locked: !cacheReport.scanComplete,
                   lockReason:
-                    language === 'zh' ? 'manifest 解析失败，已锁定' : 'Manifest parse failed'
+                    language === 'zh'
+                      ? 'manifest 不完整或链接损坏，已锁定'
+                      : 'Manifest store incomplete or broken; locked'
                 },
                 {
                   key: 'temp' as const,
@@ -1765,8 +1841,8 @@ export const TelemetryScreen: React.FC = () => {
               <span className="flex min-w-0 items-center gap-2 text-[10px] text-[var(--app-text-muted)]">
                 <span className="material-symbols-outlined text-[15px]">verified_user</span>
                 {language === 'zh'
-                  ? '已安装模型权重（保留，不删除）'
-                  : 'Installed model weights (kept)'}
+                  ? '被 manifest 引用的权重（不会移入回收站）'
+                  : 'Blobs referenced by manifests (not quarantined)'}
               </span>
               <span className="shrink-0 font-code text-[10px] text-[var(--app-text-muted)]">
                 {cacheReport.blobs.referenced.files} ·{' '}
@@ -1780,10 +1856,17 @@ export const TelemetryScreen: React.FC = () => {
 
             <div className="flex items-center justify-between gap-3 border-t border-[var(--app-border)] pt-3">
               <span className="text-[12px] text-[var(--app-text-muted)]">
-                {language === 'zh' ? '预计释放' : 'Will free'}{' '}
+                {language === 'zh' ? '预计处理' : 'Will process'}{' '}
                 <span className="font-code font-bold text-[var(--app-text)]">
                   {formatBytes(selectedBytes)}
                 </span>
+                {selectedQuarantineBytes > 0 && (
+                  <span className="block text-[10px]">
+                    {language === 'zh'
+                      ? `其中 ${formatBytes(selectedQuarantineBytes)} 移入回收站`
+                      : `${formatBytes(selectedQuarantineBytes)} goes to quarantine`}
+                  </span>
+                )}
               </span>
               <div className="flex items-center gap-2">
                 <button

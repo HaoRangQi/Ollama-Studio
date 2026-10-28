@@ -100,33 +100,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <nav className="flex flex-col gap-1.5 mt-1">
           {navItems.map((item) => {
             const isActive = currentScreen === item.id;
+            const isChat = item.id === 'chat';
             return (
               <button
                 key={item.id}
                 onClick={() => onNavigate(item.id)}
                 className={`flex items-center gap-3 px-4 py-2.5 rounded-full text-[13px] font-medium transition-all group cursor-pointer text-left ${
                   isActive
-                    ? 'text-white font-semibold shadow-lg ring-1 ring-white/20'
+                    ? `text-white font-semibold ${
+                        isChat ? 'nav-chat-active' : 'shadow-lg ring-1 ring-white/20'
+                      }`
                     : 'text-[var(--app-text-muted)] hover:bg-[var(--app-surface-high)] hover:text-[var(--app-text)]'
                 }`}
                 style={
-                  isActive
+                  isActive && !isChat
                     ? {
                         backgroundColor: 'var(--primary-accent)',
                         boxShadow: '0 0 18px var(--primary-glow)'
                       }
-                    : {}
+                    : undefined
                 }
               >
-                <span
-                  className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${
-                    isActive
-                      ? 'scale-110 text-white'
-                      : 'text-[var(--app-text-muted)] group-hover:scale-105'
-                  }`}
-                  style={!isActive ? { color: 'var(--primary-accent)' } : {}}
-                >
-                  {item.icon}
+                <span className="relative inline-flex items-center justify-center">
+                  <span
+                    className={`material-symbols-outlined text-[20px] transition-transform duration-200 ${
+                      isActive
+                        ? 'scale-110 text-white'
+                        : 'text-[var(--app-text-muted)] group-hover:scale-105'
+                    }`}
+                    style={!isActive ? { color: 'var(--primary-accent)' } : {}}
+                  >
+                    {item.icon}
+                  </span>
+                  {isChat && (
+                    <span
+                      aria-hidden="true"
+                      className={`material-symbols-outlined nav-chat-sparkle pointer-events-none absolute ${
+                        isActive ? 'text-white' : 'text-[var(--primary-accent)]'
+                      }`}
+                      style={{
+                        fontVariationSettings: "'FILL' 1, 'wght' 600, 'GRAD' 0, 'opsz' 20",
+                        fontSize: '10px',
+                        right: '-9px',
+                        top: '-8px'
+                      }}
+                    >
+                      flare
+                    </span>
+                  )}
                 </span>
                 <span className="tracking-tight">{item.label}</span>
                 {item.id === 'models' && runningModelCount > 0 && (

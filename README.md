@@ -38,26 +38,28 @@ Legend: ✅ verified/available · ⚠️ implemented but not fully runtime-verif
 | Daemon detection / copyable commands | ✅ | ⚠️ systemd | ❌ |
 | Automatic daemon restart / stop | ⚠️ | ❌ | ❌ |
 | Environment startup command | ✅ | ✅ POSIX | ❌ POSIX only |
+| Menu bar app / DMG | ✅ build + launch | ❌ | ❌ |
 
-> Automatic daemon control is implemented for macOS (Ollama.app / launchd / Homebrew), off by default, and has not been live-tested against a real restart/stop. Linux systemd detection is read-only. On Windows, `npm run clean` and the POSIX-style README examples also need adaptation. GitHub Actions currently runs on `ubuntu-latest` only; it covers build/tests, not a live Ollama session.
+> Automatic daemon control is implemented for macOS (Ollama.app / launchd / Homebrew), off by default, and has not been live-tested against a real restart/stop. Linux systemd detection is read-only. On Windows, `npm run clean` and the POSIX-style README examples also need adaptation. GitHub Actions currently runs on `ubuntu-latest` only; it covers build/tests, not a live Ollama session. The optional macOS menu bar wrapper is ad-hoc signed and not notarized; it has been built and launched from the repository, but not installed to `/Applications` or verified with a real model download.
 
-## Current Status (verified 2026-10-28)
+## Current Status (verified 2026-10-29)
 
 - Integrated `GET /api/version`, `GET /api/tags`, `GET /api/ps`, `POST /api/chat` (streaming NDJSON), `POST /api/pull` (NDJSON progress), `DELETE /api/delete`, `POST /api/copy`, `POST /api/create`, plus `ollama create` GGUF import and local blob export.
 - Chat supports streaming output, stop generation, collapsible thinking content, temperature/topP/num_ctx, JSON mode, system persona, error display, and **multiple conversations per model** (create/switch/rename/delete).
 - Fenced code blocks in replies render as dedicated code blocks with copy support.
 - Model parameters are saved **per model as chat defaults** in `localStorage`; they never modify model weights. VRAM "load/release" uses `keep_alive` against the real API.
-- Downloads run **server-side in the background**: pull tasks show real status, speed, ETA, and progress, and can be paused/resumed/cancelled. After a failure, the UI shows the exact command that will be rerun; "Retry" reruns it unchanged, while "Edit command" puts it back into the input for editing. ModelScope repository and file information persists across refreshes. Closing the page does not interrupt a download; reopening reconnects to the task and shows its progress.
-- Model search supports **ModelScope (default)**, **Hugging Face**, and the **Ollama registry**; quantization labels are inferred from filenames. For ModelScope, the local server downloads the GGUF and then runs `ollama create` (Ollama cannot `pull` this source directly); progress and errors stream back as NDJSON.
-- Telemetry includes **cache cleanup**: it scans the Ollama model directory and the application temp directory, groups unreferenced blobs, unfinished downloads (`*-partial` and chunk markers), and temp files, and deletes only selected categories. Blobs referenced by models, files written within the last 10 minutes, and partial files with an active download are protected. The confirmation dialog expands each category into per-file details (name, size, mtime, full path) and can reveal a file or directory in the system file manager (handled by the local server, so it also works in the web build).
+- Downloads run **server-side in the background**: pull tasks show real status, speed, ETA, and progress, and can be paused/resumed/cancelled. After a failure, the UI shows the exact command that will be rerun; "Retry" reruns it unchanged, while "Edit command" puts it back into the input for editing. Remote GGUF repository and file information persists across refreshes. Closing the page does not interrupt a download; reopening reconnects to the task and shows its progress.
+- Model search supports **ModelScope (default)**, **Hugging Face**, and the **Ollama registry**; quantization labels are inferred from filenames. For ModelScope and Hugging Face, the local server downloads the selected GGUF and then runs `ollama create`; progress and errors stream back as NDJSON. Hugging Face downloads no longer use Ollama's `hf.co` pull, so a proxy/DNS setup that maps the CDN to a non-public address no longer blocks the app.
+- Telemetry includes **cache cleanup**: it scans the Ollama model directory and the application temp directory, groups unreferenced blobs, unfinished downloads (`*-partial` and chunk markers), and temp files, and processes only selected categories. Unreferenced blobs are moved to `.ollama-studio-trash` under the model directory instead of being deleted outright, so they can be moved back to `blobs/` to restore; unfinished downloads and app temp folders are deleted. Blobs referenced by manifests and Ollama metadata, files written within the last 10 minutes, and partial files with an active download are protected. If a manifest is unreadable or a `manifests-v2` symlink is dangling, unreferenced-blob cleanup is locked. The confirmation dialog expands each category into per-file details (name, size, mtime, full path) and can reveal a file or directory in the system file manager (handled by the local server, so it also works in the web build).
 - Telemetry shows real connection status, version, model/VRAM statistics, and an event log. The sidebar "Loaded VRAM / running models" counters and the telemetry page poll `/api/ps` every 5 seconds, so external load/unload operations appear without a manual refresh. `GET /api/metrics` reads filesystem capacity/used/free for the model directory, memory, CPU load, and macOS `ioreg` GPU utilization; unavailable values are labeled explicitly, and ANE has no public utilization API. Running model cards offer a confirmed **Unload all** action (`keep_alive: 0`).
 - The model page exports the currently installed quantization as GGUF: the server reads the manifest, copies the `model` layer, and writes the `projector` layer as `*-mmproj.gguf`. The default directory is `~/Downloads/Ollama Studio`; duplicate names get numeric suffixes. Only weights are exported; template/license/params are not part of GGUF. Large files prefer APFS copy-on-write clones.
 - The telemetry **Service Control** panel detects whether Ollama is managed by Ollama.app, launchd, Homebrew, systemd, or a plain process, and generates copyable restart/stop commands. Automatic execution is off by default and only runs when `ALLOW_DAEMON_CONTROL=1` is set, the request comes from loopback, and the user confirms. Environment settings can generate an `ollama serve` startup command, but never write to the system environment; restart Ollama manually for changes to take effect.
 - The proxy binds to `127.0.0.1` by default. Optional `PROXY_TOKEN` protects `/ollama/*`, `/api/import`, `/api/modelscope/*`, `/api/downloads`, `/api/cache`, `/api/export`, `/api/metrics`, and `/api/daemon`.
 - Fonts and Material Symbols are self-hosted; no Google Fonts dependency.
-- Engineering: TypeScript `strict`, ESLint, Prettier, Vitest (117 tests), and GitHub Actions CI.
+- An optional **macOS menu bar app** wraps the same local server: it starts the bundled Node runtime on `127.0.0.1:3210`, opens the dashboard in the default browser, and offers Open Web / Open Log / Quit. `npm run build:menu` produces an `.app` and a DMG; it is ad-hoc signed, macOS-only, and has no login item, auto-update, or notarization.
+- Engineering: TypeScript `strict`, ESLint, Prettier, Vitest (133 tests), and GitHub Actions CI.
 - Headless Chrome smoke tests cover the development/production first screen, real model list, export, and telemetry pages. A full page-by-page visual/a11y review has **not** been performed.
-- Direct Hugging Face pulls are still limited by local DNS; use the ModelScope channel by default, or download a GGUF manually and import it.
+- Hugging Face downloads are fetched by the local server and registered with `ollama create`; they require the `ollama` CLI, are limited to one GGUF file per task (20 GB max), and have no resume support. Sharded GGUF and multimodal projector files are not automatically combined.
 
 For detailed status, blockers, and next steps, see [`docs/context/NOW.md`](docs/context/NOW.md).
 
@@ -66,11 +68,12 @@ For detailed status, blockers, and next steps, see [`docs/context/NOW.md`](docs/
 | Area | Implemented | Not implemented / boundaries |
 | --- | --- | --- |
 | Model Library | Real model list, cards/list, categories, search, persisted parameter defaults, real delete/clone, VRAM load/release, export current quantization as GGUF (including multimodal projector) | Only the installed quantization is exported; template/license/params are not in GGUF and need a separate Modelfile; export directory is fixed to `~/Downloads/Ollama Studio` |
-| Discover & Pull | CLI input, quantization selection, curated models, dedicated search view, ModelScope/HF/Ollama search, long-result list with pagination, adjustable page size (6/12/24), quantization selection and inline download, server-side background downloads (survive refresh), real progress, ModelScope server download + `ollama create`, pause/resume/cancel, failure retry, GGUF upload | Quantization is inferred from filenames; GGUF import and ModelScope downloads depend on the local `ollama` CLI; HF downloads are network-limited; ModelScope has no resume support and a 20 GB per-file limit; background tasks live in server memory and are lost on server restart |
+| Discover & Pull | CLI input, quantization selection, curated models, dedicated search view, ModelScope/HF/Ollama search, long-result list with pagination, adjustable page size (6/12/24), quantization selection and inline download, server-side background downloads (survive refresh), real progress, ModelScope/Hugging Face server downloads + `ollama create`, pause/resume/cancel, failure retry, GGUF upload | Quantization is inferred from filenames; GGUF import and remote downloads depend on the local `ollama` CLI; remote downloads have no resume support, a 20 GB per-file limit, and do not combine sharded GGUF/projector files; background tasks live in server memory and are lost on server restart |
 | Chat & Reasoning | Real streaming `/api/chat`, stop, thinking collapse, parameters, JSON mode, persona, error display, multiple conversations, code-block copy, draggable input height, image/video attachments (video sampled to 3 frames) | Ollama only accepts `images`; PDFs and arbitrary files are unsupported; real multimodal inference has not been automatically verified |
 | Modelfile Lab | Visual `FROM` / `PARAMETER` / `SYSTEM` generation, presets, real `/api/create`, test chat | Parameter edits do not propagate to existing models |
 | Telemetry & Settings | Real connection/version/model/VRAM stats, event log, model storage card, disk/memory/CPU/GPU metrics, unload all running models, persisted configuration, cache scan/cleanup (unreferenced blobs / unfinished downloads / temp dirs, per-file details and file-manager reveal), service detection and copyable restart/stop commands | GPU metrics are macOS `ioreg` only; ANE has no public API; automatic service control is off by default and untested against a live daemon; environment changes only generate a command and do not write system environment |
 | Global | ⌘K command palette, theme palette, Chinese/English switch, light/dark mode, mobile bottom navigation | Narrow-screen and a11y review still require manual validation |
+| Desktop Wrapper | macOS menu bar app (Swift/AppKit) with bundled Node server and DMG build; the web UI remains the primary interface | macOS only; ad-hoc signed and not notarized; fixed port `3210`; no login item or auto-update |
 
 ## Tech Stack
 
@@ -136,6 +139,17 @@ npm start
 
 `npm run build` builds both `dist/` and `server.js`; `npm start` listens on `127.0.0.1:3000` by default, serves the frontend statically, and streams `/ollama/*` to `OLLAMA_HOST`.
 
+### macOS Menu Bar App (Optional)
+
+On macOS, an optional Swift/AppKit menu bar wrapper hosts the same web UI without Electron or Tauri:
+
+```bash
+npm run build:menu
+open "build/Ollama Studio Menu.app"
+```
+
+This requires Xcode Command Line Tools (`swift`, `swiftc`, `iconutil`, `hdiutil`, `codesign`). The build produces `build/Ollama Studio Menu.app` and `build/Ollama Studio Menu-0.1.0.dmg`. The app starts the bundled Node server on `127.0.0.1:3210`, opens the dashboard in the default browser, and provides Open Web / Open Log / Quit in the menu bar. Quit a running instance before rebuilding. The bundle is ad-hoc signed, not notarized, and has no login-item or auto-update support; the regular web build and production server remain unchanged.
+
 ### Export GGUF
 
 "Export GGUF" in the model page action area writes the installed quantization to `~/Downloads/Ollama Studio`, appending `-2`, `-3` on name collisions. Multimodal `projector` layers are written separately as `*-mmproj.gguf`; template/license/params are not part of GGUF and need a separate Modelfile. The local server reads `OLLAMA_MODELS` (default `~/.ollama/models`) and prefers APFS copy-on-write clones; cross-filesystem copies are full copies, so reserve enough space.
@@ -148,6 +162,7 @@ npm start
 | `npm run dev:lan` | Explicitly bind `0.0.0.0:3000` (trusted networks only) |
 | `npm run build` | Build `dist/` + `server.js` |
 | `npm run build:web` / `build:server` | Build only the frontend / only the server bundle |
+| `npm run build:menu` | Build the macOS menu bar `.app` and DMG (macOS only) |
 | `npm start` | Run the production server |
 | `npm run preview` | Preview the production build |
 | `npm run typecheck` | `tsc --noEmit` |
@@ -160,8 +175,11 @@ For prerequisites, build artifacts, verification steps, and execution status, se
 
 ## Verification Status
 
-- `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` (117 tests), and `npm run build`: all passed on 2026-10-28.
-- Server-side downloads and cache cleanup: two refreshes during a ModelScope download preserved progress (63.1% → 80.1%); cache cleanup freed 10,004,096 bytes on a fixture while preserving referenced blobs; the detail dialog listed files by size and could reveal them in the file manager; a read-only scan of the real `~/.ollama/models` found about 4.66 GB reclaimable (no deletion was performed).
+- `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` (133 tests), and `npm run build`: all passed on 2026-10-29.
+- Server-side downloads and cache cleanup: two refreshes during a ModelScope download preserved progress (63.1% → 80.1%); cache cleanup moved unreferenced blobs to quarantine on fixtures while preserving referenced blobs; the detail dialog listed files by size and could reveal them in the file manager; a read-only scan of the real `~/.ollama/models` found 6 referenced blobs (about 21.8 GB) and no orphan cleanup was performed.
+- Hugging Face direct download: the server fetched a real 1,185,376-byte GGUF through the `huggingface.co` 302 redirect to the CDN, streamed it to a temp file, and invoked a stub `ollama create`; `resolving → downloading → creating → success` matched `completed/total`, and temp directories were removed. CDP verified that both the search-result download button and a pasted `hf.co/<repo>:<quant>` command send `kind:"huggingface"` to `/api/downloads` with no `/api/pull` call. No large model was downloaded and no model was registered with the real Ollama instance.
+- Menu bar app: `npm run build:menu` produced `Ollama Studio Menu.app` and a DMG; the rebuilt app launched, its bundled server listened on `127.0.0.1:3210`, and invalid Hugging Face repo/file requests returned the expected 400 responses. The bundle includes `server/package.json` (`{"type":"module"}`) so it does not depend on the repository's package.json. It was not installed to `/Applications`, and no real model download was run through the app.
+- Chat navigation visual: headless Chrome at 1600×1000 verified the gradient, glow, sheen, and `flare` sparkle in dark/light themes with the lavender and emerald palettes; the button remained 223×44 px. README screenshots were not regenerated for this small visual change.
 - Sidebar status polling: CDP mocked `/ollama/api/ps` changing from 0 running models to 1 (`size_vram=926000000`) and back to 0; the sidebar showed `— / 0 active` → `926 MB / 1 active` → `— / 0 active` within 6.5 seconds, without a manual refresh.
 - Failure retry: CDP mock `/api/downloads` injected pull and ModelScope failures; clicking "Retry" sent a POST body identical to the original task (ModelScope `file` was restored from the persisted source) and polling moved to completed; the failure card showed "Will rerun: `ollama pull <model>`"; "Edit command" filled and focused the input; legacy ModelScope tasks missing `kind/source` were inferred from the `.gguf` filename and did not incorrectly use `ollama pull`; `pull model manifest: file does not exist` added HF/ModelScope guidance.
 - Production server (3101) and development server (3001): `/healthz`, `/ollama/api/version`, `/ollama/api/tags`, `/api/import` validation, and headless Chrome first-screen rendering all passed.
@@ -169,7 +187,7 @@ For prerequisites, build artifacts, verification steps, and execution status, se
 - Image/video attachments: CDP selected a PNG + WebM, sampled 3 video frames; the mock `/api/chat` received 4 `images` entries and the default description; real visual inference was not run.
 - GGUF export: a fixture exported both model and projector through `POST /api/export`, with correct contents and collision suffixes; out-of-bounds directory returned 403 and an invalid model name returned 400; a real 0.8B model exported 529,297,312 bytes with a `GGUF` header and a SHA256 matching the manifest's `sha256:fb89581…`, taking about 1.2 seconds (APFS clone). CDP mocked the model page request `{model:"diodel/qwen3.5-0.8b-q4_k_m-gguf:latest"}` and verified the success toast mentioning mmproj.
 - System metrics and service detection: `GET /api/metrics` returned real disk capacity, memory, CPU load, and macOS `ioreg` GPU utilization (Apple M1 Pro on this machine); `GET /api/daemon` detected Ollama.app and its PID; `POST /api/daemon/control` returned 403 without `ALLOW_DAEMON_CONTROL=1`; CDP confirmed the telemetry page showed GPU, disk usage, startup command, Unload all, and the Service Control panel.
-- **Not executed**: real model load/unload and "Unload all" in the UI, real multimodal inference, a complete page-by-page visual/narrow-screen/a11y review, GitHub Actions remote runs, direct HF pulls on a normal network, real 20 GB-class model export, automatic daemon restart/stop (including macOS Automation permission prompts), and systemd/Windows branches.
+- **Not executed**: real model load/unload and "Unload all" in the UI, real multimodal inference, a complete page-by-page visual/narrow-screen/a11y review, GitHub Actions remote runs, real large-model HF download and real `ollama create` through the new server-side path, real 20 GB-class model export, automatic daemon restart/stop (including macOS Automation permission prompts), and systemd/Windows branches.
 
 ## Documentation
 

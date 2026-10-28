@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, utimes, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, rm, symlink, utimes, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -21,6 +21,18 @@ async function writeBlob(name: string, bytes: number, ageMs = 0) {
     const when = new Date(Date.now() - ageMs);
     await utimes(file, when, when);
   }
+}
+
+/** 模拟 Ollama v2：manifest 在 manifests-v2 下是指向 blobs/sha256-* 的 symlink。 */
+async function linkV2Manifest(relativePath: string, digest: string): Promise<string> {
+  const file = path.join(modelsDir, 'manifests-v2', ...relativePath.split('/'));
+  await mkdir(path.dirname(file), { recursive: true });
+  const target = path.relative(
+    path.dirname(file),
+    path.join(modelsDir, 'blobs', `sha256-${digest}`)
+  );
+  await symlink(target, file);
+  return file;
 }
 
 beforeEach(async () => {
@@ -56,6 +68,58 @@ describe('scanCache', () => {
     expect(report.blobs.orphan).toMatchObject({ files: 1, bytes: 300 });
     expect(report.scanComplete).toBe(true);
     expect(report.reclaimableBytes).toBe(300);
+  });
+
+  it('reads v2 symlink manifests and protects the manifest blob itself', async () => {
+    const manifestDigest = 'c'.repeat(64);
+    await writeBlob('sha256-' + 'a'.repeat(64), 100);
+    await writeBlob('sha256-' + 'b'.repeat(64), 200);
+    await writeFile(
+      path.join(modelsDir, 'blobs', `sha256-${manifestDigest}`),
+      JSON.stringify(MANIFEST)
+    );
+    await linkV2Manifest('ollama.com/library/demo-v2/latest', manifestDigest);
+
+    const report = await scanCache();
+
+    expect(report.scanComplete).toBe(true);
+    expect(report.blobs.orphan.files).toBe(0);
+    expect(report.blobs.referenced.files).toBe(3);
+  });
+
+  it('recursively protects manifests referenced by a manifest list', async () => {
+    const childDigest = 'd'.repeat(64);
+    const listDigest = 'e'.repeat(64);
+    await writeBlob('sha256-' + 'a'.repeat(64), 100);
+    await writeBlob('sha256-' + 'b'.repeat(64), 200);
+    await writeFile(
+      path.join(modelsDir, 'blobs', `sha256-${childDigest}`),
+      JSON.stringify(MANIFEST)
+    );
+    await writeFile(
+      path.join(modelsDir, 'blobs', `sha256-${listDigest}`),
+      JSON.stringify({ manifests: [{ digest: `sha256:${childDigest}` }] })
+    );
+    await linkV2Manifest('ollama.com/library/demo-list/latest', listDigest);
+
+    const report = await scanCache();
+
+    expect(report.scanComplete).toBe(true);
+    expect(report.blobs.orphan.files).toBe(0);
+    expect(report.blobs.referenced.files).toBe(4);
+  });
+
+  it('protects blobs that have Ollama metadata but no manifest', async () => {
+    const digest = 'f'.repeat(64);
+    await writeBlob(`sha256-${digest}`, 400);
+    await mkdir(path.join(modelsDir, 'metadata'), { recursive: true });
+    await writeFile(path.join(modelsDir, 'metadata', `sha256-${digest}.json`), '{}');
+
+    const report = await scanCache();
+
+    expect(report.scanComplete).toBe(true);
+    expect(report.blobs.referenced.files).toBe(1);
+    expect(report.blobs.orphan.files).toBe(0);
   });
 
   it('returns per-file details with absolute paths and kinds', async () => {
@@ -129,6 +193,24 @@ describe('scanCache', () => {
 
     expect(report.scanComplete).toBe(false);
   });
+
+  it('marks the scan incomplete when a v2 manifest symlink is broken', async () => {
+    await linkV2Manifest('ollama.com/library/demo-v2/latest', 'd'.repeat(64));
+
+    const report = await scanCache();
+
+    expect(report.scanComplete).toBe(false);
+  });
+
+  it('marks the scan incomplete when a manifest has no references', async () => {
+    const manifestDigest = 'd'.repeat(64);
+    await writeFile(path.join(modelsDir, 'blobs', `sha256-${manifestDigest}`), JSON.stringify({}));
+    await linkV2Manifest('ollama.com/library/demo-empty/latest', manifestDigest);
+
+    const report = await scanCache();
+
+    expect(report.scanComplete).toBe(false);
+  });
 });
 
 describe('resolveRevealTarget', () => {
@@ -170,7 +252,7 @@ describe('resolveRevealTarget', () => {
 });
 
 describe('cleanCache', () => {
-  it('removes only unreferenced blobs', async () => {
+  it('moves unreferenced blobs to quarantine instead of deleting them', async () => {
     await writeBlob('sha256-' + 'a'.repeat(64), 100);
     await writeBlob('sha256-' + 'c'.repeat(64), 300);
 
@@ -178,8 +260,30 @@ describe('cleanCache', () => {
 
     expect(result.removed.orphan).toBe(1);
     expect(result.freedBytes).toBe(300);
+    expect(result.quarantinedBytes).toBe(300);
+    expect(result.quarantinePath).toBeTruthy();
     expect(existsSync(path.join(modelsDir, 'blobs', 'sha256-' + 'a'.repeat(64)))).toBe(true);
     expect(existsSync(path.join(modelsDir, 'blobs', 'sha256-' + 'c'.repeat(64)))).toBe(false);
+    expect(existsSync(path.join(result.quarantinePath!, 'sha256-' + 'c'.repeat(64)))).toBe(true);
+  });
+
+  it('keeps blobs referenced by a v2 symlink manifest', async () => {
+    const manifestDigest = 'c'.repeat(64);
+    await writeBlob('sha256-' + 'a'.repeat(64), 100);
+    await writeBlob('sha256-' + 'b'.repeat(64), 200);
+    await writeFile(
+      path.join(modelsDir, 'blobs', `sha256-${manifestDigest}`),
+      JSON.stringify(MANIFEST)
+    );
+    await linkV2Manifest('ollama.com/library/demo-v2/latest', manifestDigest);
+
+    const result = await cleanCache(['orphan']);
+
+    expect(result.removed.orphan).toBe(0);
+    expect(result.quarantinePath).toBeNull();
+    expect(existsSync(path.join(modelsDir, 'blobs', 'sha256-' + 'a'.repeat(64)))).toBe(true);
+    expect(existsSync(path.join(modelsDir, 'blobs', 'sha256-' + 'b'.repeat(64)))).toBe(true);
+    expect(existsSync(path.join(modelsDir, 'blobs', `sha256-${manifestDigest}`))).toBe(true);
   });
 
   it('refuses to remove orphans when a manifest is unreadable', async () => {
@@ -189,6 +293,15 @@ describe('cleanCache', () => {
     );
 
     await expect(cleanCache(['orphan'])).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('refuses to move orphans when a v2 manifest symlink is broken', async () => {
+    await writeBlob('sha256-' + 'a'.repeat(64), 100);
+    await writeBlob('sha256-' + 'b'.repeat(64), 100);
+    await linkV2Manifest('ollama.com/library/demo-v2/latest', 'd'.repeat(64));
+
+    await expect(cleanCache(['orphan'])).rejects.toMatchObject({ status: 409 });
+    expect(existsSync(path.join(modelsDir, 'blobs', 'sha256-' + 'a'.repeat(64)))).toBe(true);
   });
 
   it('removes stale partial files but keeps recent ones', async () => {

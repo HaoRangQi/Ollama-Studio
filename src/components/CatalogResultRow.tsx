@@ -1,5 +1,5 @@
 import React from 'react';
-import { findModelScopeFile } from '../api/catalog';
+import { findQuantFile } from '../api/catalog';
 import type { CatalogSearchResult } from '../api/catalog';
 import { useAppTheme } from '../context/ThemeContext';
 
@@ -162,11 +162,7 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
                           : 'border-[var(--app-border)] bg-[var(--app-surface-high)] text-[var(--app-text)] hover:border-[var(--primary-accent)] hover:text-[var(--primary-accent)]'
                       }`}
                       style={selected ? { backgroundColor: 'var(--primary-accent)' } : undefined}
-                      title={
-                        result.source === 'modelscope'
-                          ? `${result.name}/${findModelScopeFile(result.files, quant) ?? ''}`
-                          : `ollama pull hf.co/${result.name}:${quant}`
-                      }
+                      title={`${result.name}/${findQuantFile(result.files, quant) ?? quant}`}
                     >
                       {quant}
                     </button>
@@ -201,13 +197,9 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
                 <span>{zh ? `下载 ${currentQuant}` : `Download ${currentQuant}`}</span>
               </button>
               <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                {result.source === 'modelscope'
-                  ? zh
-                    ? '本地服务下载对应 GGUF 文件，再用 ollama create 注册为本地模型。'
-                    : 'The local server downloads the GGUF file, then registers it with ollama create.'
-                  : zh
-                    ? 'Ollama 拉取只接受模型标签，量化格式即下载参数。'
-                    : 'Ollama pull only accepts a model tag; the quant is the download parameter.'}
+                {zh
+                  ? '本地服务直接下载对应 GGUF 文件，再用 ollama create 注册；不依赖 Ollama 的 hf.co pull。'
+                  : 'The local server downloads the GGUF directly, then registers it with ollama create; no hf.co pull required.'}
               </p>
             </>
           ) : (
