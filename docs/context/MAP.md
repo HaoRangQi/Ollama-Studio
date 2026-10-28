@@ -30,7 +30,8 @@ ollama-studio/
 ├── .github/workflows/ci.yml   # typecheck/lint/format/test/build
 ├── .env.example
 ├── .gitignore
-├── README.md
+├── README.md                    # 英文主版本
+├── README.zh-CN.md              # 中文版
 ├── AGENTS.md
 ├── PROJECT_INDEX.md
 ├── docs/context/
@@ -40,7 +41,7 @@ ollama-studio/
 │   ├── DECISIONS.md
 │   ├── RISKS.md
 │   └── history/README.md
-├── docs/assets/screenshots/    # README 界面截图（演示数据）
+├── docs/assets/screenshots/    # README 界面截图（en/ 英文、zh/ 中文，演示数据）
 ├── public/assets/aistudio/     # 设计参考：PNG / HTML / Material 3 token markdown
 ├── dist/                       # 构建产物（gitignore）
 ├── server.js                   # esbuild 产物（gitignore）

@@ -297,6 +297,14 @@
 - **理由**：Ollama 不提供 GPU/ANE/磁盘 API；用系统能力能给出真实磁盘与 Apple Silicon GPU 利用率，同时避免用 mock 数值冒充。ANE 没有公开利用率 API，明确写不可用比编造更可信。
 - **范围/风险**：GPU 仅 macOS，`ioreg` 字段可能随系统版本变化；Linux/Windows 返回不可用；`os.freemem()` 是“空闲”而非 macOS inactive/cached 可用量，UI 使用“空闲”措辞；每 5 秒一次本地命令与读取，开销低但未做更长周期缓存（R-048）。
 
+### D-139 README 采用英文主版本 + 中文并行版本
+
+- **状态**：已确认（2026-10-28）。
+- **内容**：`README.md` 改为英文主版本，作为 GitHub 默认入口；中文内容迁移到 `README.zh-CN.md`。两份文件头部互相链接（`English` / `简体中文`），内容保持同步。界面截图分语言存放：`docs/assets/screenshots/en/` 与 `docs/assets/screenshots/zh/`，均为浅色主题、演示数据。
+- **依据/来源**：`README.md`、`README.zh-CN.md`、`AGENTS.md`、`PROJECT_INDEX.md`、`docs/context/MAP.md`。
+- **理由**：仓库面向公开访问，英文 README 便于更广泛的读者快速理解项目；保留中文版本不丢失已有的详细说明。分语言截图避免英文主版本出现中文界面残留，浅色主题在 GitHub 与普通显示器上更易阅读。
+- **范围/风险**：两份 README 需要同时维护，功能或验证状态变化时必须同步；截图依赖 mock 演示数据，不能当作真实设备或真实模型证据。
+
 ## 待决策（尚未决定）
 
 以下事项**不是已选型**，不要据此声称已决定。确认后把对应条目移入“已确认”，写明理由、范围和来源。

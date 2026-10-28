@@ -53,7 +53,7 @@
 ### 4. 单元测试
 
 - 命令：`npm test`（监听：`npm run test:watch`；覆盖率：`npm run coverage`）
-- 结果：**已执行（2026-10-28）通过**：14 个测试文件、116 个测试。
+- 结果：**已执行（2026-10-28）通过**：14 个测试文件、117 个测试。
 - 覆盖：NDJSON 分片/错误/中止、`pullModel`、`loadModel`/`unloadModel`（generate/embed/keep_alive）、模型映射、会话存储与 v1→v2 迁移、模型参数归一化、下载任务中断与失败任务 source 持久化、GGUF 名称与空上传、附件类型判定与 base64 转换、ModelScope URL/量化映射、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF manifest 解析/model/projector 导出/重名与目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 解析与 daemon 命令构建、`ollama serve` 命令生成。
 - 未覆盖：真实浏览器、真实 Ollama 流、真实模型加载/卸载、GGUF 成功导入（需 CLI）、真实视觉模型推理与视频解码兼容性。
 
@@ -63,7 +63,7 @@
 - 实际执行：`npm run build:web && npm run build:server`
 - 前置：依赖已安装。
 - 结果：**已执行（2026-10-28）通过**。
-  - `dist/assets/index-*.js` 约 519.0 kB（gzip 约 141.0 kB）。
+  - `dist/assets/index-*.js` 约 519.4 kB（gzip 约 141.1 kB）。
   - `dist/assets/index-*.css` 约 79.8 kB（gzip 约 17.1 kB）。
   - `server.js` 约 63.2 kB。
   - 字体与 Material Symbols woff2 作为 `dist/assets/*.woff2` 输出；Material Symbols 全量约 4 MB。

@@ -14,7 +14,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 
 | 任务 | 先读 / 修改 |
 | --- | --- |
-| 了解项目是什么、现在能不能用 | `README.md` 的“项目定位”“当前状态”“验证状态” |
+| 了解项目是什么、现在能不能用 | `README.md` 的“Project Overview”“Current Status”“Verification Status”；中文见 `README.zh-CN.md` |
 | 接续上一次工作 | `docs/context/NOW.md` |
 | 改 Ollama API 客户端、流式解析、错误处理、加载/释放 | `src/api/ollama.ts` |
 | 改模型字段映射、分类、上下文/量化显示 | `src/api/ollamaMapper.ts` |

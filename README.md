@@ -1,88 +1,90 @@
 # Ollama Studio
 
-面向 Ollama 本地模型的 macOS 风格模型管理与对话界面。模型列表、运行状态、流式对话、拉取、删除/克隆、Modelfile 构建、GGUF 导入与导出都调用本机 Ollama；会话、模型参数与下载任务元数据保存在浏览器本地。
+**English** | [简体中文](README.zh-CN.md)
 
-> 实时状态与下一步见 [`docs/context/NOW.md`](docs/context/NOW.md)；已知风险见 [`docs/context/RISKS.md`](docs/context/RISKS.md)。
+A macOS-style model manager and chat interface for local Ollama models. Model browsing, runtime status, streaming chat, pulls, delete/clone, Modelfile creation, and GGUF import/export all talk to your local Ollama instance; conversations, model parameters, and download metadata stay in the browser.
 
-## 界面预览
+> Current status and next steps: [`docs/context/NOW.md`](docs/context/NOW.md); known risks: [`docs/context/RISKS.md`](docs/context/RISKS.md).
 
-> 截图为演示数据，不代表本机实际模型或设备信息。点击图片可查看大图。
+## UI Preview
 
-| 模型库 | 即时对话 |
+> Screenshots use demo data and do not represent the models or hardware of a real machine. Click an image to open the full-size version.
+
+| Model Library | Chat & Reasoning |
 | --- | --- |
-| [![模型库：本机模型列表、运行状态与采样参数](docs/assets/screenshots/models.png)](docs/assets/screenshots/models.png) | [![即时对话：流式回复、模型切换与上下文参数](docs/assets/screenshots/chat.png)](docs/assets/screenshots/chat.png) |
-| **发现与拉取** | **监控与设置** |
-| [![发现与拉取：ModelScope、Hugging Face 与 Ollama 官方搜索](docs/assets/screenshots/pull.png)](docs/assets/screenshots/pull.png) | [![监控与设置：磁盘、内存、CPU、GPU 指标、缓存清理与服务控制](docs/assets/screenshots/telemetry.png)](docs/assets/screenshots/telemetry.png) |
+| [![Model Library: installed models, runtime status, and sampling parameters](docs/assets/screenshots/en/models.png)](docs/assets/screenshots/en/models.png) | [![Chat & Reasoning: streaming replies, model switching, and context settings](docs/assets/screenshots/en/chat.png)](docs/assets/screenshots/en/chat.png) |
+| **Discover & Pull** | **Telemetry & Settings** |
+| [![Discover & Pull: ModelScope, Hugging Face, and Ollama registry search](docs/assets/screenshots/en/pull.png)](docs/assets/screenshots/en/pull.png) | [![Telemetry & Settings: disk, memory, CPU, GPU, cache cleanup, and service control](docs/assets/screenshots/en/telemetry.png)](docs/assets/screenshots/en/telemetry.png) |
 
-## 项目定位
+## Project Overview
 
-Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和筛选模型、拉取与量化选择、对话与参数调节、用 Modelfile 派生模型、查看守护进程与推理遥测。界面按 Material 3 Expressive 风格实现，支持明暗主题、五套强调色和中英双语。
+Ollama Studio brings the day-to-day work of running local models into one interface: browse and filter models, pull weights with quantization choices, chat with adjustable parameters, derive models with Modelfile, and inspect daemon and inference telemetry. The UI follows Material 3 Expressive with light/dark themes, five accent palettes, and Chinese/English localization.
 
-当前是**可运行的 Web 应用**。默认只监听本机；如需局域网访问，可显式开启并配置共享令牌。
+This is a **runnable web application**. It listens on localhost by default; LAN access must be enabled explicitly and configured with a shared token.
 
-## 当前状态（核验于 2026-10-28）
+## Current Status (verified 2026-10-28)
 
-- 已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（NDJSON 流式）、`POST /api/pull`（NDJSON 进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`，以及 `ollama create` GGUF 导入与本地 blob 导出。
-- 聊天支持流式输出、停止生成、思考内容折叠、温度/topP/num_ctx、JSON 模式、系统人设、错误展示与**每模型多会话**（创建/切换/重命名/删除）。
-- 回复中的 fenced code block 会渲染为独立代码块并支持复制。
-- 模型参数按模型保存为**对话默认值**（`localStorage`），不会修改模型权重；显存“加载/释放”通过 `keep_alive` 调用真实 API。
-- 下载在**服务端后台**执行：拉取任务显示真实状态、速度、剩余时间与进度，可暂停/继续/取消；失败后会显示“将重跑”的具体命令，可点“重试”原样重跑，或点“编辑命令”把命令填回输入框修改（ModelScope 任务的仓库与文件信息会持久化，刷新后仍可重试）；刷新或关闭页面不会中断，重新打开后自动接回并展示进度。
-- 模型库关键字搜索支持 **ModelScope（默认）**、**Hugging Face** 与 **Ollama 官方**；量化标签由文件名推断。ModelScope 由本地服务下载 GGUF 后执行 `ollama create`（Ollama 不能直接 `pull` 该来源），下载进度与错误以 NDJSON 回传。
-- 遥测页提供**缓存清理**：扫描 Ollama 模型目录与本应用临时目录，分类显示未引用 blob、未完成下载（`*-partial` 及分块标记）与临时文件，勾选后删除；被模型引用的权重、10 分钟内仍在写入的文件以及有下载进行中的未完成文件不会被删除。确认弹窗可展开每一类查看逐文件明细（名称、大小、修改时间、完整路径），并可在系统文件管理器中定位文件或目录（由本地服务执行，Web 版同样可用）。
-- 遥测页显示真实连接状态、版本、模型/显存统计与事件日志；侧栏“已加载显存/运行模型数”与遥测页每 5 秒自动轮询 `/api/ps`，外部加载/卸载模型后无需手动刷新。`GET /api/metrics` 读取模型目录所在文件系统的磁盘总量/已用/可用、内存、CPU load 与 macOS `ioreg` GPU 利用率；不可用时明确显示原因，ANE 没有公开利用率 API。运行中模型卡片可确认后“全部卸载”（`keep_alive: 0`）。
-- 模型页支持把已安装模型的当前量化导出为 GGUF：服务端读取 manifest，复制 `model` 层，并把 `projector` 层导出为 `*-mmproj.gguf`；默认写入 `~/Downloads/Ollama Studio`，重名自动追加序号。只导出权重，不包含 template/license/params。大文件优先使用 APFS copy-on-write clone。
-- 遥测页“服务控制”面板显示 Ollama 由 Ollama.app、launchd、Homebrew、systemd 还是普通进程管理，生成可复制的重启/停止命令；自动执行默认关闭，只有设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且二次确认后才执行。环境变量配置可生成 `ollama serve` 启动命令，但不会写入系统环境，需手动重启后生效。
-- 代理默认绑定 `127.0.0.1`；可选 `PROXY_TOKEN` 保护 `/ollama/*`、`/api/import`、`/api/modelscope/*`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics` 与 `/api/daemon`。
-- 字体与 Material Symbols 已自托管，不再依赖 Google Fonts。
-- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（116 个测试）、GitHub Actions CI。
-- 已用 headless Chrome 对开发/生产首屏、真实模型列表、导出与遥测页做冒烟验证；**未做完整逐页人工视觉/a11y 验收**。
-- Hugging Face 直拉仍受本机 DNS 限制；默认改用 ModelScope 渠道，或手动下载 GGUF 后导入。
+- Integrated `GET /api/version`, `GET /api/tags`, `GET /api/ps`, `POST /api/chat` (streaming NDJSON), `POST /api/pull` (NDJSON progress), `DELETE /api/delete`, `POST /api/copy`, `POST /api/create`, plus `ollama create` GGUF import and local blob export.
+- Chat supports streaming output, stop generation, collapsible thinking content, temperature/topP/num_ctx, JSON mode, system persona, error display, and **multiple conversations per model** (create/switch/rename/delete).
+- Fenced code blocks in replies render as dedicated code blocks with copy support.
+- Model parameters are saved **per model as chat defaults** in `localStorage`; they never modify model weights. VRAM "load/release" uses `keep_alive` against the real API.
+- Downloads run **server-side in the background**: pull tasks show real status, speed, ETA, and progress, and can be paused/resumed/cancelled. After a failure, the UI shows the exact command that will be rerun; "Retry" reruns it unchanged, while "Edit command" puts it back into the input for editing. ModelScope repository and file information persists across refreshes. Closing the page does not interrupt a download; reopening reconnects to the task and shows its progress.
+- Model search supports **ModelScope (default)**, **Hugging Face**, and the **Ollama registry**; quantization labels are inferred from filenames. For ModelScope, the local server downloads the GGUF and then runs `ollama create` (Ollama cannot `pull` this source directly); progress and errors stream back as NDJSON.
+- Telemetry includes **cache cleanup**: it scans the Ollama model directory and the application temp directory, groups unreferenced blobs, unfinished downloads (`*-partial` and chunk markers), and temp files, and deletes only selected categories. Blobs referenced by models, files written within the last 10 minutes, and partial files with an active download are protected. The confirmation dialog expands each category into per-file details (name, size, mtime, full path) and can reveal a file or directory in the system file manager (handled by the local server, so it also works in the web build).
+- Telemetry shows real connection status, version, model/VRAM statistics, and an event log. The sidebar "Loaded VRAM / running models" counters and the telemetry page poll `/api/ps` every 5 seconds, so external load/unload operations appear without a manual refresh. `GET /api/metrics` reads filesystem capacity/used/free for the model directory, memory, CPU load, and macOS `ioreg` GPU utilization; unavailable values are labeled explicitly, and ANE has no public utilization API. Running model cards offer a confirmed **Unload all** action (`keep_alive: 0`).
+- The model page exports the currently installed quantization as GGUF: the server reads the manifest, copies the `model` layer, and writes the `projector` layer as `*-mmproj.gguf`. The default directory is `~/Downloads/Ollama Studio`; duplicate names get numeric suffixes. Only weights are exported; template/license/params are not part of GGUF. Large files prefer APFS copy-on-write clones.
+- The telemetry **Service Control** panel detects whether Ollama is managed by Ollama.app, launchd, Homebrew, systemd, or a plain process, and generates copyable restart/stop commands. Automatic execution is off by default and only runs when `ALLOW_DAEMON_CONTROL=1` is set, the request comes from loopback, and the user confirms. Environment settings can generate an `ollama serve` startup command, but never write to the system environment; restart Ollama manually for changes to take effect.
+- The proxy binds to `127.0.0.1` by default. Optional `PROXY_TOKEN` protects `/ollama/*`, `/api/import`, `/api/modelscope/*`, `/api/downloads`, `/api/cache`, `/api/export`, `/api/metrics`, and `/api/daemon`.
+- Fonts and Material Symbols are self-hosted; no Google Fonts dependency.
+- Engineering: TypeScript `strict`, ESLint, Prettier, Vitest (117 tests), and GitHub Actions CI.
+- Headless Chrome smoke tests cover the development/production first screen, real model list, export, and telemetry pages. A full page-by-page visual/a11y review has **not** been performed.
+- Direct Hugging Face pulls are still limited by local DNS; use the ModelScope channel by default, or download a GGUF manually and import it.
 
-详细状态、阻塞和下一步见 [`docs/context/NOW.md`](docs/context/NOW.md)。
+For detailed status, blockers, and next steps, see [`docs/context/NOW.md`](docs/context/NOW.md).
 
-## 功能一览
+## Features
 
-| 模块 | 已实现 | 尚未实现 / 边界 |
+| Area | Implemented | Not implemented / boundaries |
 | --- | --- | --- |
-| 模型库 | 真实模型列表、卡片/列表、分类、搜索、参数默认值持久化、真实删除/克隆、加载/释放显存、导出当前量化 GGUF（含多模态 projector） | 只导出当前已安装量化；template/license/params 不在 GGUF 内，需另存 Modelfile；默认导出目录固定为 `~/Downloads/Ollama Studio` |
-| 发现拉取 | CLI 输入、量化选择、精选模型与独立搜索视图、ModelScope/HF/Ollama 搜索、搜索结果长条列表与分页、可调每页条数（6/12/24）、量化选中与行内下载、服务端后台下载（刷新不中断）、真实进度、ModelScope 服务端下载 + `ollama create`、暂停/继续/取消、失败重试、GGUF 上传 | 量化由文件名推断；GGUF 导入与 ModelScope 下载依赖本机 `ollama` CLI；HF 下载受网络限制；ModelScope 无断点续传、单文件上限 20 GB；后台任务在服务端内存中，服务端重启会丢失 |
-| 即时对话 | 真实流式 `/api/chat`、停止、思考折叠、参数、JSON、人设、错误提示、多会话、代码块复制、可拖拽调整输入框高度、图片/视频附件（视频抽 3 帧） | Ollama 仅接受 `images`，不支持 PDF/任意文件；真实多模态推理未做自动化验收 |
-| Modelfile 实验室 | 可视化生成 `FROM` / `PARAMETER` / `SYSTEM`、预设、真实 `/api/create`、测试对话 | 参数编辑不会同步到已有模型 |
-| 监控与设置 | 真实连接/版本/模型/显存统计、事件日志、模型存储卡片、磁盘/内存/CPU/GPU 指标、全部卸载运行模型、配置持久化、缓存扫描与清理（未引用 blob / 未完成下载 / 临时目录，逐文件明细与文件管理器定位）、服务检测与可复制重启/停止命令 | GPU 仅 macOS `ioreg`；ANE 无公开 API；服务自动执行默认关闭且未实测；环境变量只生成命令，不写系统环境 |
-| 全局 | ⌘K 命令面板、主题调色盘、中英切换、明暗模式、移动端底部导航 | 仍需人工窄屏/a11y 验收 |
+| Model Library | Real model list, cards/list, categories, search, persisted parameter defaults, real delete/clone, VRAM load/release, export current quantization as GGUF (including multimodal projector) | Only the installed quantization is exported; template/license/params are not in GGUF and need a separate Modelfile; export directory is fixed to `~/Downloads/Ollama Studio` |
+| Discover & Pull | CLI input, quantization selection, curated models, dedicated search view, ModelScope/HF/Ollama search, long-result list with pagination, adjustable page size (6/12/24), quantization selection and inline download, server-side background downloads (survive refresh), real progress, ModelScope server download + `ollama create`, pause/resume/cancel, failure retry, GGUF upload | Quantization is inferred from filenames; GGUF import and ModelScope downloads depend on the local `ollama` CLI; HF downloads are network-limited; ModelScope has no resume support and a 20 GB per-file limit; background tasks live in server memory and are lost on server restart |
+| Chat & Reasoning | Real streaming `/api/chat`, stop, thinking collapse, parameters, JSON mode, persona, error display, multiple conversations, code-block copy, draggable input height, image/video attachments (video sampled to 3 frames) | Ollama only accepts `images`; PDFs and arbitrary files are unsupported; real multimodal inference has not been automatically verified |
+| Modelfile Lab | Visual `FROM` / `PARAMETER` / `SYSTEM` generation, presets, real `/api/create`, test chat | Parameter edits do not propagate to existing models |
+| Telemetry & Settings | Real connection/version/model/VRAM stats, event log, model storage card, disk/memory/CPU/GPU metrics, unload all running models, persisted configuration, cache scan/cleanup (unreferenced blobs / unfinished downloads / temp dirs, per-file details and file-manager reveal), service detection and copyable restart/stop commands | GPU metrics are macOS `ioreg` only; ANE has no public API; automatic service control is off by default and untested against a live daemon; environment changes only generate a command and do not write system environment |
+| Global | ⌘K command palette, theme palette, Chinese/English switch, light/dark mode, mobile bottom navigation | Narrow-screen and a11y review still require manual validation |
 
-## 技术栈
+## Tech Stack
 
-- React 19 + TypeScript 6 + Vite 8 单页应用
-- Tailwind CSS v4（通过 `@tailwindcss/vite`）
-- 自建 `ThemeContext` 管理主题、强调色、语言；无路由库、无全局状态库
-- 开发代理：Vite `server.proxy`（`/ollama`、`/api/catalog`、`/api/hf`）与自建中间件（`/api/import`、`/api/modelscope/*`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`）
-- 生产服务：Express 4 + esbuild 打包的 `server.js`
-- 测试与质量：Vitest、ESLint 10（flat config）、Prettier、GitHub Actions
-- 字体/图标：`@fontsource-variable/*`、`material-symbols`（本地打包）
+- React 19 + TypeScript 6 + Vite 8 single-page application
+- Tailwind CSS v4 (via `@tailwindcss/vite`)
+- Custom `ThemeContext` for theme, accent palette, and language; no router or global state library
+- Development proxy: Vite `server.proxy` (`/ollama`, `/api/catalog`, `/api/hf`) plus custom middleware (`/api/import`, `/api/modelscope/*`, `/api/downloads`, `/api/cache`, `/api/export`, `/api/metrics`, `/api/daemon`)
+- Production server: Express 4 + esbuild-bundled `server.js`
+- Testing and quality: Vitest, ESLint 10 (flat config), Prettier, GitHub Actions
+- Fonts/icons: `@fontsource-variable/*`, `material-symbols` (bundled locally)
 
-版本以 `package.json` / `package-lock.json` 为准，完整映射见 [`docs/context/MAP.md`](docs/context/MAP.md)。
+Versions follow `package.json` / `package-lock.json`; see [`docs/context/MAP.md`](docs/context/MAP.md) for the full map.
 
-## 快速开始
+## Quick Start
 
-前置：Node.js、npm，以及本机运行的 Ollama（默认 `http://127.0.0.1:11434`）。GGUF 文件上传还需要运行服务的机器能执行 `ollama` CLI。在项目根目录执行：
+Prerequisites: Node.js, npm, and a locally running Ollama (default `http://127.0.0.1:11434`). GGUF upload also requires the `ollama` CLI on the machine running the server. From the project root:
 
 ```bash
 npm install
 npm run dev
 ```
 
-打开 `http://127.0.0.1:3000`。开发服务器默认只监听本机。
+Open `http://127.0.0.1:3000`. The development server listens on localhost only.
 
-如果 `npm install` 因默认缓存权限报 `EPERM`，使用仓库内缓存：
+If `npm install` fails with `EPERM` due to the default cache permissions, use the repository cache:
 
 ```bash
 npm install --cache .npm-cache --no-audit --no-fund
 ```
 
-### 配置 Ollama 地址
+### Configure the Ollama Endpoint
 
-复制 `.env.example` 为 `.env`，按需修改（开发与生产都会读取；进程环境优先）：
+Copy `.env.example` to `.env` and adjust as needed (both development and production read it; process environment wins):
 
 ```bash
 OLLAMA_HOST=http://127.0.0.1:11434
@@ -90,85 +92,85 @@ PORT=3000
 HOST=127.0.0.1
 ```
 
-前端默认走同源 `/ollama` 代理，不需要浏览器直连 Ollama。只有浏览器能直接访问 Ollama 时，才设置 `VITE_OLLAMA_BASE_URL`。
+The frontend uses the same-origin `/ollama` proxy by default; the browser does not need direct access to Ollama. Set `VITE_OLLAMA_BASE_URL` only when the browser can reach Ollama directly.
 
-### 局域网访问与共享令牌
+### LAN Access and Shared Token
 
-默认只允许本机访问。需要同一可信网络访问时：
+Localhost access is the default. To allow access from the same trusted network:
 
 ```bash
-# 生产：设置共享令牌后再绑定非 loopback
+# Production: set a shared token before binding to a non-loopback address
 PROXY_TOKEN=change-me HOST=0.0.0.0 npm start
 
-# 前端构建时必须使用相同令牌
+# The frontend build must use the same token
 VITE_PROXY_TOKEN=change-me npm run build
 ```
 
-`PROXY_TOKEN` 保护 `/ollama/*` 与本地管理 API（`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`）；未设置时代理无鉴权。`VITE_PROXY_TOKEN` 会嵌入前端产物，属于共享密钥，不是用户级认证；跨网段使用请再加反向代理与 TLS。开发时可用 `npm run dev:lan` 显式开放，仅限可信网络。
+`PROXY_TOKEN` protects `/ollama/*` and the local management APIs (`/api/import`, `/api/modelscope`, `/api/downloads`, `/api/cache`, `/api/export`, `/api/metrics`, `/api/daemon`); without it, the proxy is unauthenticated. `VITE_PROXY_TOKEN` is embedded in the frontend bundle: it is a shared secret, not user-level authentication. Add a reverse proxy and TLS when crossing network boundaries. For development, `npm run dev:lan` explicitly binds to `0.0.0.0`; use it only on trusted networks.
 
-### 生产运行
+### Production
 
 ```bash
 npm run build
 npm start
 ```
 
-`npm run build` 同时构建 `dist/` 与 `server.js`；`npm start` 默认监听 `127.0.0.1:3000`，静态托管前端并把 `/ollama/*` 流式转发到 `OLLAMA_HOST`。
+`npm run build` builds both `dist/` and `server.js`; `npm start` listens on `127.0.0.1:3000` by default, serves the frontend statically, and streams `/ollama/*` to `OLLAMA_HOST`.
 
-### 导出 GGUF
+### Export GGUF
 
-模型页右侧操作区的“导出 GGUF”会把当前已安装量化写入默认目录 `~/Downloads/Ollama Studio`，重名时自动追加 `-2`、`-3`。多模态模型的 `projector` 层会单独写成 `*-mmproj.gguf`；template/license/params 不属于 GGUF，需要另行保存 Modelfile。导出由本地服务读取 `OLLAMA_MODELS`（默认 `~/.ollama/models`）完成，优先使用 APFS copy-on-write clone；跨文件系统时是完整复制，请预留空间。
+"Export GGUF" in the model page action area writes the installed quantization to `~/Downloads/Ollama Studio`, appending `-2`, `-3` on name collisions. Multimodal `projector` layers are written separately as `*-mmproj.gguf`; template/license/params are not part of GGUF and need a separate Modelfile. The local server reads `OLLAMA_MODELS` (default `~/.ollama/models`) and prefers APFS copy-on-write clones; cross-filesystem copies are full copies, so reserve enough space.
 
-### 可用脚本
+### Available Scripts
 
-| 命令 | 作用 |
+| Command | Purpose |
 | --- | --- |
-| `npm run dev` | Vite 开发服务器，`127.0.0.1:3000` |
-| `npm run dev:lan` | 显式绑定 `0.0.0.0:3000`（仅可信网络） |
-| `npm run build` | 构建 `dist/` + `server.js` |
-| `npm run build:web` / `build:server` | 仅构建前端 / 仅打包服务端 |
-| `npm start` | 运行生产服务器 |
-| `npm run preview` | 预览构建产物 |
+| `npm run dev` | Vite development server on `127.0.0.1:3000` |
+| `npm run dev:lan` | Explicitly bind `0.0.0.0:3000` (trusted networks only) |
+| `npm run build` | Build `dist/` + `server.js` |
+| `npm run build:web` / `build:server` | Build only the frontend / only the server bundle |
+| `npm start` | Run the production server |
+| `npm run preview` | Preview the production build |
 | `npm run typecheck` | `tsc --noEmit` |
-| `npm run lint` / `lint:fix` | ESLint 检查 / 自动修复 |
-| `npm run format` / `format:check` | Prettier 格式化 / 检查 |
-| `npm test` / `test:watch` / `coverage` | Vitest 测试 / 监听 / 覆盖率 |
-| `npm run clean` | 删除 `dist/`、`server.js`、`coverage/` |
+| `npm run lint` / `lint:fix` | ESLint check / auto-fix |
+| `npm run format` / `format:check` | Prettier format / check |
+| `npm test` / `test:watch` / `coverage` | Vitest tests / watch / coverage |
+| `npm run clean` | Remove `dist/`, `server.js`, and `coverage/` |
 
-前置条件、产物、验证步骤和执行状态见 [`docs/context/RUNBOOK.md`](docs/context/RUNBOOK.md)。
+For prerequisites, build artifacts, verification steps, and execution status, see [`docs/context/RUNBOOK.md`](docs/context/RUNBOOK.md).
 
-## 验证状态
+## Verification Status
 
-- `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（116 个测试）、`npm run build`：2026-10-28 全部通过。
-- 服务端后台下载与缓存清理：ModelScope 下载中两次刷新进度连续（63.1% → 80.1%）；缓存清理在 fixture 上释放 10,004,096 字节并保留被引用 blob；明细弹窗按体积列出文件并可定位到文件管理器；真实 `~/.ollama/models` 只读扫描到约 4.66 GB 可回收（未执行删除）。
-- 侧栏状态轮询：CDP mock `/ollama/api/ps` 从 0 个运行模型切到 1 个（`size_vram=926000000`）再切回 0，侧栏在 6.5 秒内依次显示 `— / 0 活跃` → `926 MB / 1 活跃` → `— / 0 活跃`，无需手动刷新。
-- 失败重试：CDP mock `/api/downloads` 分别注入 pull 与 ModelScope 失败任务，点击“重试”后 POST body 与原始任务一致（ModelScope 的 `file` 从持久化 source 恢复），轮询转为完成；失败卡片显示“将重跑：`ollama pull <model>`”，点“编辑命令”会把命令填回输入框并聚焦；旧 ModelScope 任务缺少 `kind/source` 时按 `.gguf` 文件名推断，不会误走 `ollama pull`；`pull model manifest: file does not exist` 会追加 HF/ModelScope 操作提示。
-- 生产服务器（3101）与开发服务器（3001）：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、`/api/import` 校验与 headless Chrome 首屏渲染通过。
-- 代理令牌：无令牌 401、Bearer 令牌 200、`/api/import` 无令牌 401，均已验证。
-- 图片/视频附件：CDP 选择 PNG + WebM，视频抽 3 帧；mock `/api/chat` 捕获到 4 个 `images` 和默认描述文本；未执行真实视觉推理。
-- GGUF 导出：fixture 通过 `POST /api/export` 导出 model + projector，内容与重名序号正确；越界目录 403、非法模型名 400；真实 0.8B 模型导出 529,297,312 字节，文件头为 `GGUF`，SHA256 与 manifest 的 `sha256:fb89581…` 一致，耗时约 1.2 秒（APFS clone）。CDP mock 验证模型页按钮请求 `{model:"diodel/qwen3.5-0.8b-q4_k_m-gguf:latest"}` 并显示含 mmproj 的成功 toast。
-- 系统指标与服务检测：`GET /api/metrics` 返回真实磁盘容量、内存、CPU load 与 macOS `ioreg` GPU 利用率（本机 Apple M1 Pro）；`GET /api/daemon` 识别 Ollama.app 与 PID，`POST /api/daemon/control` 在未设置 `ALLOW_DAEMON_CONTROL=1` 时返回 403；CDP 确认遥测页显示 GPU、磁盘已用、启动命令、全部卸载与服务控制面板。
-- **未执行**：真实 UI 中的模型加载/卸载与“全部卸载”、真实多模态推理、完整逐页视觉/窄屏/a11y 验收、GitHub Actions 远端运行、正常网络下的 HF 直拉、真实 20 GB 级模型导出、daemon 自动重启/停止（含 macOS Automation 权限弹窗）、systemd/Windows 分支。
+- `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` (117 tests), and `npm run build`: all passed on 2026-10-28.
+- Server-side downloads and cache cleanup: two refreshes during a ModelScope download preserved progress (63.1% → 80.1%); cache cleanup freed 10,004,096 bytes on a fixture while preserving referenced blobs; the detail dialog listed files by size and could reveal them in the file manager; a read-only scan of the real `~/.ollama/models` found about 4.66 GB reclaimable (no deletion was performed).
+- Sidebar status polling: CDP mocked `/ollama/api/ps` changing from 0 running models to 1 (`size_vram=926000000`) and back to 0; the sidebar showed `— / 0 active` → `926 MB / 1 active` → `— / 0 active` within 6.5 seconds, without a manual refresh.
+- Failure retry: CDP mock `/api/downloads` injected pull and ModelScope failures; clicking "Retry" sent a POST body identical to the original task (ModelScope `file` was restored from the persisted source) and polling moved to completed; the failure card showed "Will rerun: `ollama pull <model>`"; "Edit command" filled and focused the input; legacy ModelScope tasks missing `kind/source` were inferred from the `.gguf` filename and did not incorrectly use `ollama pull`; `pull model manifest: file does not exist` added HF/ModelScope guidance.
+- Production server (3101) and development server (3001): `/healthz`, `/ollama/api/version`, `/ollama/api/tags`, `/api/import` validation, and headless Chrome first-screen rendering all passed.
+- Proxy token: unauthenticated requests returned 401, Bearer token returned 200, and `/api/import` without a token returned 401; all verified.
+- Image/video attachments: CDP selected a PNG + WebM, sampled 3 video frames; the mock `/api/chat` received 4 `images` entries and the default description; real visual inference was not run.
+- GGUF export: a fixture exported both model and projector through `POST /api/export`, with correct contents and collision suffixes; out-of-bounds directory returned 403 and an invalid model name returned 400; a real 0.8B model exported 529,297,312 bytes with a `GGUF` header and a SHA256 matching the manifest's `sha256:fb89581…`, taking about 1.2 seconds (APFS clone). CDP mocked the model page request `{model:"diodel/qwen3.5-0.8b-q4_k_m-gguf:latest"}` and verified the success toast mentioning mmproj.
+- System metrics and service detection: `GET /api/metrics` returned real disk capacity, memory, CPU load, and macOS `ioreg` GPU utilization (Apple M1 Pro on this machine); `GET /api/daemon` detected Ollama.app and its PID; `POST /api/daemon/control` returned 403 without `ALLOW_DAEMON_CONTROL=1`; CDP confirmed the telemetry page showed GPU, disk usage, startup command, Unload all, and the Service Control panel.
+- **Not executed**: real model load/unload and "Unload all" in the UI, real multimodal inference, a complete page-by-page visual/narrow-screen/a11y review, GitHub Actions remote runs, direct HF pulls on a normal network, real 20 GB-class model export, automatic daemon restart/stop (including macOS Automation permission prompts), and systemd/Windows branches.
 
-## 文档
+## Documentation
 
-| 文档 | 用途 |
+| Document | Purpose |
 | --- | --- |
-| [`AGENTS.md`](AGENTS.md) | 协作规则、读取/写入约束、验证要求 |
-| [`PROJECT_INDEX.md`](PROJECT_INDEX.md) | 任务到文件/章节的路由 |
-| [`docs/context/NOW.md`](docs/context/NOW.md) | 当前目标、进展、阻塞、下一步 |
-| [`docs/context/MAP.md`](docs/context/MAP.md) | 目录、版本、配置、部署关系 |
-| [`docs/context/RUNBOOK.md`](docs/context/RUNBOOK.md) | 操作步骤、前置条件、执行状态 |
-| [`docs/context/DECISIONS.md`](docs/context/DECISIONS.md) | 已确认决策与待决策 |
-| [`docs/context/RISKS.md`](docs/context/RISKS.md) | 风险、验证缺口、保护措施 |
-| [`docs/context/history/README.md`](docs/context/history/README.md) | 历史归档索引 |
+| [`AGENTS.md`](AGENTS.md) | Collaboration rules, read/write constraints, verification requirements |
+| [`PROJECT_INDEX.md`](PROJECT_INDEX.md) | Task-to-file/section routing |
+| [`docs/context/NOW.md`](docs/context/NOW.md) | Current goals, progress, blockers, next steps |
+| [`docs/context/MAP.md`](docs/context/MAP.md) | Directory, version, configuration, and deployment map |
+| [`docs/context/RUNBOOK.md`](docs/context/RUNBOOK.md) | Procedures, prerequisites, execution status |
+| [`docs/context/DECISIONS.md`](docs/context/DECISIONS.md) | Confirmed decisions and open questions |
+| [`docs/context/RISKS.md`](docs/context/RISKS.md) | Risks, verification gaps, mitigations |
+| [`docs/context/history/README.md`](docs/context/history/README.md) | Historical archive index |
 
-## 来源与设计参考
+## Sources and Design References
 
-- 原始 AI Studio 应用：https://ai.studio/apps/9ab4837f-c57f-4777-a911-4ac097c9b6ee
-- 原 `README.md` 为 AI Studio 导出模板；2026-10-27 重写为项目说明，保留原始应用链接与本地运行步骤。
-- `public/assets/aistudio/` 保存设计参考（截图、HTML、Material 3 色彩 token），当前未被应用代码引用。
+- Original AI Studio app: https://ai.studio/apps/9ab4837f-c57f-4777-a911-4ac097c9b6ee
+- The original `README.md` was an AI Studio export template; it was rewritten as project documentation on 2026-10-27, keeping the original app link and local run steps.
+- `public/assets/aistudio/` stores design references (screenshots, HTML, Material 3 color tokens); the application code does not reference them.
 
-## 许可
+## License
 
-Apache License 2.0，见 [`LICENSE`](LICENSE)。
+Apache License 2.0, see [`LICENSE`](LICENSE).

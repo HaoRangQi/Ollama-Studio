@@ -1,6 +1,6 @@
 # NOW
 
-> 当前状态快照。接续任务先读这里；稳定事实见 `README.md` / `MAP.md`，决策见 `DECISIONS.md`，风险见 `RISKS.md`。
+> 当前状态快照。接续任务先读这里；稳定事实见 `README.md` / `README.zh-CN.md` / `MAP.md`，决策见 `DECISIONS.md`，风险见 `RISKS.md`。
 >
 > 更新日期：2026-10-28
 > 核验对象：仓库根目录、`src/`、`server/`、`server.ts`、`vite.config.ts`、`package.json`、`tsconfig.json`、测试与 CI 配置、`docs/context/`
@@ -16,7 +16,7 @@
 
 ### 工程基础
 
-- [x] 添加 Vitest（Node 环境）与 116 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断与失败 source 持久化、GGUF 名称与空上传、附件类型/base64 转换、ModelScope URL/量化映射、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF 导出 manifest/model/projector/重名/目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 与 daemon 命令构建、`ollama serve` 命令生成。
+- [x] 添加 Vitest（Node 环境）与 117 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断与失败 source 持久化、GGUF 名称与空上传、附件类型/base64 转换、ModelScope URL/量化映射、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF 导出 manifest/model/projector/重名/目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 与 daemon 命令构建、`ollama serve` 命令生成。
 - [x] 添加 ESLint 10 flat config、Prettier 3，`npm run lint`、`format:check` 通过；开启 TypeScript `strict`。
 - [x] 添加 `.github/workflows/ci.yml`：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`（尚未在 GitHub 实际运行）。
 - [x] 移除未使用依赖 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 移除 Gemini 能力声明；包名改为 `ollama-studio`，版本 `0.1.0`。
@@ -59,6 +59,7 @@
 - [x] GGUF 导出（2026-10-28）：新增 `server/exportGguf.ts` 与 `POST /api/export`，读取 `manifests/` 或 `manifests-v2/`（默认 registry 同时尝试 `registry.ollama.ai` 与 `ollama.com`），复制 `application/vnd.ollama.image.model` blob，多模态 `projector` 单独导出为 `*-mmproj.gguf`；默认写入 `~/Downloads/Ollama Studio`，重名追加 `-2`，复制优先使用 APFS clone。模型页原禁用按钮改为“导出 GGUF”，`⋮` 菜单同步增加入口，成功 toast 显示目录与 mmproj 提示。边界：只导出当前量化，template/license/params 不含在 GGUF 内；不提供目录选择。见 `DECISIONS.md` D-136。
 - [x] 真实系统指标（2026-10-28）：新增 `server/metrics.ts` 与 `GET /api/metrics`，返回磁盘总量/已用/可用（`statfs`，优先模型目录）、内存、CPU load 与核心数；macOS 通过 `ioreg -c IOAccelerator` 读取 GPU 型号与 `Device Utilization %`，失败时返回明确原因；ANE 无公开 API，固定返回不可用。遥测页每 5 秒轮询（页面隐藏时暂停），替换“可用空间未知”“Ollama 不提供 GPU/ANE”等占位。见 `DECISIONS.md` D-138。
 - [x] 运行模型 GC 与服务控制（2026-10-28）：遥测页运行中模型卡片增加“全部卸载”（确认后对每个运行模型发送 `keep_alive: 0`，embedding 走 `/api/embed`）；新增服务控制面板，检测 Ollama.app / launchd / Homebrew / systemd / 普通进程，显示 PID 与可复制的重启/停止命令。`POST /api/daemon/control` 默认 403，只有 `ALLOW_DAEMON_CONTROL=1`、loopback、`confirm:true` 且管理方式可执行时才运行；Ollama.app 使用 AppleScript 退出并重开。环境变量面板新增 `ollama serve` 启动命令预览与复制，不写系统环境。见 `DECISIONS.md` D-137。
+- [x] README 双语化与浅色截图（2026-10-28）：`README.md` 改为英文主版本，中文内容迁移到 `README.zh-CN.md`，两份头部互链；新增 `docs/assets/screenshots/en/` 与 `zh/` 两套浅色主题演示截图（各 4 张，2×2 预览）。同时修复英文界面中残留的模型描述、显存状态与拉取页标签文案，使截图与语言一致。见 `DECISIONS.md` D-139。
 
 ### 验证与仓库
 
@@ -70,13 +71,13 @@
 - [x] 下载失败重试实测（2026-10-28，开发服务器 3000 + CDP `Fetch` mock，未访问真实模型源）：① 注入 pull 失败任务（`unsloth/Qwen3.5-0.8B-GGUF`，错误 `pull model manifest: file does not exist`），任务卡显示“将重跑：ollama pull unsloth/Qwen3.5-0.8B-GGUF”和“编辑命令”；点击编辑后输入框值变为该命令并获得焦点。点击重试后 POST body 为 `{kind:"pull",model:"unsloth/Qwen3.5-0.8B-GGUF"}`，轮询两轮后转为完成。② 注入 ModelScope 失败任务并刷新页面，点击重试的 body 含 `namespace/name/file/model`，其中 `file` 来自持久化的 `source`，任务转为完成。③ 注入缺少 `kind/source`、`targetPath` 为 `Q4_K_M/model.gguf` 的旧任务：卡片显示 `ModelScope · Q4_K_M/model.gguf`、不显示编辑按钮，重试 body 为 `kind:"modelscope"` 且 `file` 使用 `targetPath`，任务转为完成。④ 实时 pull 失败（running → error）时卡片显示原始错误 + `Ollama registry 中没有该路径` 提示与“重试”按钮。**未对真实 Ollama 重试该 HF 仓库**。
 - [x] GGUF 导出实测（2026-10-28）：fixture 经 `POST /api/export` 导出 model + projector 两层（12 + 14 字节），内容正确、重名生成 `-2`；`/etc` 返回 403、`../etc` 返回 400。真实 `diodel/qwen3.5-0.8b-q4_k_m-gguf:latest` 导出 529,297,312 字节，文件头为 `GGUF`，SHA256 `fb89581c…` 与 manifest digest 一致，耗时约 1.19 秒（APFS clone）。CDP mock 验证模型页导出按钮发送 `{model:"diodel/..."}` 并显示“已导出 2 个文件…（含 mmproj）”。**未导出 21.8 GB 的 27B 模型**。
 - [x] 系统指标与服务检测实测（2026-10-28）：`GET /api/metrics` 返回真实磁盘容量（约 494 GB 总量 / 107 GB 可用）、内存、CPU load 与 `ioreg` GPU（Apple M1 Pro，实测 62% / 69%）；`GET /api/daemon` 识别 `manager: ollama-app`、PID 6928 与可复制命令；`POST /api/daemon/control` 在未设置 `ALLOW_DAEMON_CONTROL` 时返回 403。CDP 确认遥测页显示 GPU、磁盘已用、启动命令、全部卸载与服务控制面板，且 `ALLOW_DAEMON_CONTROL` 关闭时提示正确。
-- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（116 个测试）、`npm run build` 全部通过（2026-10-28）。
-- [x] 构建体积：前端 JS 约 519.0 kB（gzip 141.0 kB），CSS 约 79.8 kB（gzip 17.1 kB），`server.js` 约 63.2 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
+- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（117 个测试）、`npm run build` 全部通过（2026-10-28）。
+- [x] 构建体积：前端 JS 约 519.4 kB（gzip 141.1 kB），CSS 约 79.8 kB（gzip 17.1 kB），`server.js` 约 63.2 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
 - [x] 生产服务器 3101：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、首屏 headless Chrome 通过。
 - [x] 开发服务器 3001：首屏、代理、`/api/import` 400 校验、headless Chrome 通过。
 - [x] 令牌服务器 3102：`/healthz authRequired:true`、无令牌 401、Bearer 200、`/api/import` 无令牌 401、带令牌非法文件 400。
 - [x] 添加 Apache-2.0 `LICENSE`；初始化 Git（`main`）并创建本地基线提交 `6198c59`，不推送。
-- [x] 同步 `README.md`、`PROJECT_INDEX.md`、`MAP.md`、`RUNBOOK.md`、`DECISIONS.md`、`RISKS.md`、`NOW.md`。
+- [x] 同步 `README.md`、`README.zh-CN.md`、`PROJECT_INDEX.md`、`MAP.md`、`RUNBOOK.md`、`DECISIONS.md`、`RISKS.md`、`NOW.md`。
 
 未开始 / 仍未验证：
 
