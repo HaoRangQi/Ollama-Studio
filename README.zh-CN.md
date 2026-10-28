@@ -22,6 +22,25 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 
 当前是**可运行的 Web 应用**。默认只监听本机；如需局域网访问，可显式开启并配置共享令牌。
 
+## 平台支持
+
+**macOS 是主要目标平台**，也是唯一完成完整运行时验收的平台。Linux / Windows 为尽力支持：表格反映代码路径与 CI 结果，不代表已完成完整运行时验收。
+
+图例：✅ 已验证/可用 · ⚠️ 已实现但未完成运行时验收，或部分可用 · ❌ 不可用。
+
+| 能力                       |   macOS    |   Linux    |   Windows   |
+| -------------------------- | :--------: | :--------: | :---------: |
+| 界面、聊天、拉取、模型管理 |     ✅     |     ⚠️     |     ⚠️      |
+| GGUF 导入/导出             |     ✅     |     ⚠️     |     ⚠️      |
+| 缓存扫描/清理              |     ✅     |     ⚠️     |     ⚠️      |
+| 磁盘/内存/CPU 指标         |     ✅     |     ⚠️     |     ⚠️      |
+| GPU 指标                   | ✅ `ioreg` |     ❌     |     ❌      |
+| 守护进程检测/复制命令      |     ✅     | ⚠️ systemd |     ❌      |
+| 自动重启/停止              |     ⚠️     |     ❌     |     ❌      |
+| 环境变量启动命令           |     ✅     |  ✅ POSIX  | ❌ 仅 POSIX |
+
+> macOS 的 Ollama.app / launchd / Homebrew 支持自动 daemon 控制，默认关闭，且尚未对真实重启/停止做运行时验收；Linux systemd 仅只读检测。Windows 下 `npm run clean` 与 README 的 POSIX 示例还需适配。GitHub Actions 目前只在 `ubuntu-latest` 运行，覆盖构建与测试，不覆盖真实 Ollama 会话。
+
 ## 当前状态（核验于 2026-10-28）
 
 - 已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（NDJSON 流式）、`POST /api/pull`（NDJSON 进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`，以及 `ollama create` GGUF 导入与本地 blob 导出。

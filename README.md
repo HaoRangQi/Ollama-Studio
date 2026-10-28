@@ -22,6 +22,25 @@ Ollama Studio brings the day-to-day work of running local models into one interf
 
 This is a **runnable web application**. It listens on localhost by default; LAN access must be enabled explicitly and configured with a shared token.
 
+## Platform Support
+
+**macOS is the primary target** and the only platform with full runtime verification. Linux and Windows are best-effort: the table reflects code paths and CI results, not a complete runtime acceptance run.
+
+Legend: ✅ verified/available · ⚠️ implemented but not fully runtime-verified, or partial · ❌ unavailable.
+
+| Capability | macOS | Linux | Windows |
+| --- | :---: | :---: | :---: |
+| UI, chat, pulls, model management | ✅ | ⚠️ | ⚠️ |
+| GGUF import / export | ✅ | ⚠️ | ⚠️ |
+| Cache scan / cleanup | ✅ | ⚠️ | ⚠️ |
+| Disk / memory / CPU metrics | ✅ | ⚠️ | ⚠️ |
+| GPU metrics | ✅ `ioreg` | ❌ | ❌ |
+| Daemon detection / copyable commands | ✅ | ⚠️ systemd | ❌ |
+| Automatic daemon restart / stop | ⚠️ | ❌ | ❌ |
+| Environment startup command | ✅ | ✅ POSIX | ❌ POSIX only |
+
+> Automatic daemon control is implemented for macOS (Ollama.app / launchd / Homebrew), off by default, and has not been live-tested against a real restart/stop. Linux systemd detection is read-only. On Windows, `npm run clean` and the POSIX-style README examples also need adaptation. GitHub Actions currently runs on `ubuntu-latest` only; it covers build/tests, not a live Ollama session.
+
 ## Current Status (verified 2026-10-28)
 
 - Integrated `GET /api/version`, `GET /api/tags`, `GET /api/ps`, `POST /api/chat` (streaming NDJSON), `POST /api/pull` (NDJSON progress), `DELETE /api/delete`, `POST /api/copy`, `POST /api/create`, plus `ollama create` GGUF import and local blob export.
