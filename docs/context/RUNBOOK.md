@@ -29,7 +29,7 @@
 
 - 命令（本次实际使用）：`npm install --cache .npm-cache --no-audit --no-fund`
 - 前置：项目根目录、Node/npm 可用、可访问 npm registry。
-- 结果：**已执行（2026-10-27/28）通过**。初始安装 180 个包；后续新增 Vitest/ESLint/Prettier 等开发依赖与字体/图标包。
+- 结果：**已执行（2026-10-27/28）通过**。初始安装 180 个包；后续新增 Vitest/ESLint/Prettier 等开发依赖与字体/图标包。2026-10-28 用 `npm ci --cache .npm-cache --no-audit --no-fund` 按锁文件干净安装，added 299 packages，随后全量验证通过。
 - 失败记录：直接 `npm install` 报 `EPERM`，路径 `~/.npm/_cacache/tmp`，原因是默认 npm 缓存包含 root-owned 文件。未执行 `sudo chown`；改用仓库内 `.npm-cache/` 绕过。
 - 验证：`npm ls --depth=0` 可列出版本；锁文件存在。
 - 备注：`.npm-cache/` 已加入 `.gitignore`；CI 使用默认缓存，不受本机权限问题影响（`RISKS.md` R-017）。
@@ -63,8 +63,8 @@
 - 实际执行：`npm run build:web && npm run build:server`
 - 前置：依赖已安装。
 - 结果：**已执行（2026-10-28）通过**。
+  - `dist/assets/index-*.js` 约 449.5 kB（gzip 约 122.2 kB）。
   - `dist/assets/index-*.css` 约 73.2 kB（gzip 约 16.1 kB）。
-  - `dist/assets/index-*.js` 约 446.9 kB（gzip 约 121.4 kB）。
   - `server.js` 约 10.9 kB。
   - 字体与 Material Symbols woff2 作为 `dist/assets/*.woff2` 输出；Material Symbols 全量约 4 MB。
 - 验证：退出码 0；`dist/` 与 `server.js` 存在。

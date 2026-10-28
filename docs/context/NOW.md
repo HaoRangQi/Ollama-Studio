@@ -43,7 +43,7 @@
 ### 验证与仓库
 
 - [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`、`npm run build` 全部通过（2026-10-28）。
-- [x] 构建体积：前端 JS 约 446.9 kB（gzip 121.4 kB），CSS 约 73.2 kB（gzip 16.1 kB），`server.js` 约 10.9 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
+- [x] 构建体积：前端 JS 约 449.5 kB（gzip 122.2 kB），CSS 约 73.2 kB（gzip 16.1 kB），`server.js` 约 10.9 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
 - [x] 生产服务器 3101：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、首屏 headless Chrome 通过。
 - [x] 开发服务器 3001：首屏、代理、`/api/import` 400 校验、headless Chrome 通过。
 - [x] 令牌服务器 3102：`/healthz authRequired:true`、无令牌 401、Bearer 200、`/api/import` 无令牌 401、带令牌非法文件 400。
