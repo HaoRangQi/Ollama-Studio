@@ -47,7 +47,7 @@
 - [x] 生产服务器 3101：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、首屏 headless Chrome 通过。
 - [x] 开发服务器 3001：首屏、代理、`/api/import` 400 校验、headless Chrome 通过。
 - [x] 令牌服务器 3102：`/healthz authRequired:true`、无令牌 401、Bearer 200、`/api/import` 无令牌 401、带令牌非法文件 400。
-- [x] 添加 Apache-2.0 `LICENSE`；初始化 Git（`main`）并创建本地基线提交，不推送。
+- [x] 添加 Apache-2.0 `LICENSE`；初始化 Git（`main`）并创建本地基线提交 `6198c59`，不推送。
 - [x] 同步 `README.md`、`PROJECT_INDEX.md`、`MAP.md`、`RUNBOOK.md`、`DECISIONS.md`、`RISKS.md`、`NOW.md`。
 
 未开始 / 仍未验证：
