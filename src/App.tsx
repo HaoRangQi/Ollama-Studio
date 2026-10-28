@@ -375,14 +375,11 @@ function MainApp() {
     ollama.status === 'online'
       ? ollama.runningCount
       : models.filter((m) => m.status === 'running').length;
-  const loadedVramGb =
+  const loadedVramBytes =
     ollama.status === 'online'
       ? models
           .filter((model) => model.status === 'running')
-          .reduce((sum, model) => {
-            const value = Number.parseFloat(model.vramUsage ?? '');
-            return sum + (Number.isFinite(value) ? value : 0);
-          }, 0)
+          .reduce((sum, model) => sum + (model.sizeVramBytes ?? 0), 0)
       : 0;
 
   return (
@@ -392,7 +389,7 @@ function MainApp() {
         currentScreen={currentScreen}
         onNavigate={setCurrentScreen}
         runningModelCount={runningModelCount}
-        loadedVramGb={loadedVramGb}
+        loadedVramBytes={loadedVramBytes}
         ollamaStatus={ollama.status}
         ollamaVersion={ollama.version}
       />

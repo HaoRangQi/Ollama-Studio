@@ -34,7 +34,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 改生产静态托管/代理/鉴权/端口 | `server.ts`；`package.json` 的 `start` / `build:server` |
 | 改页面或界面模块 | `src/screens/*.tsx`；共享组件在 `src/components/`；页面切换在 `src/App.tsx` |
 | 改移动端导航/响应式 | `src/components/MobileNav.tsx`；`src/components/Sidebar.tsx`；`src/App.tsx`；`src/index.css` |
-| 改主题、配色、明暗模式 | `src/context/ThemeContext.tsx`；`src/index.css`；`src/components/ThemePaletteModal.tsx` |
+| 改主题、配色、明暗模式、自定义强调色 | `src/context/ThemeContext.tsx`（`resolvePalette` / `buildCustomPalette`）；`src/index.css`；`src/components/ThemePaletteModal.tsx` |
 | 改中英文案 | `src/i18n/translations.ts`；调用处 `useAppTheme().t` |
 | 改剩余演示数据/离线回退 | `src/data/mockData.ts`；类型在 `src/types.ts` |
 | 改 GGUF 上传、CLI 预检 | `server/importGguf.ts`；`server.ts` / `vite.config.ts` 的 `/api/import`；`src/api/ollama.ts` 的 `importGguf`；`src/screens/PullScreen.tsx` |

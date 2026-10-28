@@ -18,6 +18,7 @@ export interface OllamaModel {
   speed?: string;
   status: 'running' | 'idle';
   vramUsage?: string;
+  sizeVramBytes?: number;
   gpuLayers?: string;
   kvCache?: string;
   lastUsed?: string;

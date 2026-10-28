@@ -79,6 +79,7 @@ describe('mapOllamaModel', () => {
     const model = mapOllamaModel(tag, running);
     expect(model.status).toBe('running');
     expect(model.vramUsage).toBe('5.0 GB');
+    expect(model.sizeVramBytes).toBe(5_000_000_000);
     expect(model.lastUsed).toContain('保留至');
   });
 

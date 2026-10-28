@@ -83,6 +83,7 @@ export function mapOllamaModel(tag: OllamaTag, running?: OllamaRunning): OllamaM
     speed: running ? '—' : undefined,
     status: running ? 'running' : 'idle',
     vramUsage: running ? formatBytes(running.size_vram) : '—',
+    sizeVramBytes: running?.size_vram ?? 0,
     gpuLayers: running ? '已加载' : '—',
     kvCache: '—',
     lastUsed: running?.expires_at

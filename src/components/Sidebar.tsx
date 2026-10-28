@@ -2,12 +2,13 @@ import React from 'react';
 import { NavScreen } from '../types';
 import { useAppTheme } from '../context/ThemeContext';
 import { OllamaStatus } from '../hooks/useOllama';
+import { formatBytes } from '../api/ollamaMapper';
 
 interface SidebarProps {
   currentScreen: NavScreen;
   onNavigate: (screen: NavScreen) => void;
   runningModelCount: number;
-  loadedVramGb: number;
+  loadedVramBytes: number;
   ollamaStatus: OllamaStatus;
   ollamaVersion: string | null;
 }
@@ -16,7 +17,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentScreen,
   onNavigate,
   runningModelCount,
-  loadedVramGb,
+  loadedVramBytes,
   ollamaStatus,
   ollamaVersion
 }) => {
@@ -150,9 +151,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         <div className="flex items-baseline gap-1">
           <span className="font-headline text-[20px] text-[var(--app-text)] font-bold">
-            {loadedVramGb.toFixed(1)}
+            {loadedVramBytes > 0 ? formatBytes(loadedVramBytes) : '—'}
           </span>
-          <span className="text-[11px] text-[var(--app-text-muted)]">GB</span>
         </div>
         <div className="flex justify-between items-center text-[10px] text-[var(--app-text-muted)] font-code">
           <span>

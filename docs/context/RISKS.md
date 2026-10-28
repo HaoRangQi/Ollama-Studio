@@ -41,6 +41,8 @@
 | R-031 | 真实多模态推理未验证 | 附件测试用页面内 mock `/api/chat` 捕获请求，确认发送 1 张图片 + 3 个视频帧；未让真实模型解析 | 模型可能忽略图片、拒绝图片或返回错误；当前 MiniCPM 1B 的 capabilities 未声明 vision | 用声明 vision 的模型（如 `huihui_ai/qwen3.8-abliterated:27b-q4_K_L`）人工验证一次，记录结果并卸载 | 未验证 |
 | R-032 | 视频抽帧依赖浏览器编解码器 | 仅用 WebM/VP9 验证；H.264/HEVC/MOV 未测 | 部分视频会报“浏览器无法解码”，无法生成帧 | 错误提示换 MP4/WebM；后续测常见格式或引入转码 | 部分缓解 |
 | R-033 | Ollama 不接受 PDF/任意文件 | `/api/chat` 只有 `images` 字段；UI 选择器仅接受 `image/*,video/*`，其他文件明确拒绝 | 用户可能误以为可以上传 PDF/文档 | UI/README 明确边界；PDF 需先转图片或使用其他工具 | 已记录（能力限制） |
+| R-034 | 显存数值曾被放大 1000 倍 | 旧实现 `parseFloat(model.vramUsage)` 把 `formatBytes` 产出的 `926 MB` 解析成数字 926 后按 GB 显示；2026-10-28 CDP 用 mock `/api/ps`（`size_vram: 926000000`）复现并修复，Sidebar 与遥测页现显示 `926 MB` | 用户误判显存占用 | 已改用 `OllamaModel.sizeVramBytes` + `formatBytes`；mapper 单测覆盖 `sizeVramBytes` | 已解决 |
+| R-035 | 自定义强调色可能降低对比度 | 取色器允许任意颜色，过亮色（如 `#eab308`）上的白色按钮文字对比不足 | 可读性下降，WCAG 未达 AA | UI 提示过亮色风险；后续可加自动亮度校正或对比度检测 | 部分缓解 |
 
 ## 建议优先级
 

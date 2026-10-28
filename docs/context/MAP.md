@@ -191,7 +191,7 @@ App.handleStartNewDownload
 - Tailwind CSS v4，通过 `@tailwindcss/vite` 接入；入口 `src/index.css`。
 - `@theme` 把 Tailwind 颜色 token 映射到 `--app-*` / `--primary-*` CSS 变量。
 - `:root` 是深色默认值，`:root.light` 覆盖浅色值；`ThemeContext` 还会写入强调色变量并切换 `.dark` / `.light` class。
-- 强调色预设：`lavender`、`emerald`、`amber`、`sakura`、`cyan`，定义在 `ThemeContext.tsx` 的 `PALETTES`。
+- 强调色预设：`lavender`、`emerald`、`amber`、`sakura`、`cyan`，定义在 `ThemeContext.tsx` 的 `PALETTES`；`custom` 由 `buildCustomPalette` 从用户选的十六进制色派生 container/tint/glow，持久化在 `ollama_custom_accent`。
 - 字体与图标通过 npm 本地打包：`@fontsource-variable/geist`、`plus-jakarta-sans`、`jetbrains-mono`、`material-symbols`；不再使用 Google Fonts。
 - 布局：`lg` 以上显示固定侧栏；以下显示 `MobileNav` 底部导航；Chat 输入框相应调整 `left`/`bottom`。
 - 可访问性：全局 `:focus-visible` 轮廓、`prefers-reduced-motion`、主要图标按钮 `aria-label`；尚未做完整 a11y 审计。

@@ -19,7 +19,8 @@ function writePreference(key: string, value: string): void {
 }
 
 export type ThemeMode = 'dark' | 'light';
-export type AccentPalette = 'lavender' | 'emerald' | 'amber' | 'sakura' | 'cyan';
+export type PresetPalette = 'lavender' | 'emerald' | 'amber' | 'sakura' | 'cyan';
+export type AccentPalette = PresetPalette | 'custom';
 
 export interface PaletteConfig {
   id: AccentPalette;
@@ -32,7 +33,7 @@ export interface PaletteConfig {
   dotColor: string;
 }
 
-export const PALETTES: Record<AccentPalette, PaletteConfig> = {
+export const PALETTES: Record<PresetPalette, PaletteConfig> = {
   lavender: {
     id: 'lavender',
     nameZh: '电光薰衣草',
@@ -85,12 +86,65 @@ export const PALETTES: Record<AccentPalette, PaletteConfig> = {
   }
 };
 
+export const DEFAULT_CUSTOM_ACCENT = '#7952ec';
+
+function normalizeCustomAccent(value: string | null): string {
+  return value && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : DEFAULT_CUSTOM_ACCENT;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  return [
+    Number.parseInt(hex.slice(1, 3), 16),
+    Number.parseInt(hex.slice(3, 5), 16),
+    Number.parseInt(hex.slice(5, 7), 16)
+  ];
+}
+
+function rgbToHex(red: number, green: number, blue: number): string {
+  const channel = (value: number) =>
+    Math.min(255, Math.max(0, Math.round(value)))
+      .toString(16)
+      .padStart(2, '0');
+  return `#${channel(red)}${channel(green)}${channel(blue)}`;
+}
+
+function mixColor(hex: string, target: [number, number, number], amount: number): string {
+  const [red, green, blue] = hexToRgb(hex);
+  return rgbToHex(
+    red + (target[0] - red) * amount,
+    green + (target[1] - green) * amount,
+    blue + (target[2] - blue) * amount
+  );
+}
+
+export function buildCustomPalette(hex: string): PaletteConfig {
+  const primary = normalizeCustomAccent(hex);
+  const [red, green, blue] = hexToRgb(primary);
+  return {
+    id: 'custom',
+    nameZh: '自定义调色盘',
+    nameEn: 'Custom palette',
+    primary,
+    primaryContainer: mixColor(primary, [0, 0, 0], 0.35),
+    tint: mixColor(primary, [255, 255, 255], 0.55),
+    glow: `rgba(${red}, ${green}, ${blue}, 0.45)`,
+    dotColor: primary
+  };
+}
+
+export function resolvePalette(palette: AccentPalette, customAccent: string): PaletteConfig {
+  if (palette === 'custom') return buildCustomPalette(customAccent);
+  return PALETTES[palette] ?? PALETTES.lavender;
+}
+
 interface ThemeContextType {
   themeMode: ThemeMode;
   setThemeMode: (mode: ThemeMode) => void;
   toggleTheme: () => void;
   accentPalette: AccentPalette;
   setAccentPalette: (palette: AccentPalette) => void;
+  customAccent: string;
+  setCustomAccent: (hex: string) => void;
   language: Language;
   setLanguage: (lang: Language) => void;
   toggleLanguage: () => void;
@@ -107,8 +161,13 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const [accentPalette, setAccentPaletteState] = useState<AccentPalette>(() => {
     const stored = readPreference('ollama_accent_palette');
-    return stored && stored in PALETTES ? (stored as AccentPalette) : 'lavender';
+    if (stored === 'custom') return 'custom';
+    return stored && stored in PALETTES ? (stored as PresetPalette) : 'lavender';
   });
+
+  const [customAccent, setCustomAccentState] = useState<string>(() =>
+    normalizeCustomAccent(readPreference('ollama_custom_accent'))
+  );
 
   const [language, setLanguageState] = useState<Language>(() =>
     readPreference('ollama_language') === 'en' ? 'en' : 'zh'
@@ -128,6 +187,14 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     writePreference('ollama_accent_palette', palette);
   };
 
+  const setCustomAccent = (hex: string) => {
+    const normalized = normalizeCustomAccent(hex);
+    setCustomAccentState(normalized);
+    writePreference('ollama_custom_accent', normalized);
+    setAccentPaletteState('custom');
+    writePreference('ollama_accent_palette', 'custom');
+  };
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     writePreference('ollama_language', lang);
@@ -141,7 +208,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     const root = document.documentElement;
     root.lang = language === 'zh' ? 'zh-CN' : 'en';
-    const current = PALETTES[accentPalette] || PALETTES.lavender;
+    const current = resolvePalette(accentPalette, customAccent);
 
     // Dark/Light class
     if (themeMode === 'dark') {
@@ -177,10 +244,10 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       root.style.setProperty('--app-text-muted', '#5c546b');
       root.style.setProperty('--app-border', 'rgba(0, 0, 0, 0.08)');
     }
-  }, [themeMode, accentPalette, language]);
+  }, [themeMode, accentPalette, customAccent, language]);
 
   const t = translations[language] || translations.zh;
-  const currentPaletteConfig = PALETTES[accentPalette] || PALETTES.lavender;
+  const currentPaletteConfig = resolvePalette(accentPalette, customAccent);
 
   return (
     <ThemeContext.Provider
@@ -190,6 +257,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleTheme,
         accentPalette,
         setAccentPalette,
+        customAccent,
+        setCustomAccent,
         language,
         setLanguage,
         toggleLanguage,

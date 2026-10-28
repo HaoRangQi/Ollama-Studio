@@ -1,5 +1,29 @@
 import React from 'react';
-import { useAppTheme, PALETTES, AccentPalette } from '../context/ThemeContext';
+import { useAppTheme, PALETTES, buildCustomPalette } from '../context/ThemeContext';
+
+const CUSTOM_SWATCHES = [
+  '#ef4444',
+  '#f97316',
+  '#f59e0b',
+  '#eab308',
+  '#22c55e',
+  '#10b981',
+  '#14b8a6',
+  '#06b6d4',
+  '#3b82f6',
+  '#6366f1',
+  '#8b5cf6',
+  '#a855f7',
+  '#d946ef',
+  '#ec4899',
+  '#f43f5e',
+  '#64748b'
+];
+
+function randomSwatch(current: string): string {
+  const options = CUSTOM_SWATCHES.filter((color) => color !== current);
+  return options[Math.floor(Math.random() * options.length)] ?? CUSTOM_SWATCHES[0];
+}
 
 interface ThemePaletteModalProps {
   isOpen: boolean;
@@ -7,10 +31,21 @@ interface ThemePaletteModalProps {
 }
 
 export const ThemePaletteModal: React.FC<ThemePaletteModalProps> = ({ isOpen, onClose }) => {
-  const { themeMode, setThemeMode, accentPalette, setAccentPalette, language, setLanguage, t } =
-    useAppTheme();
+  const {
+    themeMode,
+    setThemeMode,
+    accentPalette,
+    setAccentPalette,
+    customAccent,
+    setCustomAccent,
+    language,
+    setLanguage,
+    t
+  } = useAppTheme();
 
   if (!isOpen) return null;
+
+  const customPreview = buildCustomPalette(customAccent);
 
   return (
     <div
@@ -18,7 +53,7 @@ export const ThemePaletteModal: React.FC<ThemePaletteModalProps> = ({ isOpen, on
       onClick={onClose}
     >
       <div
-        className="bg-[var(--app-surface-high)] border border-[var(--app-border)] text-[var(--app-text)] rounded-[2.5rem] p-6 lg:p-8 max-w-xl w-full shadow-2xl flex flex-col gap-6 transform transition-transform"
+        className="bg-[var(--app-surface-high)] border border-[var(--app-border)] text-[var(--app-text)] rounded-[2.5rem] p-6 lg:p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl flex flex-col gap-6 transform transition-transform"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -97,7 +132,7 @@ export const ThemePaletteModal: React.FC<ThemePaletteModalProps> = ({ isOpen, on
             {t.paletteModal.paletteTitle}
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {(Object.keys(PALETTES) as AccentPalette[]).map((key) => {
+            {(Object.keys(PALETTES) as Array<keyof typeof PALETTES>).map((key) => {
               const pal = PALETTES[key];
               const isSelected = accentPalette === key;
               const displayName = language === 'zh' ? pal.nameZh : pal.nameEn;
@@ -136,6 +171,83 @@ export const ThemePaletteModal: React.FC<ThemePaletteModalProps> = ({ isOpen, on
                 </button>
               );
             })}
+          </div>
+
+          <div
+            className={`mt-1 flex flex-col gap-3 rounded-2xl border p-3.5 transition-all ${
+              accentPalette === 'custom'
+                ? 'border-[var(--primary-accent)] bg-[var(--app-surface)] shadow-md ring-1 ring-[var(--primary-accent)]'
+                : 'border-[var(--app-border)]'
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="w-5 h-5 rounded-full shadow-sm shrink-0"
+                  style={{ backgroundColor: customAccent }}
+                />
+                <div className="flex flex-col">
+                  <span className="text-[13px] font-semibold text-[var(--app-text)]">
+                    {language === 'zh' ? '自定义调色盘' : 'Custom palette'}
+                  </span>
+                  <span className="text-[10px] font-code text-[var(--app-text-muted)]">
+                    {customAccent}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span
+                    className="w-3 h-3 rounded-full opacity-80"
+                    style={{ backgroundColor: customPreview.tint }}
+                  />
+                  <span
+                    className="w-3 h-3 rounded-full opacity-60"
+                    style={{ backgroundColor: customPreview.primaryContainer }}
+                  />
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCustomAccent(randomSwatch(customAccent))}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] border border-[var(--app-border)] text-[11px] font-medium transition-colors cursor-pointer"
+                  title={language === 'zh' ? '随机颜色' : 'Random color'}
+                >
+                  <span className="material-symbols-outlined text-[15px]">casino</span>
+                  <span>{language === 'zh' ? '随机' : 'Random'}</span>
+                </button>
+                <label className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] border border-[var(--app-border)] text-[11px] font-medium transition-colors cursor-pointer">
+                  <span className="material-symbols-outlined text-[15px]">colorize</span>
+                  <span>{language === 'zh' ? '选颜色' : 'Pick'}</span>
+                  <input
+                    type="color"
+                    value={customAccent}
+                    onChange={(event) => setCustomAccent(event.target.value)}
+                    className="sr-only"
+                    aria-label={language === 'zh' ? '选择强调色' : 'Choose accent color'}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {CUSTOM_SWATCHES.map((color) => (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setCustomAccent(color)}
+                  aria-label={color}
+                  title={color}
+                  className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 cursor-pointer ${
+                    customAccent === color ? 'border-[var(--app-text)]' : 'border-transparent'
+                  }`}
+                  style={{ backgroundColor: color }}
+                />
+              ))}
+            </div>
+            <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+              {language === 'zh'
+                ? '过亮的颜色可能降低强调色按钮上的文字对比度。'
+                : 'Very light colors may reduce text contrast on accent buttons.'}
+            </p>
           </div>
         </div>
 

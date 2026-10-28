@@ -403,7 +403,13 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
       {/* 3. 主展示区：双列架构 (左：模型卡片流，右：M3 详细配置抽屉) */}
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
         {/* 左侧：模型卡片流 (7 列) */}
-        <div className="xl:col-span-7 flex flex-col gap-4">
+        <div
+          className={`xl:col-span-7 ${
+            layoutMode === 'grid'
+              ? 'grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch'
+              : 'flex flex-col gap-4'
+          }`}
+        >
           {filteredModels.map((model) => {
             const isSelected = model.id === model.id;
             const isRunning = model.status === 'running';
@@ -412,7 +418,9 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
               <div
                 key={model.id}
                 onClick={() => onSelectModel(model)}
-                className={`group relative bg-[var(--app-surface-high)] rounded-[2rem] p-6 transition-all duration-200 cursor-pointer border ${
+                className={`group relative bg-[var(--app-surface-high)] rounded-[2rem] p-6 transition-all duration-200 cursor-pointer border flex flex-col ${
+                  layoutMode === 'grid' ? 'h-full' : ''
+                } ${
                   isSelected
                     ? 'border-transparent shadow-xl ring-2'
                     : 'border-[var(--app-border)] hover:border-white/20 shadow-md'
@@ -500,7 +508,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                 </div>
 
                 {/* 卡片底部动作条 */}
-                <div className="mt-4 pt-3 flex items-center justify-between bg-[var(--app-surface)] px-4 py-2.5 rounded-2xl border border-[var(--app-border)]">
+                <div className="mt-auto pt-3 flex items-center justify-between bg-[var(--app-surface)] px-4 py-2.5 rounded-2xl border border-[var(--app-border)]">
                   <div className="flex items-center gap-2 text-[var(--app-text-muted)] text-[11px]">
                     <span className="material-symbols-outlined text-[16px] text-[#ffafd3]">
                       schedule

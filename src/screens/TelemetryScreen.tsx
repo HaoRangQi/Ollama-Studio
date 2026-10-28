@@ -3,6 +3,7 @@ import { DaemonConfig, DaemonLog } from '../types';
 import { INITIAL_DAEMON_CONFIG } from '../data/mockData';
 import { useOllama } from '../hooks/useOllama';
 import { OLLAMA_BASE } from '../api/ollama';
+import { formatBytes } from '../api/ollamaMapper';
 import { useAppTheme } from '../context/ThemeContext';
 
 export const TelemetryScreen: React.FC = () => {
@@ -146,10 +147,7 @@ export const TelemetryScreen: React.FC = () => {
 
   const totalModelGb = ollama.models.reduce((sum, model) => sum + model.sizeGb, 0);
   const runningModels = ollama.models.filter((model) => model.status === 'running');
-  const loadedVramGb = runningModels.reduce((sum, model) => {
-    const value = Number.parseFloat(model.vramUsage ?? '0');
-    return sum + (Number.isFinite(value) ? value : 0);
-  }, 0);
+  const loadedVramBytes = runningModels.reduce((sum, model) => sum + (model.sizeVramBytes ?? 0), 0);
   const topModels = [...ollama.models].sort((a, b) => b.sizeGb - a.sizeGb).slice(0, 4);
   const totalForBar = Math.max(totalModelGb, 1);
   const runningPercent = ollama.models.length
@@ -371,7 +369,9 @@ export const TelemetryScreen: React.FC = () => {
             </div>
             <div className="flex items-center justify-between">
               <span>{language === 'zh' ? '已加载显存' : 'Loaded VRAM'}</span>
-              <span className="text-[var(--app-text)] font-code">{loadedVramGb.toFixed(1)} GB</span>
+              <span className="text-[var(--app-text)] font-code">
+                {loadedVramBytes > 0 ? formatBytes(loadedVramBytes) : '—'}
+              </span>
             </div>
             <div className="flex items-center justify-between gap-2">
               <span>{language === 'zh' ? '代理端点' : 'Proxy'}</span>
@@ -415,10 +415,8 @@ export const TelemetryScreen: React.FC = () => {
                 <span className="text-[14px] text-[var(--app-text-muted)]"> models</span>
               </span>
               <span className="font-code text-[15px] text-[var(--app-text)] font-semibold">
-                {loadedVramGb.toFixed(1)}{' '}
-                <span className="text-[11px] text-[var(--app-text-muted)] font-normal">
-                  GB VRAM
-                </span>
+                {loadedVramBytes > 0 ? formatBytes(loadedVramBytes) : '—'}{' '}
+                <span className="text-[11px] text-[var(--app-text-muted)] font-normal">VRAM</span>
               </span>
             </div>
 
@@ -427,10 +425,10 @@ export const TelemetryScreen: React.FC = () => {
                 <div className="w-full h-[8%] rounded-full bg-[var(--app-surface-highest)]" />
               ) : (
                 runningModels.slice(0, 12).map((model) => {
-                  const vram = Number.parseFloat(model.vramUsage ?? '0') || 0;
+                  const vram = model.sizeVramBytes ?? 0;
                   const height = Math.max(
                     12,
-                    Math.min(100, (vram / Math.max(loadedVramGb, 1)) * 100)
+                    Math.min(100, (vram / Math.max(loadedVramBytes, 1)) * 100)
                   );
                   return (
                     <div
@@ -441,7 +439,7 @@ export const TelemetryScreen: React.FC = () => {
                         backgroundColor: 'var(--primary-accent)',
                         opacity: 0.55 + height / 220
                       }}
-                      title={`${model.fullTag} · ${vram.toFixed(1)} GB`}
+                      title={`${model.fullTag} · ${formatBytes(vram)}`}
                     />
                   );
                 })

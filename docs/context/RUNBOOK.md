@@ -85,6 +85,9 @@
 - 可调输入框补充验证（2026-10-28）：CDP 拖拽顶部手柄把 textarea 从 23px 调到 143px，输入 12 行文本后高度保持 143px 且出现滚动；刷新后高度仍为 143px（`ollama_chat_input_height_v1`）；双击手柄恢复 23px 并清除存储键。
 - 输入框默认高度与横向滚动条补充验证（2026-10-28）：新会话空内容时 textarea 高度为 96px，`scrollWidth === clientWidth`（824/824），`overflow-x: hidden`；拖到 236px 后仍无横向溢出；输入 12 行后 `scrollHeight 273 > clientHeight 236`（仅纵向滚动）；双击手柄恢复自动高度 200px（内容较多）并清除手动高度。
 - 图片/视频附件验证（2026-10-28）：CDP 通过 `DOM.setFileInputFiles` 同时选择一张 PNG 和一段 1 秒 WebM；待发送缩略图为 2 个，视频标记“视频 · 3”，发送按钮可用；点击发送后，页面内 mock 的 `/api/chat` 捕获最后一条 user message 的 `images` 为 4（1 张图片 + 3 个视频帧），`content` 为默认“请描述这些附件的内容。”；用户消息显示 2 个附件，`ollama_chat_sessions_v2` 包含 `attachments`。**未执行真实视觉模型推理**。
+- 网格/列表切换验证（2026-10-28）：CDP 在模型库点击“列表视图”——容器类名由 `grid grid-cols-1 sm:grid-cols-2` 变为 `flex flex-col`；两张真实模型卡片的 `top` 从相同（638/638）变为堆叠（638/871）；再点“网格视图”恢复两列。
+- 显存单位验证（2026-10-28）：CDP 注入 mock `/api/version`、`/api/tags`、`/api/ps`（`size_vram: 926000000`）后刷新——侧栏与遥测页均显示 `926 MB`，不再出现 `926.0 GB`。未加载真实模型。
+- 自定义调色盘验证（2026-10-28）：CDP 设置取色器为 `#22c55e`——根元素 `--primary-accent` 变为 `#22c55e`、`--primary-glow` 变为 `rgba(34, 197, 94, 0.45)`；`localStorage` 写入 `ollama_accent_palette=custom` 与 `ollama_custom_accent=#22c55e`；弹窗显示“自定义调色盘”区块与选中色板。
 - 搜索结果列表补充验证（2026-10-28）：CDP 在 1600×1300 视口搜索 `qwen`——首屏 6 条长条卡片、4 个页码、范围文本 `1–6 / 24`；点击页码 2 后首条结果变化且 `aria-current=2`；展开量化标签从 8 个变为 12 个。截图临时保存在 `/tmp`，未提交。
 - 每页条数补充验证（2026-10-28）：CDP 切换 `每页` 选择器——6 条/4 页、12 条/2 页、24 条/1 页（页码隐藏）、再回 6 条/4 页；每次范围文本同步更新，`ollama_catalog_page_size_v1` 依次为 12/24/6。截图临时保存在 `/tmp`，未提交。
 - 量化选中与行内下载补充验证（2026-10-28）：CDP 在搜索结果中点击 `Q4_1`，`aria-pressed=true`，计算背景为 `rgb(121, 82, 236)`（主题强调色）；“下载 Q4_1”触发 `/api/pull`（测试时用页面内 mock NDJSON，未发起真实下载），任务卡显示 `hf.co/unsloth/Qwen3.8-27B-GGUF:Q4_1`、toast 出现，页面滚动到任务卡附近（`scrollY≈115`）。“仅填入命令”保留只填 CLI 的行为。
