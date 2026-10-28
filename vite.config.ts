@@ -3,7 +3,13 @@ import react from '@vitejs/plugin-react';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
+import { handleDownloadsRequest } from './server/downloads.ts';
+import { handleCacheRequest } from './server/cache.ts';
+import { handleExportRequest } from './server/exportGguf.ts';
+import { handleMetricsRequest } from './server/metrics.ts';
+import { handleDaemonControlRequest, handleDaemonRequest } from './server/daemon.ts';
 import { GgufImportError, importGgufStream } from './server/importGguf.ts';
+import { handleModelScopePullRequest, handleModelScopeSearchRequest } from './server/modelscope.ts';
 
 type Middleware = (request: IncomingMessage, response: ServerResponse, next: () => void) => void;
 
@@ -40,6 +46,44 @@ export default defineConfig(({ mode }) => {
     configureServer(server: { middlewares: { use: (path: string, handler: Middleware) => void } }) {
       server.middlewares.use('/ollama', requireToken);
       server.middlewares.use('/api/import', requireToken);
+      server.middlewares.use('/api/modelscope', requireToken);
+      server.middlewares.use('/api/downloads', requireToken);
+      server.middlewares.use('/api/cache', requireToken);
+      server.middlewares.use('/api/export', requireToken);
+      server.middlewares.use('/api/metrics', requireToken);
+      server.middlewares.use('/api/daemon', requireToken);
+      server.middlewares.use('/api/cache', (request, response) => {
+        void handleCacheRequest(request, response);
+      });
+      server.middlewares.use('/api/downloads', (request, response) => {
+        void handleDownloadsRequest(request, response, ollamaHost);
+      });
+      server.middlewares.use('/api/export', (request, response) => {
+        void handleExportRequest(request, response);
+      });
+      server.middlewares.use('/api/metrics', (request, response) => {
+        void handleMetricsRequest(request, response);
+      });
+      server.middlewares.use('/api/daemon/control', (request, response) => {
+        void handleDaemonControlRequest(request, response);
+      });
+      server.middlewares.use('/api/daemon', (request, response) => {
+        void handleDaemonRequest(request, response);
+      });
+      server.middlewares.use('/api/modelscope/search', (request, response, next) => {
+        if (request.method !== 'GET') {
+          next();
+          return;
+        }
+        void handleModelScopeSearchRequest(request, response);
+      });
+      server.middlewares.use('/api/modelscope/pull', (request, response, next) => {
+        if (request.method !== 'POST') {
+          next();
+          return;
+        }
+        void handleModelScopePullRequest(request, response, ollamaHost);
+      });
       server.middlewares.use('/api/import', (request, response, next) => {
         if (request.method !== 'POST') {
           next();

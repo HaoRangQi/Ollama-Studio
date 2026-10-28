@@ -64,8 +64,22 @@ export interface CuratedHubModel {
   tagNoteEn?: string;
 }
 
+/** 下载来源：Ollama 原生 pull，或 ModelScope 服务端下载 + ollama create。 */
+export type DownloadKind = 'pull' | 'modelscope';
+
+/** ModelScope 任务的原始仓库信息；失败重试与刷新后恢复都需要它。 */
+export interface ModelScopeDownloadSource {
+  namespace: string;
+  name: string;
+  file: string;
+  quant: string;
+  modelName: string;
+}
+
 export interface DownloadTask {
+  /** 服务端后台任务 ID（`dl-…`）；下载在服务端继续，刷新后据此重新接上。 */
   id: string;
+  kind?: DownloadKind;
   modelName: string;
   quant: string;
   layerStatus: string;
@@ -81,6 +95,8 @@ export interface DownloadTask {
   isComplete?: boolean;
   isInterrupted?: boolean;
   error?: string;
+  /** 仅 ModelScope 任务：重试时重建下载所需的仓库与文件信息。 */
+  source?: ModelScopeDownloadSource;
 }
 
 export interface ChatAttachment {

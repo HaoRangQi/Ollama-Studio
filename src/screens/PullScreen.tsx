@@ -1,11 +1,28 @@
 import React, { useState } from 'react';
 import { CuratedHubModel, DownloadTask } from '../types';
 import { INITIAL_CURATED_MODELS } from '../data/mockData';
-import { searchHuggingFaceCatalog, searchOllamaCatalog } from '../api/catalog';
+import {
+  findModelScopeFile,
+  searchHuggingFaceCatalog,
+  searchModelScopeCatalog,
+  searchOllamaCatalog
+} from '../api/catalog';
 import type { CatalogSearchResult, CatalogSource } from '../api/catalog';
 import { CatalogResultRow } from '../components/CatalogResultRow';
 import { useAppTheme } from '../context/ThemeContext';
 import { readStorageJson, writeStorageJson } from '../lib/storage';
+import { isModelScopeTask } from '../lib/downloadTask';
+
+/** 手动复现 ModelScope 下载时可执行的命令（应用内走服务端下载 + ollama create）。 */
+const buildModelScopeCommand = (modelId: string, file: string) => {
+  const filename = file.split('/').pop() ?? file;
+  const modelName =
+    filename
+      .replace(/\.gguf$/i, '')
+      .replace(/[^a-zA-Z0-9._-]+/g, '-')
+      .toLowerCase() || 'model';
+  return `curl -L -o ${filename} "https://modelscope.cn/models/${modelId}/resolve/master/${file}" && ollama create ${modelName} -f Modelfile`;
+};
 
 const CATALOG_PAGE_SIZE_OPTIONS = [6, 12, 24] as const;
 const DEFAULT_CATALOG_PAGE_SIZE = 6;
@@ -15,22 +32,32 @@ interface PullScreenProps {
   downloadTask: DownloadTask;
   onPauseDownload: () => void;
   onResumeDownload: () => void;
+  onRetryDownload: () => void;
   onCancelDownload: () => void;
   onOpenQuantPicker: () => void;
   selectedQuant: string;
   onImportGguf: (file: File) => Promise<void>;
   onStartNewDownload: (modelName: string) => void;
+  onStartModelScopeDownload: (target: {
+    namespace: string;
+    name: string;
+    file: string;
+    quant: string;
+    modelName: string;
+  }) => void;
 }
 
 export const PullScreen: React.FC<PullScreenProps> = ({
   downloadTask,
   onPauseDownload,
   onResumeDownload,
+  onRetryDownload,
   onCancelDownload,
   onOpenQuantPicker,
   selectedQuant,
   onImportGguf,
-  onStartNewDownload
+  onStartNewDownload,
+  onStartModelScopeDownload
 }) => {
   const { t, language } = useAppTheme();
   const [pullInput, setPullInput] = useState('ollama pull deepseek-r1:14b');
@@ -40,7 +67,16 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   const [curatedList, setCuratedList] = useState<CuratedHubModel[]>(INITIAL_CURATED_MODELS);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [catalogQuery, setCatalogQuery] = useState('');
-  const [catalogSource, setCatalogSource] = useState<CatalogSource>('huggingface');
+  // ModelScope 作为默认渠道：国内网络下 Hugging Face 常被阻断。
+  const [catalogSource, setCatalogSource] = useState<CatalogSource>('modelscope');
+  const catalogSourceLabel =
+    catalogSource === 'modelscope'
+      ? 'ModelScope'
+      : catalogSource === 'huggingface'
+        ? 'Hugging Face'
+        : language === 'zh'
+          ? 'Ollama 库'
+          : 'Ollama library';
   const [catalogResults, setCatalogResults] = useState<CatalogSearchResult[]>([]);
   const [catalogLoading, setCatalogLoading] = useState(false);
   const [catalogError, setCatalogError] = useState<string | null>(null);
@@ -56,6 +92,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   });
   const [expandedQuants, setExpandedQuants] = useState<Record<string, boolean>>({});
   const [selectedQuants, setSelectedQuants] = useState<Record<string, string>>({});
+  // 记录"已展开"的错误文本本身，换新错误时自动回到折叠态，无需 effect
+  const [expandedError, setExpandedError] = useState<string | null>(null);
 
   const revealDownloadTask = () => {
     window.setTimeout(() => {
@@ -80,6 +118,22 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     onStartNewDownload(raw);
     showToast(language === 'zh' ? `正在开始拉取: ${raw}` : `Starting pull: ${raw}`);
     revealDownloadTask();
+  };
+
+  // 失败的 pull 任务只记录了模型名；把可编辑的命令填回输入框，便于修正后重跑。
+  const handleEditFailedCommand = () => {
+    if (!downloadTask.error || isModelScopeTask(downloadTask)) return;
+    setPullInput(`ollama pull ${downloadTask.modelName}`);
+    window.requestAnimationFrame(() => {
+      const input = document.getElementById('pull-command-input') as HTMLInputElement | null;
+      input?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      input?.focus();
+    });
+    showToast(
+      language === 'zh'
+        ? '已填入原命令，修改后点击“拉取权重”'
+        : 'Original command filled; edit it and run'
+    );
   };
 
   const handleQuickPullModel = (modelTag: string) => {
@@ -155,9 +209,11 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     setSelectedQuants({});
     try {
       const results =
-        catalogSource === 'huggingface'
-          ? await searchHuggingFaceCatalog(query)
-          : await searchOllamaCatalog(query);
+        catalogSource === 'modelscope'
+          ? await searchModelScopeCatalog(query)
+          : catalogSource === 'huggingface'
+            ? await searchHuggingFaceCatalog(query)
+            : await searchOllamaCatalog(query);
       setCatalogResults(results);
       if (results.length === 0) {
         setCatalogError(
@@ -175,6 +231,19 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   };
 
   const handleUseCatalogModel = (result: CatalogSearchResult, quant?: string) => {
+    if (result.source === 'modelscope') {
+      const chosen = quant ?? result.quants?.[0];
+      const file = chosen ? findModelScopeFile(result.files, chosen) : undefined;
+      if (!file) {
+        showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
+        return;
+      }
+      const command = buildModelScopeCommand(result.name, file);
+      setPullInput(command);
+      showToast(language === 'zh' ? `已填入命令：${command}` : `Command filled: ${command}`);
+      return;
+    }
+
     if (result.source === 'huggingface' && !quant) {
       showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
       return;
@@ -190,6 +259,31 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   };
 
   const handleDownloadCatalogModel = (result: CatalogSearchResult, quant?: string) => {
+    if (result.source === 'modelscope') {
+      const chosen = quant ?? result.quants?.[0];
+      if (!chosen) {
+        showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
+        return;
+      }
+      const file = findModelScopeFile(result.files, chosen);
+      const [namespace, name] = result.name.split('/');
+      if (!file || !namespace || !name) {
+        showToast(language === 'zh' ? '未找到对应的 GGUF 文件' : 'No matching GGUF file found');
+        return;
+      }
+      setPullInput(buildModelScopeCommand(result.name, file));
+      onStartModelScopeDownload({
+        namespace,
+        name,
+        file,
+        quant: chosen,
+        modelName: result.name
+      });
+      showToast(language === 'zh' ? `已开始下载：${result.name}` : `Downloading: ${result.name}`);
+      revealDownloadTask();
+      return;
+    }
+
     if (result.source === 'huggingface' && !quant) {
       showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
       return;
@@ -271,6 +365,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 $
               </span>
               <input
+                id="pull-command-input"
                 type="text"
                 value={pullInput}
                 onChange={(e) => setPullInput(e.target.value)}
@@ -319,7 +414,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
             className="relative bg-[var(--app-surface-high)] rounded-3xl p-6 shadow-xl overflow-hidden border border-[var(--app-border)] transition-transform scroll-mt-24"
           >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-              <div className="flex items-start sm:items-center gap-4">
+              <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
                 <div
                   className="relative w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border border-[var(--app-border)]"
                   style={{ backgroundColor: 'var(--app-surface)' }}
@@ -389,8 +484,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
               </div>
 
               {/* 右侧速率指标与控制器 */}
-              <div className="flex items-center gap-4 self-end lg:self-center">
-                <div className="flex items-baseline gap-2 bg-[var(--app-surface)] px-4 py-1.5 rounded-full border border-[var(--app-border)]">
+              <div className="flex items-center gap-4 self-end lg:self-center shrink-0">
+                <div className="flex items-baseline gap-2 bg-[var(--app-surface)] px-4 py-1.5 rounded-full border border-[var(--app-border)] whitespace-nowrap">
                   <span className="text-[11px] text-[var(--app-text-muted)]">{t.pull.rate}</span>
                   <span
                     className="font-code text-[13px] font-bold"
@@ -432,6 +527,21 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                     >
                       <span className="material-symbols-outlined text-[18px]">
                         {downloadTask.isPaused ? 'play_arrow' : 'pause'}
+                      </span>
+                    </button>
+                  )}
+                  {downloadTask.error && (
+                    <button
+                      onClick={() => {
+                        onRetryDownload();
+                        showToast(language === 'zh' ? '正在重试…' : 'Retrying…');
+                      }}
+                      className="h-9 px-3 rounded-full bg-[var(--app-surface)] hover:bg-[var(--app-surface-highest)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] flex items-center justify-center gap-1.5 transition-all cursor-pointer border border-[var(--app-border)]"
+                      title={language === 'zh' ? '重新下载' : 'Retry download'}
+                    >
+                      <span className="material-symbols-outlined text-[18px]">refresh</span>
+                      <span className="text-[12px] font-medium">
+                        {language === 'zh' ? '重试' : 'Retry'}
                       </span>
                     </button>
                   )}
@@ -483,9 +593,53 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 </span>
                 <span className="text-[var(--app-text-muted)] truncate">{downloadTask.sha256}</span>
               </div>
-              {downloadTask.error && (
-                <p className="text-[11px] text-[#ffb4ab] px-1 break-words">{downloadTask.error}</p>
-              )}
+              {downloadTask.error &&
+                (() => {
+                  const errorText = downloadTask.error as string;
+                  const isExpanded = expandedError === errorText;
+                  const retryCommand = isModelScopeTask(downloadTask)
+                    ? `ModelScope · ${downloadTask.source?.file ?? downloadTask.targetPath}`
+                    : `ollama pull ${downloadTask.modelName}`;
+                  return (
+                    <div className="px-1">
+                      <p
+                        className={`text-[11px] text-[var(--app-danger-text)] break-all whitespace-pre-line ${
+                          isExpanded ? '' : 'line-clamp-2'
+                        }`}
+                      >
+                        {errorText}
+                      </p>
+                      <p className="text-[11px] text-[var(--app-text-muted)] font-code break-all mt-1">
+                        {language === 'zh' ? '将重跑：' : 'Will retry: '}
+                        {retryCommand}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
+                        {errorText.length > 120 && (
+                          <button
+                            onClick={() => setExpandedError(isExpanded ? null : errorText)}
+                            className="text-[11px] text-[var(--app-text-muted)] hover:text-[var(--app-text)] underline cursor-pointer"
+                          >
+                            {isExpanded
+                              ? language === 'zh'
+                                ? '收起'
+                                : 'Collapse'
+                              : language === 'zh'
+                                ? '展开完整错误'
+                                : 'Show full error'}
+                          </button>
+                        )}
+                        {!isModelScopeTask(downloadTask) && (
+                          <button
+                            onClick={handleEditFailedCommand}
+                            className="text-[11px] text-[var(--primary-accent)] hover:underline cursor-pointer"
+                          >
+                            {language === 'zh' ? '编辑命令' : 'Edit command'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
             </div>
           </div>
         )}
@@ -616,24 +770,24 @@ export const PullScreen: React.FC<PullScreenProps> = ({
           <div>
             <h3 className="font-headline text-[22px] text-[var(--app-text)] font-bold">
               {catalogSearched
-                ? catalogSource === 'huggingface'
-                  ? language === 'zh'
-                    ? 'Hugging Face 搜索结果'
-                    : 'Hugging Face results'
-                  : language === 'zh'
-                    ? 'Ollama 库搜索结果'
-                    : 'Ollama library results'
+                ? language === 'zh'
+                  ? `${catalogSourceLabel} 搜索结果`
+                  : `${catalogSourceLabel} results`
                 : t.pull.hubTitle}
             </h3>
             <p className="text-[13px] text-[var(--app-text-muted)]">
               {catalogSearched
-                ? catalogSource === 'huggingface'
+                ? catalogSource === 'modelscope'
                   ? language === 'zh'
-                    ? '来自 huggingface.co，仅 GGUF 仓库，按下载量排序'
-                    : 'From huggingface.co, GGUF repos only, sorted by downloads'
-                  : language === 'zh'
-                    ? '来自 ollama.com，按关键词匹配'
-                    : 'From ollama.com, matched by keyword'
+                    ? '来自 modelscope.cn，自动补 GGUF 关键词，下载走本地服务'
+                    : 'From modelscope.cn, GGUF repos only, downloaded by the local server'
+                  : catalogSource === 'huggingface'
+                    ? language === 'zh'
+                      ? '来自 huggingface.co，仅 GGUF 仓库，按下载量排序'
+                      : 'From huggingface.co, GGUF repos only, sorted by downloads'
+                    : language === 'zh'
+                      ? '来自 ollama.com，按关键词匹配'
+                      : 'From ollama.com, matched by keyword'
                 : t.pull.hubSubtitle}
             </p>
           </div>
@@ -653,45 +807,40 @@ export const PullScreen: React.FC<PullScreenProps> = ({
         <div className="flex flex-col gap-2 bg-[var(--app-surface)] border border-[var(--app-border)] rounded-2xl p-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div className="flex items-center gap-1 p-1 rounded-full bg-[var(--app-surface-high)] border border-[var(--app-border)] w-fit">
-              <button
-                onClick={() => handleCatalogSourceChange('huggingface')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
-                  catalogSource === 'huggingface'
-                    ? 'text-white'
-                    : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-                }`}
-                style={
-                  catalogSource === 'huggingface'
-                    ? { backgroundColor: 'var(--primary-accent)' }
-                    : {}
-                }
-              >
-                <span className="material-symbols-outlined text-[15px]">deployed_code</span>
-                <span>Hugging Face</span>
-              </button>
-              <button
-                onClick={() => handleCatalogSourceChange('ollama')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
-                  catalogSource === 'ollama'
-                    ? 'text-white'
-                    : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-                }`}
-                style={
-                  catalogSource === 'ollama' ? { backgroundColor: 'var(--primary-accent)' } : {}
-                }
-              >
-                <span className="material-symbols-outlined text-[15px]">travel_explore</span>
-                <span>Ollama 官方</span>
-              </button>
+              {(
+                [
+                  { key: 'modelscope', label: 'ModelScope', icon: 'cloud_download' },
+                  { key: 'huggingface', label: 'Hugging Face', icon: 'deployed_code' },
+                  { key: 'ollama', label: 'Ollama 官方', icon: 'travel_explore' }
+                ] as const
+              ).map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  onClick={() => handleCatalogSourceChange(key)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
+                    catalogSource === key
+                      ? 'text-white'
+                      : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
+                  }`}
+                  style={catalogSource === key ? { backgroundColor: 'var(--primary-accent)' } : {}}
+                >
+                  <span className="material-symbols-outlined text-[15px]">{icon}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
             <span className="text-[10px] text-[var(--app-text-muted)] px-1">
-              {catalogSource === 'huggingface'
+              {catalogSource === 'modelscope'
                 ? language === 'zh'
-                  ? 'Hugging Face JSON API · 仅 GGUF 仓库'
-                  : 'Hugging Face JSON API · GGUF repos only'
-                : language === 'zh'
-                  ? 'ollama.com 网页搜索 · 只读'
-                  : 'ollama.com web search · read-only'}
+                  ? 'ModelScope API · 仅 GGUF 仓库 · 服务端下载'
+                  : 'ModelScope API · GGUF repos only · server-side download'
+                : catalogSource === 'huggingface'
+                  ? language === 'zh'
+                    ? 'Hugging Face JSON API · 仅 GGUF 仓库'
+                    : 'Hugging Face JSON API · GGUF repos only'
+                  : language === 'zh'
+                    ? 'ollama.com 网页搜索 · 只读'
+                    : 'ollama.com web search · read-only'}
             </span>
           </div>
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -720,13 +869,17 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                   }
                 }}
                 placeholder={
-                  catalogSource === 'huggingface'
+                  catalogSource === 'modelscope'
                     ? language === 'zh'
-                      ? '搜索 Hugging Face GGUF，例如 qwen、coder、vision…'
-                      : 'Search Hugging Face GGUF, e.g. qwen, coder, vision…'
-                    : language === 'zh'
-                      ? '搜索 Ollama 模型库，例如 qwen、coder、vision…'
-                      : 'Search Ollama models, e.g. qwen, coder, vision…'
+                      ? '搜索 ModelScope GGUF，例如 qwen、coder、vision…'
+                      : 'Search ModelScope GGUF, e.g. qwen, coder, vision…'
+                    : catalogSource === 'huggingface'
+                      ? language === 'zh'
+                        ? '搜索 Hugging Face GGUF，例如 qwen、coder、vision…'
+                        : 'Search Hugging Face GGUF, e.g. qwen, coder, vision…'
+                      : language === 'zh'
+                        ? '搜索 Ollama 模型库，例如 qwen、coder、vision…'
+                        : 'Search Ollama models, e.g. qwen, coder, vision…'
                 }
                 className="bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[13px] w-full text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
               />
@@ -757,20 +910,26 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                     ? language === 'zh'
                       ? '搜索中…'
                       : 'Searching…'
-                    : catalogSource === 'huggingface'
+                    : catalogSource === 'modelscope'
                       ? language === 'zh'
-                        ? '搜索 Hugging Face'
-                        : 'Search Hugging Face'
-                      : language === 'zh'
-                        ? '搜索 Ollama 库'
-                        : 'Search Ollama'}
+                        ? '搜索 ModelScope'
+                        : 'Search ModelScope'
+                      : catalogSource === 'huggingface'
+                        ? language === 'zh'
+                          ? '搜索 Hugging Face'
+                          : 'Search Hugging Face'
+                        : language === 'zh'
+                          ? '搜索 Ollama 库'
+                          : 'Search Ollama'}
                 </span>
               </button>
               <a
                 href={
-                  catalogSource === 'huggingface'
-                    ? `https://huggingface.co/models?search=${encodeURIComponent(catalogQuery.trim())}&library=gguf`
-                    : `https://ollama.com/search?q=${encodeURIComponent(catalogQuery.trim())}`
+                  catalogSource === 'modelscope'
+                    ? `https://modelscope.cn/models?name=${encodeURIComponent(catalogQuery.trim())}`
+                    : catalogSource === 'huggingface'
+                      ? `https://huggingface.co/models?search=${encodeURIComponent(catalogQuery.trim())}&library=gguf`
+                      : `https://ollama.com/search?q=${encodeURIComponent(catalogQuery.trim())}`
                 }
                 target="_blank"
                 rel="noreferrer"
@@ -778,23 +937,29 @@ export const PullScreen: React.FC<PullScreenProps> = ({
               >
                 <span className="material-symbols-outlined text-[15px]">open_in_new</span>
                 <span>
-                  {catalogSource === 'huggingface'
-                    ? 'Hugging Face'
-                    : language === 'zh'
-                      ? '官网'
-                      : 'Website'}
+                  {catalogSource === 'modelscope'
+                    ? 'ModelScope'
+                    : catalogSource === 'huggingface'
+                      ? 'Hugging Face'
+                      : language === 'zh'
+                        ? '官网'
+                        : 'Website'}
                 </span>
               </a>
             </div>
           </div>
           <p className="text-[11px] text-[var(--app-text-muted)] px-1">
-            {catalogSource === 'huggingface'
+            {catalogSource === 'modelscope'
               ? language === 'zh'
-                ? '输入关键词搜索 Hugging Face 的 GGUF 仓库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。选择量化标签后填入 ollama pull hf.co/<repo>:<quant>。'
-                : 'Search Hugging Face GGUF repos. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return. Pick a quant tag to fill ollama pull hf.co/<repo>:<quant>.'
-              : language === 'zh'
-                ? '输入关键词搜索 ollama.com 的公共模型库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。'
-                : 'Search the public ollama.com catalog. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return.'}
+                ? '输入关键词搜索 ModelScope 的 GGUF 仓库（自动补充 gguf 关键字）；选择量化后点击下载，由本地服务拉取文件并执行 ollama create 完成注册。'
+                : 'Search ModelScope GGUF repos (the gguf keyword is added automatically). Pick a quant and download: the local server fetches the file and registers it with ollama create.'
+              : catalogSource === 'huggingface'
+                ? language === 'zh'
+                  ? '输入关键词搜索 Hugging Face 的 GGUF 仓库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。选择量化标签后填入 ollama pull hf.co/<repo>:<quant>。'
+                  : 'Search Hugging Face GGUF repos. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return. Pick a quant tag to fill ollama pull hf.co/<repo>:<quant>.'
+                : language === 'zh'
+                  ? '输入关键词搜索 ollama.com 的公共模型库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。'
+                  : 'Search the public ollama.com catalog. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return.'}
           </p>
         </div>
 
@@ -895,22 +1060,28 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 {catalogError}{' '}
                 <a
                   href={
-                    catalogSource === 'huggingface'
-                      ? `https://huggingface.co/models?search=${encodeURIComponent(catalogQuery.trim())}&library=gguf`
-                      : `https://ollama.com/search?q=${encodeURIComponent(catalogQuery.trim())}`
+                    catalogSource === 'modelscope'
+                      ? `https://modelscope.cn/models?name=${encodeURIComponent(catalogQuery.trim())}`
+                      : catalogSource === 'huggingface'
+                        ? `https://huggingface.co/models?search=${encodeURIComponent(catalogQuery.trim())}&library=gguf`
+                        : `https://ollama.com/search?q=${encodeURIComponent(catalogQuery.trim())}`
                   }
                   target="_blank"
                   rel="noreferrer"
                   className="font-semibold underline underline-offset-2"
                   style={{ color: 'var(--primary-accent)' }}
                 >
-                  {catalogSource === 'huggingface'
+                  {catalogSource === 'modelscope'
                     ? language === 'zh'
-                      ? '去 Hugging Face 搜索'
-                      : 'Search on Hugging Face'
-                    : language === 'zh'
-                      ? '去官网搜索'
-                      : 'Search on ollama.com'}
+                      ? '去 ModelScope 搜索'
+                      : 'Search on ModelScope'
+                    : catalogSource === 'huggingface'
+                      ? language === 'zh'
+                        ? '去 Hugging Face 搜索'
+                        : 'Search on Hugging Face'
+                      : language === 'zh'
+                        ? '去官网搜索'
+                        : 'Search on ollama.com'}
                 </a>
               </div>
             )}

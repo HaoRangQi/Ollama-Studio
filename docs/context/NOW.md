@@ -4,7 +4,7 @@
 >
 > 更新日期：2026-10-28
 > 核验对象：仓库根目录、`src/`、`server/`、`server.ts`、`vite.config.ts`、`package.json`、`tsconfig.json`、测试与 CI 配置、`docs/context/`
-> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载。
+> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线；并接入 ModelScope 渠道、服务端后台下载任务、浮层外部点击关闭与 Ollama 缓存扫描/清理。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载；真实 `~/.ollama/models` 只做只读扫描，未执行清理。
 
 ## 当前目标
 
@@ -16,7 +16,7 @@
 
 ### 工程基础
 
-- [x] 添加 Vitest（Node 环境）与 65 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断、GGUF 名称与空上传、附件类型/base64 转换。
+- [x] 添加 Vitest（Node 环境）与 116 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断与失败 source 持久化、GGUF 名称与空上传、附件类型/base64 转换、ModelScope URL/量化映射、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF 导出 manifest/model/projector/重名/目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 与 daemon 命令构建、`ollama serve` 命令生成。
 - [x] 添加 ESLint 10 flat config、Prettier 3，`npm run lint`、`format:check` 通过；开启 TypeScript `strict`。
 - [x] 添加 `.github/workflows/ci.yml`：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`（尚未在 GitHub 实际运行）。
 - [x] 移除未使用依赖 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 移除 Gemini 能力声明；包名改为 `ollama-studio`，版本 `0.1.0`。
@@ -33,7 +33,7 @@
 - [x] 空模型状态：在线且 0 模型时 `selectedModel`/`chatModel` 置空，Models/Chat/ModelfileLab 显示空状态与拉取入口。
 - [x] 下载任务元数据持久化到 `ollama_download_task_v1`；刷新后标记“上次任务已中断，可继续”，取消时清除记录（D-130）。
 - [x] GGUF 导入在上传非空后预检 `ollama --version`，CLI 缺失返回 503；空文件/非 `.gguf` 在 CLI 预检前返回 400。
-- [x] 可选代理令牌：`PROXY_TOKEN` + `VITE_PROXY_TOKEN` 保护 `/ollama/*` 与 `/api/import`；无令牌 401、Bearer 200 已实测。
+- [x] 可选代理令牌：`PROXY_TOKEN` + `VITE_PROXY_TOKEN` 保护 `/ollama/*` 与本地管理 API（`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`）；无令牌 401、Bearer 200 已实测。
 - [x] 开发服务器默认 `127.0.0.1:3000`；新增 `dev:lan` 显式开放并文档警告。
 - [x] i18n 收口：聊天、模型、拉取、Modelfile、遥测、Command Palette、Pull/Quant 弹窗的主要文案按语言切换；移除假版本号/假 GPU/假通知。
 - [x] 移动端底部导航、`lg` 断点布局、`:focus-visible` 与减少动态效果样式；图标按钮补 `aria-label`。
@@ -46,11 +46,32 @@
 - [x] 显存单位修复：此前把 `926 MB` 文本解析为数字后当作 GB 显示成 `926.0 GB`；现改用 `/api/ps` 的 `size_vram` 字节值，经 `formatBytes` 显示，Sidebar 与遥测页共用（`RISKS.md` R-034）。
 - [x] 主题新增自定义调色盘：支持系统取色器、16 色预设、随机色，自动派生 container/tint/glow 并持久化到 `ollama_accent_palette=custom` + `ollama_custom_accent`；并提示过亮颜色的对比度风险。
 - [x] 导出 GGUF、深度清理、附件入口在无 API 时禁用并说明原因，不再显示假成功 toast。
+- [x] 下载任务卡失败态排版修复：长模型名挤压右侧指标导致“速率:”折成竖排（25×33 px）；现左侧容器 `min-w-0 flex-1`、右侧 `shrink-0`、速率胶囊 `whitespace-nowrap`，标签恢复单行（25×17 px）。错误信息从整段“红字墙”改为 2 行 `line-clamp-2` + `break-all`，超过 120 字符提供“展开完整错误/收起”开关。
+- [x] 模型卡动作条排版修复：左侧“保留至 …”占位把“释放显存/即刻推理”压成 71×78 px 竖排圆钮，用户因此难以识别卸载入口；补 `min-w-0` + `truncate` + `shrink-0` + `whitespace-nowrap` 后恢复 104×36 px 横排（`RISKS.md` R-036）。
+- [x] 模型库交互与视觉调整（2026-10-28）：① 修复 `isSelected` 恒为 true 的 bug（原为 `model.id === model.id`），选中卡片改为淡主题色背景 + 主题色边框；② “运行参数与配置”下的 `fullTag` 改为主题色描边徽章；③ 卡片右上角 `⋮` 改为下拉菜单（加载/释放显存、即刻推理、克隆模型、从磁盘删除，删除含二次确认，点遮罩关闭）；④ 分类 chips 改为中英双行（大语言/LLM、视觉多模态/Vision、代码生成/Coder、嵌入/Embedding）；⑤ 默认布局改为长条矩形（`list`，640×217，比例 2.96），右上角切换按钮同步高亮。CDP 验证：三张卡片仅选中一张有主题色样式，菜单 4 项可开可关，grid 模式 312×304、list 模式 640×217 切换正常。⑥ 卡片内规格胶囊行与底部动作条之间原用 `mt-auto` 撑开，在 `list` 模式下等于 0 导致两者贴连；改为 `flex-1 min-h-4` 占位后两种布局均稳定 16 px 间距。
+- [x] 品牌图标与危险色主题适配（2026-10-28）：① 侧栏 logo 由 Material Symbols `neurology` 换成 Ollama 官方羊驼图标 `public/assets/ollama-llama.png`（取自 `ollama.com/public/ollama-nav.png`，商标归属已在 `NOTICE` 注明）；② 新增 `--app-danger-text/bg/bg-hover/border/solid/on-solid` 主题变量，浅色主题下反转为深红字 + 极浅红底；删除按钮、删除确认、菜单删除项与拉取错误文字改用变量。实测对比度：浅色 5.22、深色 10.37（修复前浅色下粉底粉字几乎不可见），均达到 WCAG AA。
+- [x] 新增 ModelScope 渠道并设为默认（2026-10-28）：`/api/modelscope/search`（服务端追加 `gguf` 关键字、并发 6 拉取文件列表推导量化）与 `/api/modelscope/pull`（下载 GGUF → `ollama create` 注册，NDJSON 进度）。Ollama 不支持 pull ModelScope 仓库，故由本地服务下载；直链无 `content-length`，总大小回退到文件列表 API 的 `Size`。前端渠道顺序为 ModelScope / Hugging Face / Ollama 官方，默认 ModelScope；结果卡片补 ModelScope 徽章、GGUF 徽章、量化 chip、`在 ModelScope 查看` 与 `curl + ollama create` 填命令；暂停/恢复按来源分流（ModelScope 任务无断点续传，恢复即重新下载）。见 `RISKS.md` R-039。
+- [x] 下载改为服务端后台任务（2026-10-28）：新增 `server/downloads.ts` 与 `/api/downloads`（`POST` 创建/复用、`GET` 列表或单个、`DELETE` 取消），下载由服务端持有，浏览器只轮询进度。刷新页面后前端用 `listDownloadJobs()` 接回仍在运行的任务并自动回到拉取页；Ollama 分层 `total/completed` 聚合移到服务端，客户端不再自己算。`DownloadTask` 增加 `kind`，撤销/暂停后“继续”按来源分流——ModelScope 任务用服务端保留的 `target` 重新发起，不会再错误地走 `ollama pull <namespace>/<name>`（此前会报 `pull model manifest: file does not exist`）。旧的 `src/api/modelscope.ts` 流式客户端已删除。
+- [x] 浮层外部点击关闭（2026-10-28）：新增 `src/hooks/useDismissable.ts`（点击外部 + Esc，回调存 ref 避免重复绑定），接入聊天页的模型选择、采样参数、会话列表与顶栏的通知中心、个人面板；此前这些浮层只能靠再次点击触发按钮或面板内关闭按钮收起。模型卡 `⋮` 菜单原本用 `fixed inset-0` 遮罩，行为不变。
+- [x] Ollama 缓存管理（2026-10-28）：新增 `server/cache.ts` 与 `/api/cache`（`GET` 扫描、`POST /api/cache/cleanup` 清理），遥测页“缓存清理”卡片替换原只读占位。扫描 `OLLAMA_MODELS`（默认 `~/.ollama/models`）的 `blobs/` 与 `manifests/`，把完整 blob 分为被 manifest 引用/未引用，另计 `*-partial`、`*-partial-N` 分块与应用临时目录 `ollama-studio-*`；清理前重新扫描，只删勾选类别。安全规则：manifest 解析失败时禁止清理未引用 blob（409）；有后台下载进行中时禁止清理未完成下载（409）；10 分钟内修改过的文件跳过；已安装模型及其权重不受影响（D-133）。确认弹窗支持展开三类逐文件明细（名称、类型、大小、修改时间、完整路径，按体积排序，每类最多 500 条），并提供 `POST /api/cache/reveal` 在系统文件管理器中定位文件/目录；该接口只允许模型目录内路径或 `ollama-studio-*` 临时目录（`realpath` 校验，越界 403）。
+- [x] 侧栏显存/运行数自动刷新（2026-10-28）：`useOllama` 默认每 5 秒静默轮询 `/api/version` + `/api/tags` + `/api/ps`，并发刷新共享同一个 Promise，避免请求堆叠；轮询失败不回切 connecting，减少离线抖动。`TelemetryScreen` 原有的独立 5 秒 interval 已移除，改由 hook 统一负责。侧栏“已加载显存/运行模型数”现在会随外部加载/卸载更新（此前只在挂载、手动刷新或下载完成时更新）。
+- [x] 下载失败可重试（2026-10-28）：失败任务卡新增“重试”按钮，按原参数重新创建后台任务，并显示“将重跑”的具体命令（pull 为 `ollama pull <model>`，ModelScope 为 `ModelScope · <file>`）；pull 任务可点“编辑命令”，把原命令填回输入框并聚焦。`DownloadTask` 增加可选 `source`（`namespace/name/file/quant/modelName`），ModelScope 任务写入 `ollama_download_task_v1`，刷新后仍能重试。旧任务没有 `kind/source` 时，`targetPath` 以 `.gguf` 结尾会推断为 ModelScope，避免误走 `ollama pull`；否则回退用 `targetPath` 作为文件名。对 `pull model manifest: file does not exist` 且模型名含 `/` 的错误追加可操作提示：Hugging Face 仓库应使用 `hf.co/<repo>:<quant>`，或改用 ModelScope 下载 GGUF；不自动改写用户输入。见 `DECISIONS.md` D-135。
+- [x] GGUF 导出（2026-10-28）：新增 `server/exportGguf.ts` 与 `POST /api/export`，读取 `manifests/` 或 `manifests-v2/`（默认 registry 同时尝试 `registry.ollama.ai` 与 `ollama.com`），复制 `application/vnd.ollama.image.model` blob，多模态 `projector` 单独导出为 `*-mmproj.gguf`；默认写入 `~/Downloads/Ollama Studio`，重名追加 `-2`，复制优先使用 APFS clone。模型页原禁用按钮改为“导出 GGUF”，`⋮` 菜单同步增加入口，成功 toast 显示目录与 mmproj 提示。边界：只导出当前量化，template/license/params 不含在 GGUF 内；不提供目录选择。见 `DECISIONS.md` D-136。
+- [x] 真实系统指标（2026-10-28）：新增 `server/metrics.ts` 与 `GET /api/metrics`，返回磁盘总量/已用/可用（`statfs`，优先模型目录）、内存、CPU load 与核心数；macOS 通过 `ioreg -c IOAccelerator` 读取 GPU 型号与 `Device Utilization %`，失败时返回明确原因；ANE 无公开 API，固定返回不可用。遥测页每 5 秒轮询（页面隐藏时暂停），替换“可用空间未知”“Ollama 不提供 GPU/ANE”等占位。见 `DECISIONS.md` D-138。
+- [x] 运行模型 GC 与服务控制（2026-10-28）：遥测页运行中模型卡片增加“全部卸载”（确认后对每个运行模型发送 `keep_alive: 0`，embedding 走 `/api/embed`）；新增服务控制面板，检测 Ollama.app / launchd / Homebrew / systemd / 普通进程，显示 PID 与可复制的重启/停止命令。`POST /api/daemon/control` 默认 403，只有 `ALLOW_DAEMON_CONTROL=1`、loopback、`confirm:true` 且管理方式可执行时才运行；Ollama.app 使用 AppleScript 退出并重开。环境变量面板新增 `ollama serve` 启动命令预览与复制，不写系统环境。见 `DECISIONS.md` D-137。
 
 ### 验证与仓库
 
-- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`、`npm run build` 全部通过（2026-10-28）。
-- [x] 构建体积：前端 JS 约 449.5 kB（gzip 122.2 kB），CSS 约 73.2 kB（gzip 16.1 kB），`server.js` 约 10.9 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
+- [x] GGUF 手动导入链路实测（2026-10-28）：`curl -L` 下载 HF GGUF（688,066,496 字节，SHA256 与 HF `lfs.oid` 一致）→ `ollama create` 导入成功 → `ollama show` 显示 1.1B / 131072 上下文 / Q4_K_M / `tools, thinking, completion` → `/api/chat` 带 `think: true` 返回 thinking 与 content，85–105 tok/s → `keep_alive: 0` 卸载后 `/api/ps` 为空。**走的是 CLI，未覆盖 UI 的 `/api/import` 上传路径**。
+- [x] ModelScope 渠道实测（2026-10-28，开发服务器 5199 + CDP + 真实 Ollama 0.40.7）：① 搜索 `qwen3 0.6b` 返回 24 条 GGUF 仓库，量化与文件映射正确（`unsloth/Qwen3-0.6B-GGUF` 12 个量化）；② 参数校验：`namespace=../etc` → `namespace 含非法字符。`，非 `.gguf` → `仅支持 .gguf 文件。`；③ 进度含总大小（`ggml-org/SmolLM2-135M-GGUF` 101,016,128 字节），中断后临时目录已清理；④ 端到端下载并注册成功：`success model=ms-verify-smollm2:latest`，`/api/tags` 显示 101.0 MB，随后 `ollama rm` 清理；⑤ 客户端链路用 CDP `Fetch` 拦截 `/api/modelscope/pull` 注入 mock NDJSON，进度卡显示 1.00/2.00 GB、`ollama create` 阶段与完成态；⑥ 截图确认默认渠道为 ModelScope、卡片显示 `ModelScope`/`GGUF` 徽章与量化 chip。
+- [x] 后台下载实测（2026-10-28，开发服务器 5199 + CDP + 真实 Ollama 0.40.7）：① ModelScope 639 MB 文件 → 任务 `running`，速度 10–13 MB/s；② 下载中连续两次 `Page.reload`，任务卡接回同一 `dl-…` 任务，进度 63.1% → 80.1% 连续增长；③ 暂停后继续 → 生成新任务并重新走 ModelScope（无 `ollama pull` 的 manifest 错误）；④ 完成后 `/api/tags` 出现注册模型，取消后 `/tmp/ollama-studio-ms-*` 无残留；⑤ `ollama pull` 完成路径未验证——本机把 `*.r2.cloudflarestorage.com` 解析为 `198.18.0.245`，任务按预期进入 `error`。测试后删除注册模型，模型列表恢复原有 2 个。
+- [x] 缓存清理实测（2026-10-28，开发服务器 5200，`OLLAMA_MODELS=/tmp/os-cache-fixture/models`）：① fixture 含被引用 blob 1 MB、孤儿 blob 5 MB、陈旧 `-partial` 3 MB + 分块标记 2 KB、临时目录 2 MB；`GET /api/cache` 正确分类，`reclaimableBytes=10,004,096`。② UI 卡片显示 `10 MB` 可回收与三类明细；打开弹窗默认全选，全部取消后“确认清理”禁用且预计释放 `0 B`；点击遮罩可关闭；只勾选孤儿后确认释放 5,000,000 字节，卡片与 `GET /api/cache` 同步刷新，被引用 blob 保留。③ 再次全量清理后 `reclaimableBytes=0`、按钮禁用，`blobs/` 只剩被引用文件。④ 下载锁：启动真实 ModelScope 任务（1.27 GB，进度 76 MB），`activeDownloads=true`，UI 中“未完成下载”显示 `lock` 且不可勾选，卡片提示“有下载进行中”；`DELETE` 取消后任务 `cancelled`，临时目录无残留、`activeDownloads=false`，陈旧 partial 仍可清理。⑤ 真实 `~/.ollama/models` 只读扫描：被引用 21,846,248,274 字节 / 6 个，未引用 672,004,366 字节 / 5 个，partial 4,330,025,216 字节 / 5 个，分块 2,232 字节 / 39 个，合计约 4.66 GB 可回收；**未对真实目录执行清理**（`RISKS.md` R-042）。扫描时 `temp` 的 2 MB 是本次 UI fixture，已随测试清理。⑥ 生产服务器 3104（`PROXY_TOKEN` + fixture）：无令牌 401、带令牌扫描 5000 字节、清理释放 5000 字节且保留被引用 blob；测试后停止服务器并删除 fixture。⑦ 明细与定位（2026-10-28，开发服务器 5200 + CDP，fixture：引用 1 MB、孤儿 12 MB + 5 MB、partial 8 MB + 3 MB、chunks 3 KB、temp 2 MB）：卡片显示“查看明细并清理”，打开弹窗自动展开最大类别（未引用权重 17 MB），明细按体积列出 12 MB / 5 MB 两个完整 blob；展开“未完成下载”列出 2 个未完成文件 + 3 个分块标记，显示类型徽章、大小、相对时间与完整路径；全部取消后预计释放 `0 B`、确认按钮禁用。点击文件夹图标时 CDP 拦截到 `POST /api/cache/reveal` 且 body 为对应文件绝对路径，UI 无错误。服务端校验：空路径 400、`/etc/hosts` 403、不存在路径 404、允许路径 200（实际调用 `open`，macOS Finder 可定位）；Windows/Linux 的打开命令**未验证**（`RISKS.md` R-043）。
+- [x] 侧栏轮询实测（2026-10-28，开发服务器 5200 + CDP `Fetch` mock `/ollama/api/tags` 与 `/ollama/api/ps`，未加载真实模型）：初始 `— / 0 活跃`；把 mock `/api/ps` 切为 1 个运行模型（`size_vram=926000000`）后 6.5 秒内侧栏变为 `926 MB / 1 活跃`；切回空列表后 6.5 秒内恢复 `— / 0 活跃`。遥测页在同一 mock 下也自动更新（`926 MB` → `—`）。轮询请求间隔约 5 秒，App 与遥测页各自的 hook 实例会并行请求（遥测页打开时约每 2.5 秒一次），均为只读 `/api/version`、`/api/tags`、`/api/ps`。
+- [x] 下载失败重试实测（2026-10-28，开发服务器 3000 + CDP `Fetch` mock，未访问真实模型源）：① 注入 pull 失败任务（`unsloth/Qwen3.5-0.8B-GGUF`，错误 `pull model manifest: file does not exist`），任务卡显示“将重跑：ollama pull unsloth/Qwen3.5-0.8B-GGUF”和“编辑命令”；点击编辑后输入框值变为该命令并获得焦点。点击重试后 POST body 为 `{kind:"pull",model:"unsloth/Qwen3.5-0.8B-GGUF"}`，轮询两轮后转为完成。② 注入 ModelScope 失败任务并刷新页面，点击重试的 body 含 `namespace/name/file/model`，其中 `file` 来自持久化的 `source`，任务转为完成。③ 注入缺少 `kind/source`、`targetPath` 为 `Q4_K_M/model.gguf` 的旧任务：卡片显示 `ModelScope · Q4_K_M/model.gguf`、不显示编辑按钮，重试 body 为 `kind:"modelscope"` 且 `file` 使用 `targetPath`，任务转为完成。④ 实时 pull 失败（running → error）时卡片显示原始错误 + `Ollama registry 中没有该路径` 提示与“重试”按钮。**未对真实 Ollama 重试该 HF 仓库**。
+- [x] GGUF 导出实测（2026-10-28）：fixture 经 `POST /api/export` 导出 model + projector 两层（12 + 14 字节），内容正确、重名生成 `-2`；`/etc` 返回 403、`../etc` 返回 400。真实 `diodel/qwen3.5-0.8b-q4_k_m-gguf:latest` 导出 529,297,312 字节，文件头为 `GGUF`，SHA256 `fb89581c…` 与 manifest digest 一致，耗时约 1.19 秒（APFS clone）。CDP mock 验证模型页导出按钮发送 `{model:"diodel/..."}` 并显示“已导出 2 个文件…（含 mmproj）”。**未导出 21.8 GB 的 27B 模型**。
+- [x] 系统指标与服务检测实测（2026-10-28）：`GET /api/metrics` 返回真实磁盘容量（约 494 GB 总量 / 107 GB 可用）、内存、CPU load 与 `ioreg` GPU（Apple M1 Pro，实测 62% / 69%）；`GET /api/daemon` 识别 `manager: ollama-app`、PID 6928 与可复制命令；`POST /api/daemon/control` 在未设置 `ALLOW_DAEMON_CONTROL` 时返回 403。CDP 确认遥测页显示 GPU、磁盘已用、启动命令、全部卸载与服务控制面板，且 `ALLOW_DAEMON_CONTROL` 关闭时提示正确。
+- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（116 个测试）、`npm run build` 全部通过（2026-10-28）。
+- [x] 构建体积：前端 JS 约 519.0 kB（gzip 141.0 kB），CSS 约 79.8 kB（gzip 17.1 kB），`server.js` 约 63.2 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
 - [x] 生产服务器 3101：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、首屏 headless Chrome 通过。
 - [x] 开发服务器 3001：首屏、代理、`/api/import` 400 校验、headless Chrome 通过。
 - [x] 令牌服务器 3102：`/healthz authRequired:true`、无令牌 401、Bearer 200、`/api/import` 无令牌 401、带令牌非法文件 400。
@@ -59,10 +80,16 @@
 
 未开始 / 仍未验证：
 
+- [ ] **ModelScope Range 断点续传（用户 2026-10-28 要求先记录、以后再做）**：当前 ModelScope 下载只支持从头开始，暂停后继续会重新下载。候选方案是用 `.part` 文件 + sidecar 元数据保存 URL、ETag/Last-Modified、总大小与已完成字节；恢复时发送 `Range: bytes=<offset>-`，校验远端元数据未变化后追加写入，完成后再走 `ollama create`。需要服务端任务重启后可恢复，且不能与 Ollama pull 的原生 `*-partial` 机制混用。见 `RISKS.md` R-039。
+- [ ] 真实缓存清理未执行：仅对 `~/.ollama/models` 做只读扫描，未删除其中的 4.33 GB 未完成下载与 672 MB 未引用 blob；需用户确认后从 UI 操作。
+- [ ] 文件管理器定位仅在 macOS 验证；Windows `explorer /select` 与 Linux `xdg-open` 分支未验证。
 - [ ] 真实视觉模型推理（图片/视频帧）未验证；当前只用 mock `/api/chat` 检查了 `images` 请求体。
 - [ ] 视频解码兼容性未逐格式验证；仅测试了 WebM/VP9，H.264/HEVC/MOV 可能因浏览器编解码器失败。
 - [ ] 完整人工视觉/窄屏/a11y 验收（逐页点击、键盘、屏幕阅读器）。
 - [ ] 真实 UI 中的模型加载/释放（`keep_alive`）与 `/api/ps` 状态变化；当前只有请求级单测。
+- [ ] “全部卸载”未点击真实运行模型；仅验证按钮渲染与请求路径（`keep_alive: 0`）。
+- [ ] 20 GB 级模型导出与跨文件系统完整复制未实测；当前真实导出为 529 MB，同卷 APFS clone。
+- [ ] daemon 自动重启/停止未执行；macOS Automation 权限弹窗、systemd/Windows 分支与执行失败提示未实测。默认 `ALLOW_DAEMON_CONTROL` 关闭。
 - [ ] 正常网络下 HF 直拉成功路径（本机 DNS 仍把 CDN 解析为 `198.18.0.85`）。
 - [ ] GitHub Actions 首次远端运行（无远端仓库）。
 - [ ] Tauri 迁移触发条件（D-114，仍待决策）。
@@ -73,21 +100,27 @@
 
 | 事项 | 影响 | 入口 |
 | --- | --- | --- |
-| HF 拉取被本机 DNS/代理阻断 | `us.aws.cdn.hf.co` 解析为 `198.18.0.85`，Ollama 报 `redirect target not allowed`；搜索可用，下载失败 | `RISKS.md` R-024、`RUNBOOK.md` 5.1 |
+| 外部模型源被本机 DNS/代理阻断 | `us.aws.cdn.hf.co` → `198.18.0.85`，`*.r2.cloudflarestorage.com`（Ollama 官方 registry blob）→ `198.18.0.245`，两者都报 `redirect target not allowed`；搜索可用，下载失败。已通过默认切换到 ModelScope 规避 | `RISKS.md` R-024、`RUNBOOK.md` 5.1 |
+| ModelScope 下载依赖本地服务与 `ollama create` | 需要本机安装 Ollama CLI；单文件上限 20 GB；无断点续传（Range 续传已列为待办，用户要求暂缓）；结果质量依赖 ModelScope 搜索 | `RISKS.md` R-039 |
 | 无远端 Git / CI 未实际运行 | 无法观察 GitHub Actions、无协作与发布基线 | `RISKS.md` R-005、R-029 |
 | 代理令牌为共享密钥 | `VITE_PROXY_TOKEN` 进入前端产物；无 TLS/限流/审计 | `RISKS.md` R-025、D-126 |
 | 人工验收未完成 | 视觉、窄屏、a11y、多步交互问题可能漏过 | `RISKS.md` R-015、R-021、D-131 |
 | 真实加载/卸载未点击验证 | keep_alive 与 `/api/ps` 的 UI 反馈未覆盖 | `RISKS.md` R-028 |
 | npm 默认缓存权限 `EPERM` | 直接 `npm install` 失败；当前使用 `.npm-cache/` 绕过 | `RISKS.md` R-017 |
 | 模型库搜索依赖外部目录 | ollama.com HTML 结构、HF JSON API 与文件名量化推断 | `RISKS.md` R-022、R-023 |
+| 真实缓存清理未执行 | 本机约 4.66 GB 可回收空间仍在；需用户确认后从 UI 清理 | `RISKS.md` R-042、`RUNBOOK.md` 14 |
+| 文件管理器定位仅 macOS 验证 | Windows/Linux 分支未执行；Web 版依赖本地服务进程执行 `open`/`explorer`/`xdg-open` | `RISKS.md` R-043、`RUNBOOK.md` 14 |
 
 ## 下一步（建议顺序）
 
 1. 人工验收：逐页检查 Models / Pull / Chat / Modelfile / Telemetry，重点看窄屏、键盘、主题/语言、多会话、代码块复制、空模型。
-2. 用 1B 小模型 `minicpm-v-4.7-1b-heretic:q4_k_m` 在真实 UI 点击“加载到显存/释放显存”，核对 `/api/ps`，结束后确保卸载。
-3. 在正常网络复测 HF 直拉；失败则保留 GGUF 下载 + `ollama create` 指引。
-4. 创建远端仓库后观察 CI；再决定 D-114（Tauri）与 D-131（Playwright/axe）。
-5. 视需要做图标子集化、npm 缓存权限修复与发布流程。
+2. 用 1B 小模型 `minicpm-v-4.7-1b-heretic:q4_k_m` 在真实 UI 点击“加载到显存/释放显存”与“全部卸载”，核对 `/api/ps`，结束后确保卸载。
+3. 用 27B 多模态模型验证导出 `model + projector` 到外接卷，核对 `*-mmproj.gguf`、磁盘空间与 SHA256；测试后删除导出文件。
+4. 在用户明确同意且无下载/推理时，设置 `ALLOW_DAEMON_CONTROL=1` 测试一次重启，记录 macOS Automation 权限与恢复结果；失败则保留命令复制路径。
+5. 在正常网络复测 HF 直拉；失败则保留 GGUF 下载 + `ollama create` 指引（ModelScope 渠道已作为默认替代）。
+6. 确认后从遥测页清理本机真实缓存（只删未完成下载/未引用 blob/临时目录）；清理前记录 `GET /api/cache` 数值，清理后复核被引用权重完好。
+7. 创建远端仓库后观察 CI；再决定 D-114（Tauri）与 D-131（Playwright/axe）。
+8. 视需要做图标子集化、npm 缓存权限修复与发布流程。
 
 > 以上是建议，不是已确认决策；执行前先在 `DECISIONS.md` 中确认。
 
@@ -96,12 +129,18 @@
 - API 客户端、拉取/删除/克隆/创建、加载/释放、令牌头：`src/api/ollama.ts`
 - 数据映射：`src/api/ollamaMapper.ts`
 - 模型库搜索：`src/api/catalog.ts`、`src/screens/PullScreen.tsx`
+- ModelScope 渠道：`server/modelscope.ts`、`server/modelscope.test.ts`、`src/api/catalog.ts`、`src/components/CatalogResultRow.tsx`
+- 后台下载任务：`server/downloads.ts`、`src/api/downloads.ts`、`src/App.tsx`、`src/screens/PullScreen.tsx`
+- 缓存扫描与清理：`server/cache.ts`、`server/cache.test.ts`、`src/api/cache.ts`、`src/screens/TelemetryScreen.tsx`
+- GGUF 导出：`server/exportGguf.ts`、`server/exportGguf.test.ts`、`src/api/export.ts`、`src/screens/ModelsScreen.tsx`
+- 系统指标：`server/metrics.ts`、`server/metrics.test.ts`、`src/api/metrics.ts`、`src/screens/TelemetryScreen.tsx`
+- daemon 检测/控制与启动命令：`server/daemon.ts`、`server/daemon.test.ts`、`src/api/daemon.ts`、`src/lib/daemonConfig.ts`、`src/screens/TelemetryScreen.tsx`
 - 拉取任务与写操作：`src/App.tsx`、`src/screens/PullScreen.tsx`、`src/screens/ModelsScreen.tsx`
 - 会话/参数/下载任务持久化：`src/lib/chatSessions.ts`、`src/lib/modelSettings.ts`、`src/lib/downloadTask.ts`
 - 代码块解析：`src/lib/markdown.ts`
 - 聊天 UI：`src/screens/ChatScreen.tsx`
 - Modelfile 创建：`src/screens/ModelfileLabScreen.tsx`
-- 遥测：`src/screens/TelemetryScreen.tsx`、`src/hooks/useOllama.ts`
+- 遥测/系统指标/服务控制：`src/screens/TelemetryScreen.tsx`、`src/hooks/useOllama.ts`、`src/api/metrics.ts`、`src/api/daemon.ts`
 - 开发代理与令牌：`vite.config.ts`
 - GGUF 导入：`server/importGguf.ts`、`server.ts`、`vite.config.ts` 的 `/api/import`
 - 生产代理、鉴权与静态托管：`server.ts`

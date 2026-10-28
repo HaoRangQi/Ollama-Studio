@@ -2,7 +2,7 @@
 
 > 目录、版本、配置与部署关系。定位修改对象时读；版本以 `package.json` / `package-lock.json` 为准。
 >
-> 最后核验：2026-10-28；范围：仓库根目录、`src/`、`server/`、`server.ts`、构建/类型/测试/CI 配置、脚本、已安装依赖、真实拉取/删除/克隆/创建、令牌鉴权、持久化与 headless DOM 冒烟。已执行安装、`typecheck`、`lint`、`format:check`、`test`、`build`、代理与鉴权验证。
+> 最后核验：2026-10-28；范围：仓库根目录、`src/`、`server/`、`server.ts`、构建/类型/测试/CI 配置、脚本、已安装依赖、真实拉取/删除/克隆/创建、ModelScope 搜索/下载、后台下载任务、缓存扫描/清理（fixture）、GGUF 导出（fixture + 真实 0.8B）、系统指标与 daemon 只读检测、令牌鉴权、持久化与 headless DOM 冒烟。已执行安装、`typecheck`、`lint`、`format:check`、`test`、`build`、代理与鉴权验证；未执行 daemon 自动重启/停止。
 
 ## 目录结构
 
@@ -18,8 +18,15 @@ ollama-studio/
 ├── eslint.config.js
 ├── .prettierrc.json / .prettierignore
 ├── tsconfig.json
-├── server.ts                  # 生产：静态托管 dist + /ollama 流式代理 + /api/import + 可选令牌
+├── server.ts                  # 生产：静态托管 dist + /ollama 流式代理 + /api/import + /api/modelscope + /api/downloads + /api/cache + /api/export + /api/metrics + /api/daemon + 可选令牌
+├── server/http.ts             # 共用 JSON body 读取（64 KB 上限）
 ├── server/importGguf.ts       # 开发/生产共用的 GGUF 上传、CLI 预检与 ollama create
+├── server/modelscope.ts       # ModelScope 搜索、GGUF 下载与 ollama create
+├── server/downloads.ts        # 服务端后台下载任务（pull / modelscope），内存 Map + 5 分钟 TTL
+├── server/cache.ts            # Ollama 模型目录与临时目录扫描、明细、清理与文件管理器定位
+├── server/exportGguf.ts       # manifest → GGUF 导出（model/projector、目录校验、重名、APFS clone）
+├── server/metrics.ts          # 磁盘/内存/CPU 指标，macOS ioreg GPU 解析，ANE 不可用说明
+├── server/daemon.ts           # Ollama.app/launchd/Homebrew/systemd/进程检测与可选控制命令
 ├── .github/workflows/ci.yml   # typecheck/lint/format/test/build
 ├── .env.example
 ├── .gitignore
@@ -44,17 +51,24 @@ ollama-studio/
     ├── api/
     │   ├── ollama.ts           # 版本/模型/运行/聊天/拉取/删除/克隆/创建/加载释放/GGUF
     │   ├── ollamaMapper.ts     # OllamaTag + OllamaRunning -> OllamaModel
-    │   ├── catalog.ts          # Hugging Face / ollama.com 模型库搜索
+    │   ├── catalog.ts          # ModelScope / Hugging Face / ollama.com 模型库搜索
+    │   ├── downloads.ts        # 后台下载任务查询、创建、取消
+    │   ├── cache.ts            # 缓存扫描与清理请求
+    │   ├── export.ts           # GGUF 导出请求
+    │   ├── metrics.ts          # 系统指标请求
+    │   ├── daemon.ts           # 守护进程检测与服务控制请求
     │   └── *.test.ts
     ├── lib/
     │   ├── storage.ts          # 安全的 localStorage JSON 读写
     │   ├── chatSessions.ts     # v2 多会话存储与 v1 迁移
     │   ├── modelSettings.ts    # 每模型采样参数与 keep_alive
     │   ├── downloadTask.ts     # 下载任务元数据与中断标记
+    │   ├── daemonConfig.ts     # 环境变量 → ollama serve 启动命令
     │   ├── markdown.ts         # fenced code block 解析
     │   ├── attachments.ts      # 图片压缩、视频抽帧、base64 转换
     │   └── *.test.ts
-    ├── hooks/useOllama.ts      # connecting | online | offline
+    ├── hooks/useOllama.ts      # connecting | online | offline；5 秒静默轮询与并发去重
+    ├── hooks/useDismissable.ts # 点击外部 / Esc 关闭浮层
     ├── components/
     │   ├── Sidebar.tsx         # 桌面侧栏（lg+）
     │   ├── MobileNav.tsx       # 移动端底部导航（<lg）
@@ -112,6 +126,7 @@ OLLAMA_HOST（默认 http://127.0.0.1:11434）
 ```
 
 - `src/api/ollama.ts`：`OLLAMA_BASE` 默认 `/ollama`；`getVersion`、`getTags`、`getRunning`、`getConnection`；`streamChat` 解析 NDJSON；`loadModel`/`unloadModel` 发送 `keep_alive: -1/0`（embedding 模型走 `/api/embed`）。
+- `src/api/export.ts`：`POST /api/export`，返回 `{model, directory, files, totalBytes}`；`src/api/metrics.ts` 轮询 `/api/metrics`；`src/api/daemon.ts` 读取 `/api/daemon` 并可选调用 `/api/daemon/control`。
 - `src/api/ollamaMapper.ts`：把 `OllamaTag` / `OllamaRunning` 映射为 `OllamaModel`，使用 `details.context_length`、`parameter_size`、`quantization_level`、`capabilities`；按 capabilities/名称推断分类。
 - `src/hooks/useOllama.ts`：状态 `connecting | online | offline`，暴露 `version`、`models`、`runningCount`、`error`、`refresh`。
 - `src/App.tsx`：在线且 0 模型时把 `selectedModel`/`chatModel` 置空；在线有模型时替换为真实列表；离线保留 `INITIAL_MODELS` 演示回退。
@@ -138,21 +153,28 @@ ChatScreen
 ### 拉取与下载任务
 
 ```text
-App.handleStartNewDownload
-├─ pullModel(POST /api/pull, stream NDJSON)
-├─ 聚合各层 total/completed → 速度/剩余/百分比
-├─ saveDownloadTask() → localStorage: ollama_download_task_v1
-└─ 刷新后 loadDownloadTask() → 标记 isInterrupted + isPaused，需要用户继续
+App.startPullDownload / runModelScopeDownload
+├─ POST /api/downloads { kind: 'pull' | 'modelscope', ... } → server/downloads.ts
+├─ 服务端消费 Ollama NDJSON（或执行 ModelScope 下载）并聚合 total/completed
+├─ 前端每 900ms GET /api/downloads/<id> → 进度/速度/错误
+├─ saveDownloadTask() → localStorage: ollama_download_task_v1（元数据 + ModelScope source）
+└─ 刷新/重新打开 → GET /api/downloads → 接回运行中的任务（首次自动切到拉取页）
 ```
 
-- 暂停：abort 当前请求，保留任务元数据；继续：重新 `/api/pull`（Ollama 复用已下载 blob）；取消：清除持久化记录。
+- 暂停/取消：`DELETE /api/downloads/<id>`；继续按 `kind` 分流，ModelScope 用服务端快照的 `target` 重新创建任务。
+- 失败重试：任务卡显示“将重跑”的命令并提供“重试”，按原参数重新创建任务；pull 任务可“编辑命令”，把命令填回顶部输入框。ModelScope 优先用持久化的 `DownloadTask.source`（`namespace/name/file/quant/modelName`），刷新后也可用；旧任务没有 `kind/source` 时按 `.gguf` 文件名推断 ModelScope，否则回退 `targetPath`。`pull model manifest: file does not exist` 且模型名含 `/` 时，客户端追加 `hf.co/` 或 ModelScope 提示。
+- 缓存清理：`TelemetryScreen` → `GET /api/cache`（只读扫描）→ `POST /api/cache/cleanup`（重新扫描后删除勾选类别）；manifest 解析失败锁 orphan、下载进行中锁 partial（D-133）。
 - GGUF 上传：`importGguf` → `/api/import`（同源）→ `server/importGguf.ts`；先校验 `.gguf` 与空文件，再预检 `ollama --version`，最后 `ollama create`。
+- GGUF 导出：`ModelsScreen` 的导出按钮/菜单 → `src/api/export.ts` → `POST /api/export` → `server/exportGguf.ts`；解析 `manifests/` 或 `manifests-v2/`（默认 registry 同时尝试 `registry.ollama.ai` 与 `ollama.com`），复制 `model` 层，`projector` 层写成 `*-mmproj.gguf`，默认目录 `~/Downloads/Ollama Studio`，重名追加序号（D-136）。
+- 系统指标：`TelemetryScreen` 挂载时与每 5 秒（页面可见时）读取 `/api/metrics`；磁盘用 `statfs`，内存/CPU 用 `os`，GPU 用 macOS `ioreg`，ANE 固定不可用（D-138）。
+- 服务控制：`TelemetryScreen` 读取 `/api/daemon` 显示管理方式与可复制命令；`POST /api/daemon/control` 仅在 `ALLOW_DAEMON_CONTROL=1`、loopback、`confirm:true` 时执行（D-137）。环境变量面板用 `buildServeCommand` 生成 `ollama serve` 命令，不写系统环境。
 
 ### 模型库搜索（只读）
 
+- ModelScope（默认）：`/api/modelscope/search?q=...` → 服务端追加 `gguf`、并发拉取文件列表并推导量化；下载由 `server/downloads.ts` 调 `pullFromModelScope`。
 - Hugging Face：`/api/hf/api/models?search=...&filter=gguf&sort=downloads&expand[]=siblings` → JSON；`src/api/catalog.ts` 提取 id/downloads/likes/tags，并从 `.gguf` 文件名推断量化。
 - Ollama 官方：`/api/catalog/search?q=...` → 转发 `https://ollama.com/search` HTML；`DOMParser` 提取 `a[href^="/library/"]`、`h2`、`p`。
-- 两个代理都是只读；失败时 UI 显示官网兜底链接。
+- 搜索代理都是只读；失败时 UI 显示官网兜底链接。
 
 ### App 级状态
 
@@ -167,22 +189,22 @@ App.handleStartNewDownload
 ### 页面内状态
 
 - `ModelsScreen`：分类、搜索、布局、参数（持久化默认值）、加载/释放显存、删除/克隆；空模型时显示拉取入口。
-- `PullScreen`：CLI 输入、精选列表、分类、HF/Ollama 搜索、下载任务卡、GGUF 拖拽/选择。
+- `PullScreen`：CLI 输入、精选列表、分类、ModelScope/HF/Ollama 搜索、下载任务卡、GGUF 拖拽/选择。
 - `ChatScreen`：多会话、消息流、生成中标记、参数面板、JSON/人设、思考折叠、代码块复制、图片/视频附件（视频抽帧、缩略图、移除、拖放）。
 - `ModelfileLabScreen`：基础模型、参数、System Prompt、真实 `/api/create` 构建；无模型时显示空状态。
-- `TelemetryScreen`：实时连接状态、模型/显存统计、事件日志、daemon 界面配置持久化；Ollama 不提供 GPU/ANE/磁盘指标。
+- `TelemetryScreen`：实时连接状态、模型/显存统计、事件日志、磁盘/内存/CPU/GPU 指标、全部卸载运行模型、daemon 界面配置持久化、缓存扫描与清理确认弹窗（逐文件明细、文件管理器定位）、服务检测与可复制重启/停止命令；ANE 无公开指标。
 
 ### 数据来源汇总
 
-- 真实：`/api/version`、`/api/tags`、`/api/ps`、`/api/chat`、`/api/pull`、`/api/delete`、`/api/copy`、`/api/create`、`/api/generate`（加载/释放）、`/api/embed`（embedding 加载）、`/api/import`（本机 CLI）。
+- 真实：`/api/version`、`/api/tags`、`/api/ps`、`/api/chat`、`/api/pull`、`/api/delete`、`/api/copy`、`/api/create`、`/api/generate`（加载/释放）、`/api/embed`（embedding 加载）、`/api/import`（本机 CLI）、`/api/modelscope/*`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`。
 - 演示：`src/data/mockData.ts` 的 `INITIAL_MODELS`（离线回退）、`INITIAL_CURATED_MODELS`、`INITIAL_DAEMON_CONFIG`；`INITIAL_DOWNLOAD_TASK` / `INITIAL_CHAT_MESSAGES` 已不再作为初始状态。
 - 无数据库、无全局状态库；主题/语言、会话、参数、下载任务、daemon 界面配置、搜索每页条数写 `localStorage`。
 
 ### 已知占位/模拟点
 
 - 离线回退模型与精选模型列表是演示数据，顶部提示条会标注；在线后替换为真实数据。
-- 导出 GGUF、深度清理、附件上传：Ollama 无对应 API 或尚未实现，入口已禁用并说明。
-- `TelemetryScreen` 的 daemon 环境变量输入只保存界面值，不修改系统环境；服务停止/重启/GC 为只读说明。
+- 导出 GGUF 已通过本地 manifest/blob 实现，不依赖 Ollama API；深度清理已由 `/api/cache` 接通；附件上传不支持 PDF/任意文件。
+- `TelemetryScreen` 的 daemon 环境变量输入只保存界面值并生成启动命令，不修改系统环境；服务停止/重启默认只生成可复制命令，自动执行需 `ALLOW_DAEMON_CONTROL=1` 且未实测。
 - 模型参数只作为对话默认值，不写入模型；`RISKS.md` R-003 / D-125。
 - `models` 页的“分类覆盖”按真实分类计数；“显存”使用 `/api/ps` 的 `size_vram`。
 
@@ -221,8 +243,8 @@ App.handleStartNewDownload
 - 别名：`@` → 项目根目录（`import.meta.dirname`）。
 - `server.host`：默认 `127.0.0.1`；`dev:lan` 的 CLI 参数可覆盖。
 - `server.proxy`：`/ollama` → `OLLAMA_HOST`；`/api/catalog` → `https://ollama.com`；`/api/hf` → `https://huggingface.co`，均去掉前缀。
-- `PROXY_TOKEN` 设置时，`/ollama` 与 `/api/import` 中间件校验 Bearer/X-Proxy-Token；前端通过 `VITE_PROXY_TOKEN` 发送。
-- `configureServer`：`/api/import` 上传中间件，与生产 `server.ts` 共用 `server/importGguf.ts`。
+- `PROXY_TOKEN` 设置时，`/ollama`、`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon` 中间件校验 Bearer/X-Proxy-Token；前端通过 `VITE_PROXY_TOKEN` 发送。
+- `configureServer`：`/api/import` 上传中间件，以及缓存/下载/导出/指标/daemon 路由，与生产 `server.ts` 共用 `server/*` handler。
 - `server.hmr`：`DISABLE_HMR !== 'true'` 时启用。
 
 ### `tsconfig.json`
@@ -237,13 +259,13 @@ App.handleStartNewDownload
 ### `server.ts`
 
 - Express 4 应用；`/healthz` 返回 `{ ok, ollamaHost, authRequired }`。
-- 可选令牌中间件：`PROXY_TOKEN` 非空时保护 `/ollama/*` 与 `/api/import`；支持 `Authorization: Bearer` 或 `X-Proxy-Token`。
+- 可选令牌中间件：`PROXY_TOKEN` 非空时保护 `/ollama/*`、`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`；支持 `Authorization: Bearer` 或 `X-Proxy-Token`。
 - `app.get('/api/catalog/search')`：校验 `q`，转发 `https://ollama.com/search` 并原样返回 HTML；12 秒超时；失败 502；不缓存。
 - `app.get('/api/hf/*')`：只允许 `/api/models...`；15 秒超时；非法路径 400，失败 502；不缓存。
 - `app.post('/api/import')`：流式接收 GGUF（上限 20 GB），非 `.gguf`/空文件 400，CLI 缺失 503，创建失败 502；临时目录 finally 清理。
 - `app.all('/ollama/*')`：转发方法、必要请求头与请求体；逐块写回上游响应；客户端断开时 abort 上游。
 - 静态托管 `dist/`；`app.get('*')` 回退到 `dist/index.html`。
-- 环境变量：`OLLAMA_HOST`、`PORT`（默认 3000）、`HOST`（默认 `127.0.0.1`）、`PROXY_TOKEN`（可选）；`dotenv/config` 读取 `.env`，进程环境优先。
+- 环境变量：`OLLAMA_HOST`、`PORT`（默认 3000）、`HOST`（默认 `127.0.0.1`）、`PROXY_TOKEN`（可选）、`OLLAMA_MODELS`（可选，缓存/导出扫描目录）、`ALLOW_DAEMON_CONTROL`（可选，默认关闭）；`dotenv/config` 读取 `.env`，进程环境优先。
 - 非 loopback 且未设置令牌时启动日志输出安全警告；无 TLS、无 CORS 配置。
 
 ### `vitest.config.ts` / `.github/workflows/ci.yml`
@@ -258,7 +280,7 @@ App.handleStartNewDownload
 
 ### `.env.example` 与 `.gitignore`
 
-- `.env.example` 声明 `OLLAMA_HOST`、`PORT`、`HOST`、可选 `PROXY_TOKEN` / `VITE_PROXY_TOKEN`，以及注释的 `VITE_OLLAMA_BASE_URL`。
+- `.env.example` 声明 `OLLAMA_HOST`、`PORT`、`HOST`、可选 `PROXY_TOKEN` / `VITE_PROXY_TOKEN`、注释的 `VITE_OLLAMA_BASE_URL`、`OLLAMA_MODELS` 与 `ALLOW_DAEMON_CONTROL`。
 - `.gitignore` 忽略 `node_modules/`、`.npm-cache/`、`build/`、`dist/`、`server.js`、`coverage/`、`.DS_Store`、`*.log`、`.env*`、`.dsh-progress/`、`.workflow/`，保留 `.env.example`。
 
 ### `metadata.json`

@@ -1,4 +1,4 @@
-export type CatalogSource = 'ollama' | 'huggingface';
+export type CatalogSource = 'ollama' | 'huggingface' | 'modelscope';
 
 export interface CatalogSearchResult {
   source: CatalogSource;
@@ -10,6 +10,8 @@ export interface CatalogSearchResult {
   likes?: number;
   tags?: string[];
   quants?: string[];
+  /** ModelScope only: GGUF paths available inside the repository. */
+  files?: string[];
   pipelineTag?: string;
   lastModified?: string;
 }
@@ -101,6 +103,82 @@ export async function searchOllamaCatalog(
   }
 
   return results;
+}
+
+/**
+ * Maps a quantization label (e.g. `Q4_K_M`) to the ModelScope file that
+ * contains it, so the download action knows exactly which blob to fetch.
+ */
+export function findModelScopeFile(files: string[] | undefined, quant: string): string | undefined {
+  if (!files?.length || !quant) return undefined;
+  const escaped = quant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(?:^|[-_.])${escaped}\\.gguf$`, 'i');
+  return files.find((file) => pattern.test(file));
+}
+
+interface ModelScopeSearchItem {
+  name: string;
+  description: string;
+  url: string;
+  author?: string;
+  downloads?: number;
+  likes?: number;
+  tags?: string[];
+  quants?: string[];
+  files?: string[];
+  lastModified?: string;
+}
+
+/**
+ * Searches ModelScope for GGUF repositories through the same-origin proxy.
+ * The server appends a `gguf` keyword and normalizes the upstream payload,
+ * because ModelScope has no working library filter and no Ollama pull support.
+ */
+export async function searchModelScopeCatalog(
+  query: string,
+  signal?: AbortSignal
+): Promise<CatalogSearchResult[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  let response: Response;
+  try {
+    response = await fetch(`/api/modelscope/search?q=${encodeURIComponent(trimmed)}`, {
+      signal,
+      headers: { accept: 'application/json' }
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') throw error;
+    throw new Error('无法连接 ModelScope，请检查网络。', { cause: error });
+  }
+
+  if (!response.ok) {
+    let message = `ModelScope 搜索失败（HTTP ${response.status}）`;
+    try {
+      const data = (await response.json()) as { error?: string };
+      if (data.error) message = data.error;
+    } catch {
+      // Keep the HTTP message when the proxy returns non-JSON.
+    }
+    throw new Error(message);
+  }
+
+  const payload = (await response.json()) as { results?: ModelScopeSearchItem[] };
+  if (!Array.isArray(payload.results)) return [];
+
+  return payload.results.map((item) => ({
+    source: 'modelscope' as const,
+    name: item.name,
+    description: item.description,
+    url: item.url,
+    author: item.author,
+    downloads: item.downloads,
+    likes: item.likes,
+    tags: item.tags,
+    quants: item.quants,
+    files: item.files,
+    lastModified: item.lastModified
+  }));
 }
 
 /**

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useAppTheme } from '../context/ThemeContext';
+import { useDismissable } from '../hooks/useDismissable';
 import { OllamaStatus } from '../hooks/useOllama';
 
 interface HeaderProps {
@@ -29,6 +30,10 @@ export const Header: React.FC<HeaderProps> = ({
     useAppTheme();
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const notificationsRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+  useDismissable(notificationsRef, showNotifications, () => setShowNotifications(false));
+  useDismissable(profileRef, showProfile, () => setShowProfile(false));
   const online = ollamaStatus === 'online';
   const connecting = ollamaStatus === 'connecting';
   const statusColor = online ? '#27c93f' : connecting ? '#ffbd2e' : '#ff453a';
@@ -179,7 +184,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {/* Notification Icon */}
-        <div className="relative">
+        <div className="relative" ref={notificationsRef}>
           <button
             onClick={() => {
               setShowNotifications(!showNotifications);
@@ -266,7 +271,7 @@ export const Header: React.FC<HeaderProps> = ({
         </button>
 
         {/* User Profile */}
-        <div className="relative">
+        <div className="relative" ref={profileRef}>
           <button
             onClick={() => {
               setShowProfile(!showProfile);

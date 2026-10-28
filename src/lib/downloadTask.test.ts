@@ -49,6 +49,25 @@ describe('parseDownloadTask', () => {
     expect(parseDownloadTask({ modelName: 'x' })).toBeNull();
     expect(parseDownloadTask(null)).toBeNull();
   });
+
+  it('infers ModelScope for legacy tasks whose target is a GGUF file', () => {
+    expect(
+      parseDownloadTask({ ...task, kind: undefined, targetPath: 'sub/model.gguf' })?.kind
+    ).toBe('modelscope');
+    expect(parseDownloadTask({ ...task, kind: undefined })?.kind).toBeUndefined();
+  });
+
+  it('keeps a valid ModelScope retry source and drops malformed ones', () => {
+    const source = {
+      namespace: 'unsloth',
+      name: 'Qwen3.5-0.8B-GGUF',
+      file: 'Q4_K_M/Qwen3.5-0.8B-Q4_K_M.gguf',
+      quant: 'Q4_K_M',
+      modelName: 'unsloth/Qwen3.5-0.8B-GGUF'
+    };
+    expect(parseDownloadTask({ ...task, kind: 'modelscope', source })?.source).toEqual(source);
+    expect(parseDownloadTask({ ...task, source: { namespace: 1 } })?.source).toBeUndefined();
+  });
 });
 
 describe('markInterrupted', () => {
@@ -81,6 +100,29 @@ describe('loadDownloadTask', () => {
     const restored = loadDownloadTask();
     expect(restored?.modelName).toBe('qwen2.5:7b');
     expect(restored?.isPaused).toBe(true);
+  });
+
+  it('restores a failed task and its retry source', () => {
+    const storage = installStorage();
+    storage.set(
+      DOWNLOAD_TASK_KEY,
+      JSON.stringify({
+        ...task,
+        kind: 'modelscope',
+        error: 'pull model manifest: file does not exist',
+        source: {
+          namespace: 'unsloth',
+          name: 'Qwen3.5-0.8B-GGUF',
+          file: 'Q4_K_M/Qwen3.5-0.8B-Q4_K_M.gguf',
+          quant: 'Q4_K_M',
+          modelName: 'unsloth/Qwen3.5-0.8B-GGUF'
+        }
+      })
+    );
+    const restored = loadDownloadTask();
+    expect(restored?.error).toContain('manifest');
+    expect(restored?.isPaused).toBe(false);
+    expect(restored?.source?.file).toBe('Q4_K_M/Qwen3.5-0.8B-Q4_K_M.gguf');
   });
 
   it('returns null when nothing is stored', () => {

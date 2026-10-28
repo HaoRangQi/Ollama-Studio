@@ -5,7 +5,7 @@
 ## 1. 项目与边界
 
 - **项目**：Ollama Studio，面向 Ollama 本地模型的 macOS 风格模型管理与对话界面。
-- **当前形态**：React + TypeScript + Vite 单页应用 + 同源 `/ollama` 代理（开发用 Vite，生产用 `server.ts`/Express）。已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（流式）、`POST /api/pull`（流式进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`、`POST /api/generate`（加载/释放）、`POST /api/embed`（embedding 加载），以及 Hugging Face / ollama.com 模型库关键字搜索；聊天支持每模型多会话、图片/视频附件（视频在浏览器抽帧后以 `images` 发送，Ollama 不接受 PDF/任意文件），模型参数作为对话默认值持久化，下载任务元数据可恢复为中断状态，遥测为实时只读状态。GGUF 文件上传已通过本机 `ollama create` CLI 接通（需要本机安装 Ollama）。工程侧有 Vitest 单测、ESLint/Prettier、TypeScript strict 与 GitHub Actions CI。安装、构建、运行与 Git 状态以 `docs/context/NOW.md` 和 `docs/context/RUNBOOK.md` 为准。
+- **当前形态**：React + TypeScript + Vite 单页应用 + 同源 `/ollama` 代理（开发用 Vite，生产用 `server.ts`/Express）。已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（流式）、`POST /api/pull`（流式进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`、`POST /api/generate`（加载/释放）、`POST /api/embed`（embedding 加载），以及 ModelScope（默认渠道，服务端下载 GGUF 后 `ollama create`）/ Hugging Face / ollama.com 模型库关键字搜索；下载由服务端后台任务执行（`/api/downloads`，刷新后可接回，失败可重试），并提供 Ollama 缓存扫描与清理（`/api/cache`：未引用 blob、未完成下载、应用临时目录，含逐文件明细与文件管理器定位）、已安装模型导出 GGUF（`/api/export`，含多模态 projector）、系统指标（`/api/metrics`：磁盘/内存/CPU/macOS GPU，ANE 无公开指标）与守护进程检测/可选控制（`/api/daemon`，自动执行默认关闭）；聊天支持每模型多会话、图片/视频附件（视频在浏览器抽帧后以 `images` 发送，Ollama 不接受 PDF/任意文件），模型参数作为对话默认值持久化，侧栏与遥测每 5 秒轮询真实 `/api/ps` 状态。GGUF 文件上传已通过本机 `ollama create` CLI 接通（需要本机安装 Ollama）。工程侧有 Vitest 单测、ESLint/Prettier、TypeScript strict 与 GitHub Actions CI。安装、构建、运行与 Git 状态以 `docs/context/NOW.md` 和 `docs/context/RUNBOOK.md` 为准。
 - **目标方向**：保留现有视觉与交互，逐步接入真实 Ollama 能力，并把仓库作为标准软件仓库维护。
 - **事实边界**：不得把原型能力写成已实现能力；不得在未执行时声称安装、构建、测试、运行或部署成功。缺失事实写“待核实”。
 
@@ -75,6 +75,7 @@
 - 不把 API Key、令牌、个人设备路径写入仓库文档、日志或截图。
 - 开发脚本默认绑定 `127.0.0.1`；`npm run dev:lan` 显式绑定 `0.0.0.0`，只在可信网络使用；具体见 `docs/context/RUNBOOK.md`。
 - 生产服务器默认绑定 `127.0.0.1`；只有明确需要局域网访问时才设置 `HOST=0.0.0.0`，并设置 `PROXY_TOKEN` / `VITE_PROXY_TOKEN`，确认网络可信。令牌是共享密钥，不是用户级认证。
+- `/api/daemon/control` 默认只返回 403；只有显式设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且 `confirm: true` 时才执行重启/停止。未实测的系统分支不得写成已支持。`/api/export`、`/api/metrics`、`/api/daemon` 同样受可选 `PROXY_TOKEN` 保护。
 
 ## 7. 待核实与决策入口
 

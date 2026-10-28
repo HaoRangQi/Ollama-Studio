@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { ChatAttachment, ChatMessage, OllamaModel } from '../types';
 import { OllamaChatChunk, OllamaChatMessage, OllamaError, streamChat } from '../api/ollama';
 import { useAppTheme } from '../context/ThemeContext';
+import { useDismissable } from '../hooks/useDismissable';
 import {
   createSession,
   getActiveSession,
@@ -165,6 +166,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // 顶部三个浮层：模型选择、采样参数、会话列表
+  const modelDropdownRef = useRef<HTMLDivElement>(null);
+  const paramsPanelRef = useRef<HTMLDivElement>(null);
+  const sessionsRef = useRef<HTMLDivElement>(null);
+  useDismissable(modelDropdownRef, showModelDropdown, () => setShowModelDropdown(false));
+  useDismissable(paramsPanelRef, showParamsPanel, () => setShowParamsPanel(false));
+  useDismissable(sessionsRef, showSessions, () => setShowSessions(false));
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
@@ -757,7 +765,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
       <header className="sticky top-16 z-30 w-full px-3 sm:px-6 py-2.5 backdrop-blur-md bg-[var(--app-bg)]/85 border-b border-[var(--app-border)] select-none">
         <div className="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2 sm:gap-3">
-          <div className="relative">
+          <div className="relative" ref={modelDropdownRef}>
             <button
               onClick={() => {
                 setShowModelDropdown(!showModelDropdown);
@@ -843,7 +851,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               </span>
             </div>
 
-            <div className="relative">
+            <div className="relative" ref={paramsPanelRef}>
               <button
                 onClick={() => {
                   setShowParamsPanel(!showParamsPanel);
@@ -969,7 +977,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               )}
             </div>
 
-            <div className="relative">
+            <div className="relative" ref={sessionsRef}>
               <button
                 onClick={() => {
                   setShowSessions(!showSessions);

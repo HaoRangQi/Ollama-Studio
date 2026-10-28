@@ -74,6 +74,55 @@ export function normalizeGgufModelName(requested: string | undefined, filename: 
 }
 
 /**
+ * Registers an existing local GGUF file with Ollama via `ollama create`.
+ * Shared by the browser upload path and the ModelScope download path.
+ */
+export async function createModelFromGguf(
+  filePath: string,
+  model: string,
+  ollamaHost: string
+): Promise<void> {
+  await assertOllamaCliAvailable();
+
+  const directory = await mkdtemp(path.join(tmpdir(), 'ollama-studio-gguf-'));
+  const modelfilePath = path.join(directory, 'Modelfile');
+  await writeFile(modelfilePath, `FROM ${filePath}\n`, 'utf8');
+
+  // Ollama's /api/create does not accept a local GGUF path in `from` (it
+  // validates the value as a model name), so use the same CLI path that
+  // `ollama create` uses. execFile avoids shell interpolation.
+  try {
+    await execFileAsync('ollama', ['create', model, '-f', modelfilePath], {
+      env: { ...process.env, OLLAMA_HOST: ollamaHost },
+      timeout: 10 * 60 * 1000,
+      maxBuffer: 10 * 1024 * 1024
+    });
+  } catch (error) {
+    const details = error as {
+      code?: string;
+      stdout?: string;
+      stderr?: string;
+      message?: string;
+    };
+    if (details.code === 'ENOENT') {
+      throw new GgufImportError('未找到 ollama CLI；GGUF 导入需要本机安装 Ollama。', 503);
+    }
+    const output = [details.stdout, details.stderr, details.message]
+      .filter(Boolean)
+      .join('\n')
+      // eslint-disable-next-line no-control-regex -- strip ANSI/terminal control characters from CLI output
+      .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
+      // eslint-disable-next-line no-control-regex -- strip remaining non-printable control characters
+      .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+      .replaceAll(directory, '<临时目录>')
+      .trim();
+    throw new GgufImportError(`ollama create 失败：${output.slice(0, 800) || '未知错误'}`, 502);
+  } finally {
+    await rm(directory, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+/**
  * Stream a browser upload to a temporary GGUF file, then register it with
  * Ollama via /api/create. The temp file is always removed, including on error.
  */
@@ -109,41 +158,7 @@ export async function importGgufStream(
       throw new GgufImportError('上传的 GGUF 文件为空。');
     }
 
-    await assertOllamaCliAvailable();
-
-    const modelfilePath = path.join(directory, 'Modelfile');
-    await writeFile(modelfilePath, `FROM ${filePath}\n`, 'utf8');
-
-    // Ollama's /api/create does not accept a local GGUF path in `from` (it
-    // validates the value as a model name), so use the same CLI path that
-    // `ollama create` uses. execFile avoids shell interpolation.
-    try {
-      await execFileAsync('ollama', ['create', model, '-f', modelfilePath], {
-        env: { ...process.env, OLLAMA_HOST: options.ollamaHost },
-        timeout: 10 * 60 * 1000,
-        maxBuffer: 10 * 1024 * 1024
-      });
-    } catch (error) {
-      const details = error as {
-        code?: string;
-        stdout?: string;
-        stderr?: string;
-        message?: string;
-      };
-      if (details.code === 'ENOENT') {
-        throw new GgufImportError('未找到 ollama CLI；GGUF 导入需要本机安装 Ollama。', 503);
-      }
-      const output = [details.stdout, details.stderr, details.message]
-        .filter(Boolean)
-        .join('\n')
-        // eslint-disable-next-line no-control-regex -- strip ANSI/terminal control characters from CLI output
-        .replace(/\u001B\[[0-?]*[ -/]*[@-~]/g, '')
-        // eslint-disable-next-line no-control-regex -- strip remaining non-printable control characters
-        .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
-        .replaceAll(directory, '<临时目录>')
-        .trim();
-      throw new GgufImportError(`ollama create 失败：${output.slice(0, 800) || '未知错误'}`, 502);
-    }
+    await createModelFromGguf(filePath, model, options.ollamaHost);
 
     return { model };
   } catch (error) {

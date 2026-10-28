@@ -204,7 +204,7 @@
 ### D-126 代理鉴权采用可选共享令牌，默认仅监听 localhost
 
 - **状态**：已确认（2026-10-28，替代 D-115 的待决策项）。
-- **内容**：生产服务器默认 `HOST=127.0.0.1`；设置 `PROXY_TOKEN` 后，`/ollama/*` 与 `/api/import` 要求 `Authorization: Bearer <token>` 或 `X-Proxy-Token`。前端在构建时通过 `VITE_PROXY_TOKEN` 发送同一令牌。非 loopback 且未设置令牌时，启动日志输出安全警告。
+- **内容**：生产服务器默认 `HOST=127.0.0.1`；设置 `PROXY_TOKEN` 后，`/ollama/*` 与本地管理 API（`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`）要求 `Authorization: Bearer <token>` 或 `X-Proxy-Token`。前端在构建时通过 `VITE_PROXY_TOKEN` 发送同一令牌。非 loopback 且未设置令牌时，启动日志输出安全警告。
 - **依据/来源**：`server.ts`、`vite.config.ts`、`src/api/ollama.ts` 的 `proxyAuthHeaders`、`.env.example`；2026-10-28 生产服务器 401/200 验证。
 - **理由**：默认本机使用零配置；需要局域网访问时可加一层共享密钥。
 - **范围/风险**：`VITE_PROXY_TOKEN` 会进入前端产物，是共享密钥而非用户级认证；未加 TLS、限流或审计；`/api/catalog` 与 `/api/hf` 仍是只读无鉴权代理。
@@ -235,11 +235,67 @@
 
 ### D-130 下载任务只持久化元数据，刷新后需用户显式继续
 
-- **状态**：已确认（2026-10-28，替代 D-111 的下载任务部分）。
+- **状态**：部分被 D-132 替代（2026-10-28）：任务改由服务端持有；`localStorage` 仍保存展示元数据，但刷新后自动接回运行中的任务，不再要求用户显式继续。
 - **内容**：下载任务写入 `localStorage` 的 `ollama_download_task_v1`；页面刷新后，原本进行中的任务恢复为暂停并标记“上次任务已中断”，用户点击继续时重新调用 `/api/pull`（Ollama 复用已下载 blob）。取消任务会清除持久化记录。
 - **依据/来源**：`src/lib/downloadTask.ts`、`src/App.tsx`、`src/screens/PullScreen.tsx`、`src/lib/downloadTask.test.ts`。
 - **理由**：浏览器刷新无法保留 HTTP 流；持久化元数据并显式恢复比伪装“继续”更诚实。
 - **范围/风险**：不恢复原始流、速度历史或精确进度；中断后需重新查询 manifest。
+
+### D-132 下载任务改由服务端后台执行，浏览器轮询并自动接回
+
+- **状态**：已确认（2026-10-28，替代 D-130 的刷新处理部分）。
+- **内容**：新增 `server/downloads.ts` 与 `/api/downloads`：`POST` 创建或复用任务，`GET` 查询列表/单个任务，`DELETE` 取消。Ollama pull 的 NDJSON 在服务端消费并聚合分层字节；ModelScope 下载同样由服务端持有。前端每 900ms 轮询，刷新后挂载时拉取运行中的任务并接回，首次自动切到拉取页。
+- **依据/来源**：`server/downloads.ts`、`src/api/downloads.ts`、`src/App.tsx`、`src/screens/PullScreen.tsx`、`RUNBOOK.md` 13。
+- **理由**：浏览器刷新/关闭不应中断下载；服务端持有任务比“刷新后标中断再重下”更符合用户预期，也避免 ModelScope 任务被错误地走 `ollama pull`。
+- **范围/风险**：任务表是进程内 `Map`，服务端重启会丢失运行中任务（R-040）；已结束任务保留 5 分钟；ModelScope 无断点续传，暂停/继续会重新下载（R-039）。
+
+### D-133 缓存清理只回收未引用 blob、未完成下载与应用临时目录
+
+- **状态**：已确认（2026-10-28）。
+- **内容**：`GET /api/cache` 扫描 `OLLAMA_MODELS`（默认 `~/.ollama/models`）与系统临时目录，把完整 blob 分为被 manifest 引用/未引用，并统计 `*-partial`、`*-partial-N` 与 `ollama-studio-*`；每类附按体积排序的逐文件明细（最多 500 条）。`POST /api/cache/cleanup` 只删除请求中勾选的类别；`POST /api/cache/reveal` 在系统文件管理器中定位文件/目录，只允许模型目录内路径或 `ollama-studio-*` 临时目录（`realpath` 校验）。清理前重新扫描；manifest 解析失败时禁止 orphan（409）；有运行中的下载任务时禁止 partial（409）；10 分钟内修改的文件跳过。
+- **依据/来源**：`server/cache.ts`、`server/cache.test.ts`、`src/api/cache.ts`、`src/screens/TelemetryScreen.tsx`、`RUNBOOK.md` 14。
+- **理由**：Ollama 没有公开的 GC API；直接删目录风险高。以 manifest 引用关系和文件年龄双重校验，能把“可回收”限制在可证明安全的集合内。
+- **范围/风险**：不清理 manifest、不压缩；依赖 Ollama 现有的 `manifests/` 与 `manifests-v2/` 布局，未知布局或权限错误会让扫描不完整；真实目录清理需用户确认（R-042）；文件管理器定位依赖本地图形会话，Windows/Linux 分支未验证（R-043）。
+
+### D-134 Ollama 状态采用 5 秒静默轮询
+
+- **状态**：已确认（2026-10-28）。
+- **内容**：`useOllama` 挂载时立即刷新，之后默认每 5000ms 静默调用 `getConnection()`（`/api/version`、`/api/tags`、`/api/ps`）；并发刷新共享同一个 Promise 防止堆叠；静默轮询不把状态切到 `connecting`。`TelemetryScreen` 原有的独立 5 秒 interval 移除，统一由 hook 负责；`useOllama(0)` 可关闭轮询。
+- **依据/来源**：`src/hooks/useOllama.ts`、`src/App.tsx`、`src/screens/TelemetryScreen.tsx`、`RUNBOOK.md` 15。
+- **理由**：侧栏“已加载显存/运行模型数”之前只在挂载、手动刷新或下载完成时更新，外部加载/卸载后长期显示旧值；5 秒轮询能及时反映 `/api/ps`，且只读、低成本。
+- **范围/风险**：每 5 秒 3 个只读请求；App 与遥测页各一个 hook 实例，遥测页打开时两套轮询并行（R-044）；未按页面可见性暂停；若未来连接远程 Ollama 可提高间隔或共享状态。
+
+### D-135 下载失败后重跑命令，并持久化 ModelScope 来源
+
+- **状态**：已确认（2026-10-28）。
+- **内容**：失败任务卡显示“将重跑”的具体命令并提供“重试”，按原参数重新创建后台任务；pull 任务可“编辑命令”，把 `ollama pull <model>` 填回输入框并聚焦，由用户修正后再次提交。`DownloadTask.source` 保存 ModelScope 的 `namespace/name/file/quant/modelName` 并写入 `ollama_download_task_v1`，刷新后仍可重试；旧任务没有 `kind/source` 时，`targetPath` 以 `.gguf` 结尾推断为 ModelScope，否则用 `targetPath` 作为文件名回退。仅对 `pull model manifest: file does not exist` 且模型名含 `/`、不以 `hf.co/` 开头的错误追加 Hugging Face / ModelScope 提示，不自动改写命令。
+- **依据/来源**：`src/App.tsx`、`src/types.ts`、`src/lib/downloadTask.ts`、`src/screens/PullScreen.tsx`、`RUNBOOK.md` 13。
+- **理由**：失败后只能关闭并重新搜索/输入，操作成本高；ModelScope 任务的关键参数（尤其子目录中的 `file`）无法从展示字段完整恢复，必须随任务持久化。原样重跑无法修正用户输错的模型标签，编辑入口让“重跑下载命令”可见且可修正。
+- **范围/风险**：重试是重新下载而非断点续传；ModelScope 仍受单文件 20 GB 与网络限制（R-039）；提示与来源推断依赖既有字段（`.gguf`、Ollama 英文错误文本），上游格式变化时可能失效；不自动改写命令，用户仍需自行使用 `hf.co/` 前缀或 ModelScope 渠道（R-045）。
+
+### D-136 从 Ollama manifest 导出当前量化的 GGUF
+
+- **状态**：已确认（2026-10-28）。
+- **内容**：`POST /api/export` 由本地服务读取 `OLLAMA_MODELS`（默认 `~/.ollama/models`）下的 manifest，复制 `application/vnd.ollama.image.model`（兼容 `...image.gguf`）blob，并把 `application/vnd.ollama.image.projector`（兼容 `...mmproj`）写成 `<name>-mmproj.gguf`。默认目录为 `~/Downloads/Ollama Studio`；显式 `directory` 必须已存在并通过 `realpath` 校验，只允许用户主目录、系统临时目录、`/tmp`、`/Volumes`、`/media`、`/mnt`。重名追加 `-2`。复制优先 `COPYFILE_FICLONE`（APFS clone），失败回退完整复制；任何一层失败会删除本次已写文件。默认 registry 的 manifest 同时尝试 `manifests`/`manifests-v2` 与 `registry.ollama.ai`/`ollama.com`。
+- **依据/来源**：`server/exportGguf.ts`、`server/exportGguf.test.ts`、`src/api/export.ts`、`src/screens/ModelsScreen.tsx`、`RUNBOOK.md` 16；真实 0.8B 导出 SHA256 与 manifest digest 一致。
+- **理由**：Ollama 没有导出 API；manifest 的 model 层本身就是 GGUF，直接复制不需要重新下载或加载模型。多模态模型必须同时导出 projector，否则视觉能力丢失。APFS clone 可把大模型导出成本降到接近零。
+- **范围/风险**：只导出当前已安装量化；template/license/params 不属于 GGUF，需另存 Modelfile；不提供目录选择与进度条；跨文件系统是完整复制，可能耗时并占空间；没有预先计算 SHA256，只校验复制后大小；manifest 目录布局变化需扩展（R-046）。
+
+### D-137 daemon 默认只生成命令，自动控制显式开启且限制本机
+
+- **状态**：已确认（2026-10-28）。
+- **内容**：`GET /api/daemon` 检测 Ollama.app、launchd、Homebrew、systemd 或普通进程，返回 PID 与重启/停止命令。`POST /api/daemon/control` 默认 403；只有 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback、`confirm:true` 且 `canExecute` 为真时才执行。Ollama.app 用 AppleScript 退出 + `open -a Ollama`，launchd 用 `kickstart -k`，Homebrew 用 `brew services`；systemd/普通进程只给命令，不自动执行。环境变量面板只写 `localStorage` 并生成 `ollama serve` 命令，不写系统环境。
+- **依据/来源**：`server/daemon.ts`、`server/daemon.test.ts`、`src/api/daemon.ts`、`src/lib/daemonConfig.ts`、`src/screens/TelemetryScreen.tsx`、`RUNBOOK.md` 18。
+- **理由**：重启/停止会中断推理与下载，且不同安装方式（App、launchd、brew、systemd）命令不同；默认自动执行风险过高。复制命令 + 可选显式开关既提供操作路径，又保留用户控制。
+- **范围/风险**：真实重启/停止未执行；macOS 可能弹 Automation 权限；systemd 需要 sudo，未自动执行；Windows 未实现（R-047）。命令由受控字段拼接，不接受用户 shell 片段，但服务端仍具备执行能力，必须保持 `ALLOW_DAEMON_CONTROL` 默认关闭。
+
+### D-138 系统指标使用 OS 能力，缺失时明确不可用
+
+- **状态**：已确认（2026-10-28）。
+- **内容**：`GET /api/metrics` 用 `fs.statfs` 读取模型目录所在文件系统的总量/可用/已用；用 `os` 读取内存、CPU 核心与 load；macOS 通过 `ioreg -r -d 1 -w 0 -c IOAccelerator` 读取 GPU 型号与 `Device Utilization %`，失败时返回 `unsupported-platform`/`command-failed`/`not-detected`/`utilization-unavailable`；ANE 固定 `available:false`，`reason:no-public-api`。遥测页每 5 秒读取，页面隐藏时暂停。
+- **依据/来源**：`server/metrics.ts`、`server/metrics.test.ts`、`src/api/metrics.ts`、`src/screens/TelemetryScreen.tsx`、`RUNBOOK.md` 17。
+- **理由**：Ollama 不提供 GPU/ANE/磁盘 API；用系统能力能给出真实磁盘与 Apple Silicon GPU 利用率，同时避免用 mock 数值冒充。ANE 没有公开利用率 API，明确写不可用比编造更可信。
+- **范围/风险**：GPU 仅 macOS，`ioreg` 字段可能随系统版本变化；Linux/Windows 返回不可用；`os.freemem()` 是“空闲”而非 macOS inactive/cached 可用量，UI 使用“空闲”措辞；每 5 秒一次本地命令与读取，开销低但未做更长周期缓存（R-048）。
 
 ## 待决策（尚未决定）
 

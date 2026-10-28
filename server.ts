@@ -3,6 +3,12 @@ import express, { type RequestHandler } from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GgufImportError, importGgufStream } from './server/importGguf';
+import { handleDownloadsRequest } from './server/downloads';
+import { handleCacheRequest } from './server/cache';
+import { handleExportRequest } from './server/exportGguf';
+import { handleMetricsRequest } from './server/metrics';
+import { handleDaemonControlRequest, handleDaemonRequest } from './server/daemon';
+import { handleModelScopePullRequest, handleModelScopeSearchRequest } from './server/modelscope';
 
 const app = express();
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
@@ -38,7 +44,19 @@ const requireProxyToken: RequestHandler = (request, response, next) => {
   response.status(401).json({ error: '未授权：缺少或错误的代理令牌。' });
 };
 
-app.use(['/ollama', '/api/import'], requireProxyToken);
+app.use(
+  [
+    '/ollama',
+    '/api/import',
+    '/api/modelscope',
+    '/api/downloads',
+    '/api/cache',
+    '/api/export',
+    '/api/metrics',
+    '/api/daemon'
+  ],
+  requireProxyToken
+);
 
 const HOP_BY_HOP = new Set([
   'host',
@@ -145,6 +163,53 @@ app.post('/api/import', async (request, response) => {
     const message = error instanceof Error ? error.message : String(error);
     response.status(status).json({ error: message });
   }
+});
+
+/**
+ * Searches ModelScope for GGUF repositories. The handler normalizes the
+ * upstream payload so the client only deals with a stable shape.
+ */
+app.get('/api/modelscope/search', (request, response) => {
+  void handleModelScopeSearchRequest(request, response);
+});
+
+/**
+ * Downloads a GGUF from ModelScope and registers it with Ollama.
+ * Streams NDJSON progress; the raw body is parsed by the shared handler.
+ */
+app.post('/api/modelscope/pull', (request, response) => {
+  void handleModelScopePullRequest(request, response, ollamaHost);
+});
+
+/**
+ * 后台下载任务：下载在服务端继续，浏览器刷新后重新接上即可。
+ * `POST` 创建/复用任务，`GET` 列表或单个任务，`DELETE` 取消。
+ */
+app.use('/api/downloads', (request, response) => {
+  void handleDownloadsRequest(request, response, ollamaHost);
+});
+
+/** 缓存扫描与清理：只回收未引用 blob、未完成下载与本应用临时目录。 */
+app.use('/api/cache', (request, response) => {
+  void handleCacheRequest(request, response);
+});
+
+/** 把已安装模型的 Ollama blob 导出为 GGUF（只读模型存储，写入用户目录）。 */
+app.post('/api/export', (request, response) => {
+  void handleExportRequest(request, response);
+});
+
+/** 磁盘、内存、CPU 与（macOS 可用的）GPU 指标。 */
+app.get('/api/metrics', (request, response) => {
+  void handleMetricsRequest(request, response);
+});
+
+/** 守护进程检测与可选控制；控制默认关闭，需 ALLOW_DAEMON_CONTROL=1。 */
+app.use('/api/daemon/control', (request, response) => {
+  void handleDaemonControlRequest(request, response);
+});
+app.use('/api/daemon', (request, response) => {
+  void handleDaemonRequest(request, response);
 });
 
 /**

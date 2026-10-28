@@ -1,4 +1,5 @@
 import React from 'react';
+import { findModelScopeFile } from '../api/catalog';
 import type { CatalogSearchResult } from '../api/catalog';
 import { useAppTheme } from '../context/ThemeContext';
 
@@ -48,7 +49,20 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
   const currentQuant = selectedQuant ?? quants[0] ?? '';
   const updatedAt = formatDate(result.lastModified, zh);
   const tags = (result.tags ?? []).filter((tag) => tag !== 'gguf').slice(0, 5);
-  const sourceLabel = result.source === 'huggingface' ? 'Hugging Face' : 'Ollama';
+  // ModelScope 与 Hugging Face 都靠「仓库 + 量化文件」下载，交互保持一致
+  const isQuantSource = result.source === 'huggingface' || result.source === 'modelscope';
+  const sourceLabel =
+    result.source === 'modelscope'
+      ? 'ModelScope'
+      : result.source === 'huggingface'
+        ? 'Hugging Face'
+        : 'Ollama';
+  const sourceIcon =
+    result.source === 'modelscope'
+      ? 'cloud_download'
+      : result.source === 'huggingface'
+        ? 'deployed_code'
+        : 'travel_explore';
 
   return (
     <article className="group flex flex-col lg:flex-row gap-4 lg:gap-6 rounded-3xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 sm:p-5 transition-all duration-200 hover:border-[var(--primary-accent)] hover:shadow-lg">
@@ -57,9 +71,7 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
           className="w-12 h-12 rounded-2xl bg-[var(--app-surface-high)] border border-[var(--app-border)] flex items-center justify-center shrink-0"
           style={{ color: 'var(--primary-accent)' }}
         >
-          <span className="material-symbols-outlined text-[24px]">
-            {result.source === 'huggingface' ? 'deployed_code' : 'travel_explore'}
-          </span>
+          <span className="material-symbols-outlined text-[24px]">{sourceIcon}</span>
         </div>
 
         <div className="min-w-0 flex-1">
@@ -70,7 +82,7 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
             <span className="px-2 py-0.5 rounded-full bg-[var(--app-surface-high)] border border-[var(--app-border)] text-[10px] font-code text-[var(--app-text-muted)]">
               {sourceLabel}
             </span>
-            {result.source === 'huggingface' && (
+            {isQuantSource && (
               <span className="px-2 py-0.5 rounded-full bg-[#27c93f]/15 text-[#27c93f] text-[10px] font-code font-semibold">
                 GGUF
               </span>
@@ -124,7 +136,7 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
       </div>
 
       <div className="lg:w-[320px] xl:w-[350px] shrink-0 flex flex-col gap-2.5 border-t lg:border-t-0 lg:border-l border-[var(--app-border)] pt-3 lg:pt-0 lg:pl-5">
-        {result.source === 'huggingface' ? (
+        {isQuantSource ? (
           quants.length > 0 ? (
             <>
               <div className="flex items-center justify-between gap-2">
@@ -150,7 +162,11 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
                           : 'border-[var(--app-border)] bg-[var(--app-surface-high)] text-[var(--app-text)] hover:border-[var(--primary-accent)] hover:text-[var(--primary-accent)]'
                       }`}
                       style={selected ? { backgroundColor: 'var(--primary-accent)' } : undefined}
-                      title={`ollama pull hf.co/${result.name}:${quant}`}
+                      title={
+                        result.source === 'modelscope'
+                          ? `${result.name}/${findModelScopeFile(result.files, quant) ?? ''}`
+                          : `ollama pull hf.co/${result.name}:${quant}`
+                      }
                     >
                       {quant}
                     </button>
@@ -185,9 +201,13 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
                 <span>{zh ? `下载 ${currentQuant}` : `Download ${currentQuant}`}</span>
               </button>
               <p className="text-[10px] text-[var(--app-text-muted)] leading-relaxed">
-                {zh
-                  ? 'Ollama 拉取只接受模型标签，量化格式即下载参数。'
-                  : 'Ollama pull only accepts a model tag; the quant is the download parameter.'}
+                {result.source === 'modelscope'
+                  ? zh
+                    ? '本地服务下载对应 GGUF 文件，再用 ollama create 注册为本地模型。'
+                    : 'The local server downloads the GGUF file, then registers it with ollama create.'
+                  : zh
+                    ? 'Ollama 拉取只接受模型标签，量化格式即下载参数。'
+                    : 'Ollama pull only accepts a model tag; the quant is the download parameter.'}
               </p>
             </>
           ) : (
@@ -213,9 +233,7 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
           {(result.source === 'ollama' || quants.length > 0) && (
             <button
               type="button"
-              onClick={() =>
-                onFillCommand(result.source === 'huggingface' ? currentQuant : undefined)
-              }
+              onClick={() => onFillCommand(isQuantSource ? currentQuant : undefined)}
               className="text-[11px] font-medium text-[var(--app-text-muted)] hover:text-[var(--primary-accent)] transition-colors cursor-pointer"
             >
               {zh ? '仅填入命令' : 'Fill command only'}
@@ -229,13 +247,17 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
           >
             <span className="material-symbols-outlined text-[15px]">open_in_new</span>
             <span>
-              {result.source === 'huggingface'
+              {result.source === 'modelscope'
                 ? zh
-                  ? '在 Hugging Face 查看'
-                  : 'View on Hugging Face'
-                : zh
-                  ? '在 ollama.com 查看'
-                  : 'View on ollama.com'}
+                  ? '在 ModelScope 查看'
+                  : 'View on ModelScope'
+                : result.source === 'huggingface'
+                  ? zh
+                    ? '在 Hugging Face 查看'
+                    : 'View on Hugging Face'
+                  : zh
+                    ? '在 ollama.com 查看'
+                    : 'View on ollama.com'}
             </span>
           </a>
         </div>

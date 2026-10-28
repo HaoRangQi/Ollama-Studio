@@ -47,6 +47,14 @@
   --app-text: #e6e0f0;
   --app-text-muted: #cac3d7;
   --app-border: rgba(255, 255, 255, 0.08);
+
+  /* 危险/删除操作：深色主题用浅红文字 + 深红底 */
+  --app-danger-text: #ffb4ab;
+  --app-danger-bg: rgba(147, 0, 10, 0.2);
+  --app-danger-bg-hover: rgba(147, 0, 10, 0.4);
+  --app-danger-border: rgba(255, 180, 171, 0.25);
+  --app-danger-solid: #ffb4ab;
+  --app-danger-on-solid: #690005;
 }
 
 :root.light {
@@ -58,6 +66,14 @@
   --app-text: #1c1827;
   --app-text-muted: #5c546b;
   --app-border: rgba(0, 0, 0, 0.08);
+
+  /* 浅色主题反转为深红文字 + 极浅红底，避免粉底粉字看不清 */
+  --app-danger-text: #b3261e;
+  --app-danger-bg: rgba(179, 38, 30, 0.08);
+  --app-danger-bg-hover: rgba(179, 38, 30, 0.16);
+  --app-danger-border: rgba(179, 38, 30, 0.35);
+  --app-danger-solid: #b3261e;
+  --app-danger-on-solid: #ffffff;
 }
 
 /* Base resets & typography */

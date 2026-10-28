@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { OllamaModel, ModelCategory } from '../types';
 import { useAppTheme } from '../context/ThemeContext';
 import { OLLAMA_BASE } from '../api/ollama';
+import type { ExportResult } from '../api/export';
 import {
   defaultSettings,
   loadModelSettings,
@@ -19,6 +20,7 @@ interface ModelsScreenProps {
   onGoToModelfileLab: (model: OllamaModel) => void;
   onDeleteModel: (modelId: string) => Promise<void>;
   onCloneModel: (model: OllamaModel) => Promise<void>;
+  onExportModel: (model: OllamaModel) => Promise<ExportResult>;
 }
 
 const FALLBACK_SETTINGS: ModelSettings = {
@@ -38,12 +40,13 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
   onOpenPullModal,
   onGoToModelfileLab,
   onDeleteModel,
-  onCloneModel
+  onCloneModel,
+  onExportModel
 }) => {
   const { t, language } = useAppTheme();
   const [activeCategory, setActiveCategory] = useState<ModelCategory>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('grid');
+  const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('list');
   const model = selectedModel ?? models[0] ?? null;
 
   // Sampling values are persisted per model and used as chat defaults.
@@ -53,6 +56,9 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [busyModelId, setBusyModelId] = useState<string | null>(null);
+  const [exportingModelId, setExportingModelId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuDeleteConfirmId, setMenuDeleteConfirmId] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -98,6 +104,25 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
       showToast(language === 'zh' ? `显存操作失败：${message}` : `VRAM action failed: ${message}`);
     } finally {
       setBusyModelId(null);
+    }
+  };
+
+  const handleExportModel = async (target: OllamaModel) => {
+    if (exportingModelId) return;
+    setExportingModelId(target.id);
+    try {
+      const result = await onExportModel(target);
+      const hasProjector = result.files.some((file) => file.kind === 'projector');
+      showToast(
+        language === 'zh'
+          ? `已导出 ${result.files.length} 个文件到 ${result.directory}${hasProjector ? '（含 mmproj）' : ''}`
+          : `Exported ${result.files.length} file(s) to ${result.directory}${hasProjector ? ' (incl. mmproj)' : ''}`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(language === 'zh' ? `导出失败：${message}` : `Export failed: ${message}`);
+    } finally {
+      setExportingModelId(null);
     }
   };
 
@@ -289,61 +314,47 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
             }`}
             style={activeCategory === 'all' ? { backgroundColor: 'var(--primary-accent)' } : {}}
           >
-            <span className="material-symbols-outlined text-[16px]">apps</span>
-            <span>
-              {t.models.all} ({models.length})
+            <span className="material-symbols-outlined text-[16px] shrink-0">apps</span>
+            <span className="flex flex-col items-start leading-tight">
+              <span>{t.models.all}</span>
+              <span className="text-[9px] font-code opacity-75">{models.length}</span>
             </span>
           </button>
-          <button
-            onClick={() => setActiveCategory('llm')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'llm'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-            }`}
-            style={activeCategory === 'llm' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">forum</span>
-            <span>{t.models.catLlm}</span>
-          </button>
-          <button
-            onClick={() => setActiveCategory('vision')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'vision'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-            }`}
-            style={activeCategory === 'vision' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">visibility</span>
-            <span>{t.models.catVision}</span>
-          </button>
-          <button
-            onClick={() => setActiveCategory('code')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'code'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-            }`}
-            style={activeCategory === 'code' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">code</span>
-            <span>{t.models.catCode}</span>
-          </button>
-          <button
-            onClick={() => setActiveCategory('embedding')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'embedding'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-            }`}
-            style={
-              activeCategory === 'embedding' ? { backgroundColor: 'var(--primary-accent)' } : {}
-            }
-          >
-            <span className="material-symbols-outlined text-[16px]">hub</span>
-            <span>{t.models.catEmbedding}</span>
-          </button>
+          {(
+            [
+              { key: 'llm', icon: 'forum', label: t.models.catLlm, sub: t.models.catLlmEn },
+              {
+                key: 'vision',
+                icon: 'visibility',
+                label: t.models.catVision,
+                sub: t.models.catVisionEn
+              },
+              { key: 'code', icon: 'code', label: t.models.catCode, sub: t.models.catCodeEn },
+              {
+                key: 'embedding',
+                icon: 'hub',
+                label: t.models.catEmbedding,
+                sub: t.models.catEmbeddingEn
+              }
+            ] as const
+          ).map(({ key, icon, label, sub }) => (
+            <button
+              key={key}
+              onClick={() => setActiveCategory(key)}
+              className={`flex items-center gap-2 px-4 py-1.5 rounded-full text-[13px] font-medium transition-all cursor-pointer shrink-0 ${
+                activeCategory === key
+                  ? 'text-white font-semibold shadow-md'
+                  : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
+              }`}
+              style={activeCategory === key ? { backgroundColor: 'var(--primary-accent)' } : {}}
+            >
+              <span className="material-symbols-outlined text-[16px] shrink-0">{icon}</span>
+              <span className="flex flex-col items-start leading-tight whitespace-nowrap">
+                <span>{label}</span>
+                <span className="text-[9px] font-code opacity-75">{sub}</span>
+              </span>
+            </button>
+          ))}
         </div>
 
         {/* 搜索与布局切换 */}
@@ -411,7 +422,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
           }`}
         >
           {filteredModels.map((model) => {
-            const isSelected = model.id === model.id;
+            const isSelected = model.id === selectedModel?.id;
             const isRunning = model.status === 'running';
 
             return (
@@ -422,10 +433,20 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                   layoutMode === 'grid' ? 'h-full' : ''
                 } ${
                   isSelected
-                    ? 'border-transparent shadow-xl ring-2'
+                    ? 'shadow-xl'
                     : 'border-[var(--app-border)] hover:border-white/20 shadow-md'
                 }`}
-                style={isSelected ? { outlineColor: 'var(--primary-accent)' } : {}}
+                style={
+                  isSelected
+                    ? {
+                        backgroundColor:
+                          'color-mix(in srgb, var(--primary-accent) 13%, var(--app-surface-high))',
+                        borderColor: 'var(--primary-accent)',
+                        boxShadow:
+                          '0 0 0 1px var(--primary-glow), 0 12px 32px -14px var(--primary-glow)'
+                      }
+                    : undefined
+                }
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
@@ -467,15 +488,172 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                   </div>
 
                   {/* 更多动作 */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectModel(model);
-                    }}
-                    className="w-9 h-9 rounded-full hover:bg-[var(--app-surface-highest)] flex items-center justify-center text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition-colors shrink-0 cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">more_vert</span>
-                  </button>
+                  <div className="relative shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuDeleteConfirmId(null);
+                        setOpenMenuId(openMenuId === model.id ? null : model.id);
+                      }}
+                      aria-label={t.models.moreActions}
+                      aria-expanded={openMenuId === model.id}
+                      className="w-9 h-9 rounded-full hover:bg-[var(--app-surface-highest)] flex items-center justify-center text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition-colors cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[20px]">more_vert</span>
+                    </button>
+                    {openMenuId === model.id && (
+                      <>
+                        <div
+                          className="fixed inset-0 z-10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId(null);
+                            setMenuDeleteConfirmId(null);
+                          }}
+                        />
+                        <div
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-0 top-11 z-20 w-52 rounded-2xl bg-[var(--app-surface-highest)] border border-[var(--app-border)] shadow-2xl p-1.5 flex flex-col gap-0.5"
+                        >
+                          {menuDeleteConfirmId === model.id ? (
+                            <div className="p-2 flex flex-col gap-2">
+                              <span className="text-[12px] text-[var(--app-danger-text)] font-medium">
+                                {t.models.menuDeleteConfirm}
+                              </span>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setMenuDeleteConfirmId(null);
+                                  }}
+                                  className="flex-1 px-3 py-1.5 rounded-full bg-[var(--app-surface)] text-[var(--app-text-muted)] text-[11px] cursor-pointer"
+                                >
+                                  {t.models.cancel}
+                                </button>
+                                <button
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    setMenuDeleteConfirmId(null);
+                                    setOpenMenuId(null);
+                                    try {
+                                      await onDeleteModel(model.id);
+                                      showToast(
+                                        language === 'zh'
+                                          ? `已成功移除 ${model.name}`
+                                          : `Removed ${model.name}`
+                                      );
+                                    } catch (error) {
+                                      const message =
+                                        error instanceof Error ? error.message : String(error);
+                                      showToast(
+                                        language === 'zh'
+                                          ? `删除失败：${message}`
+                                          : `Delete failed: ${message}`
+                                      );
+                                    }
+                                  }}
+                                  className="flex-1 px-3 py-1.5 rounded-full bg-[var(--app-danger-solid)] text-[var(--app-danger-on-solid)] font-bold text-[11px] cursor-pointer"
+                                >
+                                  {t.models.confirmDelete}
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <button
+                                disabled={busyModelId === model.id}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  void handleToggleVram(model);
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] text-[var(--app-text)] hover:bg-[var(--app-surface)] disabled:opacity-50 transition-colors cursor-pointer text-left whitespace-nowrap"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">
+                                  {isRunning ? 'eject' : 'play_circle'}
+                                </span>
+                                {isRunning ? t.models.releaseVram : t.models.loadToVram}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  onLaunchInChat(model);
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] text-[var(--app-text)] hover:bg-[var(--app-surface)] transition-colors cursor-pointer text-left whitespace-nowrap"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">
+                                  terminal
+                                </span>
+                                {t.models.inferNow}
+                              </button>
+                              <button
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  try {
+                                    await onCloneModel(model);
+                                    showToast(
+                                      language === 'zh'
+                                        ? `已克隆 ${model.name}`
+                                        : `Cloned ${model.name}`
+                                    );
+                                  } catch (error) {
+                                    const message =
+                                      error instanceof Error ? error.message : String(error);
+                                    showToast(
+                                      language === 'zh'
+                                        ? `克隆失败：${message}`
+                                        : `Clone failed: ${message}`
+                                    );
+                                  }
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] text-[var(--app-text)] hover:bg-[var(--app-surface)] transition-colors cursor-pointer text-left whitespace-nowrap"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">
+                                  content_copy
+                                </span>
+                                {t.models.menuClone}
+                              </button>
+                              <button
+                                disabled={exportingModelId === model.id}
+                                onClick={async (e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  await handleExportModel(model);
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] text-[var(--app-text)] hover:bg-[var(--app-surface)] disabled:opacity-50 transition-colors cursor-pointer text-left whitespace-nowrap"
+                              >
+                                <span
+                                  className={`material-symbols-outlined text-[18px] ${
+                                    exportingModelId === model.id ? 'animate-spin' : ''
+                                  }`}
+                                >
+                                  {exportingModelId === model.id
+                                    ? 'progress_activity'
+                                    : 'ios_share'}
+                                </span>
+                                {language === 'zh' ? '导出 GGUF' : 'Export GGUF'}
+                              </button>
+                              <div className="h-px bg-[var(--app-border)] my-1" />
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setMenuDeleteConfirmId(model.id);
+                                }}
+                                className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] text-[var(--app-danger-text)] hover:bg-[var(--app-danger-bg)] transition-colors cursor-pointer text-left whitespace-nowrap"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">
+                                  delete_forever
+                                </span>
+                                {t.models.menuDelete}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 {/* 硬件规格与量化胶囊条 */}
@@ -507,19 +685,22 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                   )}
                 </div>
 
+                {/* 弹性占位：保证动作条与上方内容至少留出间距（网格模式下拉到底部） */}
+                <div className="flex-1 min-h-4" />
+
                 {/* 卡片底部动作条 */}
-                <div className="mt-auto pt-3 flex items-center justify-between bg-[var(--app-surface)] px-4 py-2.5 rounded-2xl border border-[var(--app-border)]">
-                  <div className="flex items-center gap-2 text-[var(--app-text-muted)] text-[11px]">
-                    <span className="material-symbols-outlined text-[16px] text-[#ffafd3]">
+                <div className="pt-3 flex items-center justify-between bg-[var(--app-surface)] px-4 py-2.5 rounded-2xl border border-[var(--app-border)]">
+                  <div className="flex items-center gap-2 text-[var(--app-text-muted)] text-[11px] min-w-0">
+                    <span className="material-symbols-outlined text-[16px] text-[#ffafd3] shrink-0">
                       schedule
                     </span>
-                    <span>
+                    <span className="truncate">
                       {language === 'zh'
                         ? (model.lastUsed ?? t.models.allSleep)
                         : (model.lastUsedEn ?? model.lastUsed ?? t.models.allSleep)}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     {isRunning ? (
                       <>
                         <button
@@ -528,7 +709,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                             e.stopPropagation();
                             void handleToggleVram(model);
                           }}
-                          className="px-4 py-1.5 rounded-full bg-[#ba4385]/20 text-[#ffafd3] hover:bg-[#ba4385]/40 disabled:opacity-50 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer"
+                          className="px-4 py-1.5 rounded-full bg-[#ba4385]/20 text-[#ffafd3] hover:bg-[#ba4385]/40 disabled:opacity-50 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                         >
                           <span className="material-symbols-outlined text-[16px]">eject</span>
                           <span>{t.models.releaseVram}</span>
@@ -538,7 +719,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                             e.stopPropagation();
                             onLaunchInChat(model);
                           }}
-                          className="px-4 py-1.5 rounded-full text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-md"
+                          className="px-4 py-1.5 rounded-full text-white text-[11px] font-bold transition-all flex items-center gap-1 cursor-pointer shadow-md whitespace-nowrap shrink-0"
                           style={{ backgroundColor: 'var(--primary-accent)' }}
                         >
                           <span className="material-symbols-outlined text-[16px]">terminal</span>
@@ -576,13 +757,17 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
               >
                 <span className="material-symbols-outlined text-[20px]">tune</span>
               </div>
-              <div className="flex flex-col">
+              <div className="flex flex-col min-w-0">
                 <span className="font-headline text-[16px] text-[var(--app-text)] font-bold">
                   {t.models.drawerTitle}
                 </span>
                 <span
-                  className="font-code text-[11px] font-semibold"
-                  style={{ color: 'var(--primary-accent)' }}
+                  className="inline-flex w-fit max-w-full mt-1 px-2.5 py-1 rounded-lg font-code text-[11px] font-semibold break-all border"
+                  style={{
+                    color: 'var(--primary-accent)',
+                    backgroundColor: 'color-mix(in srgb, var(--primary-accent) 15%, transparent)',
+                    borderColor: 'color-mix(in srgb, var(--primary-accent) 45%, transparent)'
+                  }}
                 >
                   {model.fullTag}
                 </span>
@@ -778,23 +963,27 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                 <span>{t.models.cloneVersion}</span>
               </button>
               <button
-                disabled
-                onClick={() => undefined}
-                className="py-3 px-4 rounded-full bg-[var(--app-surface-highest)] text-[var(--app-text-muted)] text-[13px] transition-colors flex items-center justify-center cursor-not-allowed opacity-60 border border-[var(--app-border)]"
-                title={
-                  language === 'zh'
-                    ? 'Ollama 不提供导出 GGUF 的 API'
-                    : 'Ollama does not expose a GGUF export API'
-                }
+                disabled={exportingModelId === model.id}
+                onClick={() => void handleExportModel(model)}
+                className="py-3 px-4 rounded-full bg-[var(--app-surface-highest)] text-[var(--app-text)] hover:opacity-90 text-[13px] font-medium transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-[var(--app-border)] disabled:opacity-50 disabled:cursor-wait"
+                title={t.models.exportGguf}
+                aria-label={t.models.exportGguf}
               >
-                <span className="material-symbols-outlined text-[18px]">ios_share</span>
+                <span
+                  className={`material-symbols-outlined text-[18px] ${
+                    exportingModelId === model.id ? 'animate-spin' : ''
+                  }`}
+                >
+                  {exportingModelId === model.id ? 'progress_activity' : 'ios_share'}
+                </span>
+                <span>{language === 'zh' ? '导出 GGUF' : 'Export GGUF'}</span>
               </button>
             </div>
 
             {/* 危险区：彻底删除 */}
             {showDeleteConfirm ? (
-              <div className="p-3 bg-[#93000a]/20 border border-[#ffb4ab]/30 rounded-2xl flex items-center justify-between gap-2">
-                <span className="text-[12px] text-[#ffb4ab] font-medium">
+              <div className="p-3 bg-[var(--app-danger-bg)] border border-[var(--app-danger-border)] rounded-2xl flex items-center justify-between gap-2">
+                <span className="text-[12px] text-[var(--app-danger-text)] font-medium">
                   {t.models.deleteConfirmTitle}
                 </span>
                 <div className="flex items-center gap-2">
@@ -819,7 +1008,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                         );
                       }
                     }}
-                    className="px-3 py-1 rounded-full bg-[#ffb4ab] text-[#690005] font-bold text-[11px] cursor-pointer"
+                    className="px-3 py-1 rounded-full bg-[var(--app-danger-solid)] text-[var(--app-danger-on-solid)] font-bold text-[11px] cursor-pointer"
                   >
                     {t.models.confirmDelete}
                   </button>
@@ -828,7 +1017,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
             ) : (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
-                className="w-full py-2.5 px-4 rounded-full bg-[#93000a]/20 hover:bg-[#93000a]/40 text-[#ffb4ab] text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#ffb4ab]/20"
+                className="w-full py-2.5 px-4 rounded-full bg-[var(--app-danger-bg)] hover:bg-[var(--app-danger-bg-hover)] text-[var(--app-danger-text)] text-[13px] font-semibold transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[var(--app-danger-border)]"
               >
                 <span className="material-symbols-outlined text-[18px]">delete_forever</span>
                 <span>

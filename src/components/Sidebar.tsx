@@ -63,12 +63,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           </div>
           <div className="ml-2 flex items-center gap-1.5">
-            <span
-              className="material-symbols-outlined text-[20px]"
-              style={{ color: 'var(--primary-accent)' }}
-            >
-              neurology
-            </span>
+            <img
+              src="/assets/ollama-llama.png"
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              className="w-[18px] h-[21px] object-contain select-none"
+            />
             <span className="font-headline text-[15px] text-[var(--app-text)] font-bold tracking-tight">
               Ollama Studio
             </span>

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { NavScreen, OllamaModel, DownloadTask } from './types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { NavScreen, OllamaModel, DownloadTask, ModelScopeDownloadSource } from './types';
 import { INITIAL_MODELS } from './data/mockData';
 import { ThemeProvider, useAppTheme } from './context/ThemeContext';
 import { useOllama } from './hooks/useOllama';
@@ -9,11 +9,23 @@ import {
   deleteModel,
   importGguf,
   loadModel,
-  pullModel,
   unloadModel
 } from './api/ollama';
 import type { CreateModelRequest, KeepAliveOptions } from './api/ollama';
-import { clearDownloadTask, loadDownloadTask, saveDownloadTask } from './lib/downloadTask';
+import { exportModelGguf } from './api/export';
+import {
+  cancelDownloadJob,
+  getDownloadJob,
+  listDownloadJobs,
+  startDownloadJob
+} from './api/downloads';
+import type { DownloadJob } from './api/downloads';
+import {
+  clearDownloadTask,
+  isModelScopeTask,
+  loadDownloadTask,
+  saveDownloadTask
+} from './lib/downloadTask';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { ConnectionBanner } from './components/ConnectionBanner';
@@ -28,9 +40,23 @@ import { ChatScreen } from './screens/ChatScreen';
 import { TelemetryScreen } from './screens/TelemetryScreen';
 import { ModelfileLabScreen } from './screens/ModelfileLabScreen';
 
+type ModelScopeDownloadTarget = ModelScopeDownloadSource;
+
 const formatSpeed = (bytesPerSecond: number) => {
   if (!Number.isFinite(bytesPerSecond) || bytesPerSecond <= 0) return '—';
   return `${(bytesPerSecond / 1_000_000).toFixed(1)} MB/s`;
+};
+
+/**
+ * Ollama registry 找不到 manifest 时补充可操作提示：
+ * 直接输入 Hugging Face 仓库名（如 unsloth/Qwen3.5-0.8B-GGUF）会走官方 registry 并 404。
+ */
+const explainPullError = (message: string, model: string, zh: boolean): string => {
+  if (!/manifest.*does not exist/i.test(message)) return message;
+  if (!model.includes('/') || model.startsWith('hf.co/')) return message;
+  return zh
+    ? `${message}\n提示：Ollama registry 中没有该路径。若这是 Hugging Face 仓库，请使用 hf.co/${model}:<量化>；网络不通时可在拉取页选择 ModelScope 渠道直接下载 GGUF。`
+    : `${message}\nHint: Ollama's registry has no such path. For Hugging Face repos use hf.co/${model}:<quant>; if HF is blocked, download the GGUF via ModelScope.`;
 };
 
 const formatRemaining = (seconds: number, zh: boolean) => {
@@ -72,8 +98,10 @@ function MainApp() {
     return loadDownloadTask() ?? IDLE_DOWNLOAD_TASK;
   });
   const [selectedQuant, setSelectedQuant] = useState<string>('Q4_K_M');
-  const downloadAbortRef = useRef<AbortController | null>(null);
-  const downloadRunIdRef = useRef(0);
+  // ModelScope 任务不走 ollama pull，恢复时需要原始仓库与文件名
+  const modelScopeTargetRef = useRef<ModelScopeDownloadTarget | null>(null);
+  const refreshModelsRef = useRef<(() => Promise<unknown>) | null>(null);
+  const adoptedRef = useRef(false);
 
   // Modals
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -82,6 +110,10 @@ function MainApp() {
   const [isPaletteModalOpen, setIsPaletteModalOpen] = useState(false);
 
   const ollama = useOllama();
+  // 轮询回调里用最新的 refresh，避免把 ollama 放进 effect 依赖导致定时器反复重建
+  useEffect(() => {
+    refreshModelsRef.current = ollama.refresh;
+  }, [ollama.refresh]);
 
   useEffect(() => {
     if (ollama.status === 'connecting') return;
@@ -169,155 +201,325 @@ function MainApp() {
     await ollama.refresh();
   };
 
-  // Start a real Ollama pull and stream progress into the task card
-  const handleStartNewDownload = async (modelTag: string) => {
+  // 导出 Ollama 已安装的 GGUF 权重；由本地服务读取 manifest/blob 后写盘
+  const handleExportModel = (model: OllamaModel) => exportModelGguf(model.fullTag);
+
+  // 下载在服务端后台执行：请求只创建任务，进度靠轮询，刷新页面不会中断
+  const buildTaskFromJob = useCallback(
+    (job: DownloadJob, targetPath?: string): DownloadTask => {
+      const isModelScope = job.kind === 'modelscope';
+      const quant = job.model.includes(':')
+        ? job.model.slice(job.model.lastIndexOf(':') + 1)
+        : selectedQuant;
+      return {
+        id: job.id,
+        kind: job.kind,
+        modelName: job.model,
+        quant,
+        layerStatus: job.layerStatus,
+        speed: '—',
+        remainingTime: zh ? '计算中…' : 'Calculating…',
+        progress: 0,
+        downloadedGb: 0,
+        totalGb: 0,
+        targetPath:
+          targetPath ??
+          (isModelScope
+            ? (job.target?.file.split('/').pop() ?? '')
+            : job.model.startsWith('hf.co/')
+              ? job.model
+              : `~/.ollama/models/manifests/${job.model}`),
+        sha256: isModelScope
+          ? zh
+            ? '下载后由 ollama create 注册'
+            : 'Registered via ollama create'
+          : zh
+            ? '等待校验'
+            : 'Pending verification',
+        isPaused: false,
+        isActive: true,
+        isComplete: false,
+        error: undefined,
+        source:
+          isModelScope && job.target
+            ? {
+                namespace: job.target.namespace,
+                name: job.target.name,
+                file: job.target.file,
+                quant,
+                modelName: job.target.model ?? job.model
+              }
+            : undefined
+      };
+    },
+    [selectedQuant, zh]
+  );
+
+  const startPullDownload = async (modelTag: string) => {
     const name = modelTag.trim();
     if (!name) return;
 
-    downloadAbortRef.current?.abort();
-    const controller = new AbortController();
-    downloadAbortRef.current = controller;
-    const runId = ++downloadRunIdRef.current;
-    const taskId = `task-${Date.now()}-${runId}`;
-    const quant = name.includes(':') ? name.slice(name.lastIndexOf(':') + 1) : selectedQuant;
-    const layers = new Map<string, { total: number; completed: number }>();
-    let lastCompleted = 0;
-    let lastAt = Date.now();
-
-    setDownloadTask({
-      id: taskId,
-      modelName: name,
-      quant,
-      layerStatus: zh ? '正在连接 Ollama…' : 'Connecting to Ollama…',
-      speed: '—',
-      remainingTime: zh ? '计算中…' : 'Calculating…',
-      progress: 0,
-      downloadedGb: 0,
-      totalGb: 0,
-      targetPath: name.startsWith('hf.co/') ? name : `~/.ollama/models/manifests/${name}`,
-      sha256: zh ? '等待校验' : 'Pending verification',
-      isPaused: false,
-      isActive: true,
-      isComplete: false,
-      error: undefined
-    });
+    modelScopeTargetRef.current = null;
     setCurrentScreen('pull');
 
     try {
-      await pullModel(
-        name,
-        {
-          onProgress: (progress) => {
-            if (downloadRunIdRef.current !== runId) return;
-
-            if (progress.digest && typeof progress.total === 'number') {
-              const existing = layers.get(progress.digest);
-              layers.set(progress.digest, {
-                total: progress.total,
-                completed: progress.completed ?? existing?.completed ?? 0
-              });
-            } else if (progress.digest && typeof progress.completed === 'number') {
-              const existing = layers.get(progress.digest);
-              if (existing) {
-                layers.set(progress.digest, {
-                  ...existing,
-                  completed: progress.completed
-                });
-              }
-            }
-
-            let total = 0;
-            let completed = 0;
-            for (const layer of layers.values()) {
-              total += layer.total;
-              completed += layer.completed;
-            }
-
-            const pct = total > 0 ? Math.min(100, (completed / total) * 100) : 0;
-            const now = Date.now();
-            const elapsed = (now - lastAt) / 1000;
-            const delta = completed - lastCompleted;
-            let speed = 0;
-            if (elapsed > 0 && delta > 0) {
-              speed = delta / elapsed;
-              lastCompleted = completed;
-              lastAt = now;
-            }
-
-            setDownloadTask((previous) =>
-              previous.id !== taskId
-                ? previous
-                : {
-                    ...previous,
-                    layerStatus: progress.status || previous.layerStatus,
-                    progress: Number(pct.toFixed(1)),
-                    downloadedGb: Number((completed / 1e9).toFixed(2)),
-                    totalGb: Number((total / 1e9).toFixed(2)),
-                    speed: speed > 0 ? formatSpeed(speed) : previous.speed,
-                    remainingTime:
-                      speed > 0
-                        ? formatRemaining((total - completed) / speed, zh)
-                        : previous.remainingTime,
-                    sha256: progress.digest ? `${progress.digest.slice(0, 19)}…` : previous.sha256
-                  }
-            );
-          },
-          onDone: () => {
-            if (downloadRunIdRef.current !== runId) return;
-            setDownloadTask((previous) =>
-              previous.id !== taskId
-                ? previous
-                : {
-                    ...previous,
-                    progress: 100,
-                    isComplete: true,
-                    isPaused: false,
-                    isActive: true,
-                    layerStatus: zh ? '拉取完成' : 'Pull complete',
-                    speed: '—',
-                    remainingTime: zh ? '已完成' : 'Done',
-                    sha256: zh ? '校验完成' : 'Verified'
-                  }
-            );
-            void ollama.refresh();
-          }
-        },
-        controller.signal
-      );
+      const job = await startDownloadJob({ kind: 'pull', model: name });
+      setDownloadTask(buildTaskFromJob(job));
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') return;
-      if (downloadRunIdRef.current !== runId) return;
       const message = error instanceof Error ? error.message : String(error);
-      setDownloadTask((previous) =>
-        previous.id !== taskId
-          ? previous
-          : {
-              ...previous,
-              isActive: true,
-              isPaused: false,
-              layerStatus: zh ? '拉取失败' : 'Pull failed',
-              error: message,
-              speed: '—',
-              remainingTime: '—'
-            }
-      );
-    } finally {
-      if (downloadAbortRef.current === controller) {
-        downloadAbortRef.current = null;
-      }
+      setDownloadTask({
+        id: `failed-${Date.now()}`,
+        kind: 'pull',
+        modelName: name,
+        quant: name.includes(':') ? name.slice(name.lastIndexOf(':') + 1) : selectedQuant,
+        layerStatus: zh ? '无法开始下载' : 'Could not start download',
+        speed: '—',
+        remainingTime: '—',
+        progress: 0,
+        downloadedGb: 0,
+        totalGb: 0,
+        targetPath: name.startsWith('hf.co/') ? name : `~/.ollama/models/manifests/${name}`,
+        sha256: '—',
+        isPaused: false,
+        isActive: true,
+        isComplete: false,
+        error: message
+      });
     }
   };
+
+  const handleStartNewDownload = (modelTag: string) => {
+    void startPullDownload(modelTag);
+  };
+
+  // ModelScope 无法被 ollama pull：由本地服务下载 GGUF 后再 ollama create
+  const startModelScopeDownload = async (target: ModelScopeDownloadTarget) => {
+    const filename = target.file.split('/').pop() ?? target.file;
+
+    modelScopeTargetRef.current = target;
+    setCurrentScreen('pull');
+
+    try {
+      const job = await startDownloadJob({
+        kind: 'modelscope',
+        namespace: target.namespace,
+        name: target.name,
+        file: target.file,
+        model: target.modelName
+      });
+      setDownloadTask({
+        ...buildTaskFromJob(job, filename),
+        quant: target.quant,
+        targetPath: filename,
+        source: target
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      setDownloadTask({
+        id: `failed-${Date.now()}`,
+        kind: 'modelscope',
+        modelName: `${target.namespace}/${target.name}`,
+        quant: target.quant,
+        layerStatus: zh ? '无法开始下载' : 'Could not start download',
+        speed: '—',
+        remainingTime: '—',
+        progress: 0,
+        downloadedGb: 0,
+        totalGb: 0,
+        targetPath: filename,
+        sha256: '—',
+        isPaused: false,
+        isActive: true,
+        isComplete: false,
+        error: message,
+        source: target
+      });
+    }
+  };
+
+  const handleStartModelScopeDownload = (target: ModelScopeDownloadTarget) => {
+    void startModelScopeDownload(target);
+  };
+
+  // 刷新或新标签页：接上服务端仍在运行的下载任务
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const jobs = await listDownloadJobs().catch(() => []);
+      if (cancelled) return;
+      const running = jobs
+        .filter((job) => job.status === 'running')
+        .sort((a, b) => b.startedAt - a.startedAt)[0];
+      if (!running) return;
+      // 恢复暂停所需的原始仓库信息只存在服务端任务里
+      if (running.kind === 'modelscope' && running.target) {
+        modelScopeTargetRef.current = {
+          ...running.target,
+          quant: selectedQuant,
+          modelName: running.target.model ?? running.model
+        };
+      }
+      // 本地记录会被 markInterrupted 标成“已中断”，即使 id 相同也要用服务端状态覆盖
+      setDownloadTask((previous) =>
+        previous.id === running.id && !previous.isPaused && !previous.isInterrupted
+          ? previous
+          : buildTaskFromJob(running)
+      );
+      // 刷新后直接回到拉取页，让用户看到仍在进行的下载（只跳一次）
+      if (!adoptedRef.current) {
+        adoptedRef.current = true;
+        setCurrentScreen('pull');
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [buildTaskFromJob, selectedQuant]);
+
+  // 轮询后台任务；任务结束、暂停或取消时自动停止
+  useEffect(() => {
+    const jobId = downloadTask.id;
+    if (!jobId.startsWith('dl-')) return;
+    if (!downloadTask.isActive || downloadTask.isComplete || downloadTask.isPaused) return;
+    if (downloadTask.error) return;
+
+    let stopped = false;
+    let lastCompleted: number | null = null;
+    let lastAt = Date.now();
+
+    const poll = async () => {
+      let job: DownloadJob | null;
+      try {
+        job = await getDownloadJob(jobId);
+      } catch {
+        return; // 网络抖动：保留当前进度，下次轮询再试
+      }
+      if (stopped) return;
+
+      if (!job) {
+        setDownloadTask((previous) =>
+          previous.id !== jobId || previous.isPaused || !previous.isActive
+            ? previous
+            : {
+                ...previous,
+                isPaused: true,
+                isInterrupted: true,
+                speed: '—',
+                remainingTime: '—',
+                layerStatus: zh ? '后台任务已丢失，请重新下载' : 'Background task lost, restart it'
+              }
+        );
+        return;
+      }
+
+      const now = Date.now();
+      const elapsed = (now - lastAt) / 1000;
+      let speed = 0;
+      if (lastCompleted !== null && elapsed > 0 && job.completed > lastCompleted) {
+        speed = (job.completed - lastCompleted) / elapsed;
+      }
+      if (job.completed > 0) {
+        lastCompleted = job.completed;
+        lastAt = now;
+      }
+
+      const pct = job.total > 0 ? Math.min(100, (job.completed / job.total) * 100) : 0;
+      const isModelScope = job.kind === 'modelscope';
+      const succeeded = job.status === 'success';
+      const failed = job.status === 'error';
+      const cancelled = job.status === 'cancelled';
+
+      setDownloadTask((previous) => {
+        if (previous.id !== jobId || previous.isPaused || !previous.isActive) return previous;
+        return {
+          ...previous,
+          layerStatus: cancelled
+            ? zh
+              ? '已取消'
+              : 'Cancelled'
+            : succeeded
+              ? isModelScope
+                ? zh
+                  ? '下载完成，已注册到 Ollama'
+                  : 'Downloaded and registered'
+                : zh
+                  ? '拉取完成'
+                  : 'Pull complete'
+              : isModelScope
+                ? job.layerStatus === 'creating'
+                  ? zh
+                    ? '正在用 ollama create 注册模型…'
+                    : 'Registering with ollama create…'
+                  : zh
+                    ? '正在下载 GGUF…'
+                    : 'Downloading GGUF…'
+                : job.layerStatus || previous.layerStatus,
+          progress: succeeded ? 100 : Number(pct.toFixed(1)),
+          downloadedGb: Number((job.completed / 1e9).toFixed(2)),
+          totalGb: Number((job.total / 1e9).toFixed(2)),
+          speed:
+            succeeded || failed || cancelled
+              ? '—'
+              : speed > 0
+                ? formatSpeed(speed)
+                : previous.speed,
+          remainingTime: succeeded
+            ? zh
+              ? '已完成'
+              : 'Done'
+            : failed || cancelled
+              ? '—'
+              : speed > 0 && job.total > 0
+                ? formatRemaining((job.total - job.completed) / speed, zh)
+                : previous.remainingTime,
+          isComplete: succeeded,
+          isActive: !cancelled,
+          error: failed
+            ? isModelScope
+              ? job.error || (zh ? '下载失败' : 'Download failed')
+              : explainPullError(job.error || (zh ? '下载失败' : 'Download failed'), job.model, zh)
+            : undefined,
+          sha256: succeeded
+            ? isModelScope
+              ? zh
+                ? '已通过 ollama create 注册'
+                : 'Registered via ollama create'
+              : zh
+                ? '校验完成'
+                : 'Verified'
+            : previous.sha256
+        };
+      });
+
+      if (succeeded) void refreshModelsRef.current?.();
+    };
+
+    void poll();
+    const timer = window.setInterval(() => {
+      void poll();
+    }, 900);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [
+    downloadTask.id,
+    downloadTask.isActive,
+    downloadTask.isComplete,
+    downloadTask.isPaused,
+    downloadTask.error,
+    zh
+  ]);
 
   const handlePauseDownload = () => {
     if (!downloadTask.isActive || downloadTask.isPaused || downloadTask.isComplete) {
       return;
     }
-    downloadAbortRef.current?.abort();
-    downloadAbortRef.current = null;
-    downloadRunIdRef.current += 1;
+    void cancelDownloadJob(downloadTask.id);
     setDownloadTask((previous) => ({
       ...previous,
       isPaused: true,
+      isInterrupted: false,
       layerStatus: zh ? '已暂停' : 'Paused',
       speed: '—',
       remainingTime: zh ? '已暂停' : 'Paused'
@@ -326,19 +528,68 @@ function MainApp() {
 
   const handleResumeDownload = () => {
     if (!downloadTask.isPaused) return;
-    void handleStartNewDownload(downloadTask.modelName);
+
+    if (downloadTask.kind === 'modelscope') {
+      const cached = modelScopeTargetRef.current;
+      const [namespace, name] = downloadTask.modelName.split('/');
+      const file = cached?.file ?? downloadTask.targetPath;
+      if (!namespace || !name || !file) return;
+      void startModelScopeDownload({
+        namespace,
+        name,
+        file,
+        quant: cached?.quant ?? downloadTask.quant,
+        modelName: cached?.modelName ?? downloadTask.modelName
+      });
+      return;
+    }
+
+    void startPullDownload(downloadTask.modelName);
+  };
+
+  // 失败后原样重跑；ModelScope 任务优先用持久化的 source，刷新后也能重试
+  const handleRetryDownload = () => {
+    if (!downloadTask.error) return;
+
+    if (isModelScopeTask(downloadTask)) {
+      const source = downloadTask.source ?? modelScopeTargetRef.current;
+      if (source) {
+        void startModelScopeDownload(source);
+        return;
+      }
+      // 旧任务没有 source：用展示字段重建（文件位于仓库根目录时可用）
+      const [namespace, name] = downloadTask.modelName.split('/');
+      if (namespace && name && downloadTask.targetPath) {
+        void startModelScopeDownload({
+          namespace,
+          name,
+          file: downloadTask.targetPath,
+          quant: downloadTask.quant,
+          modelName: downloadTask.modelName
+        });
+        return;
+      }
+      setDownloadTask((previous) => ({
+        ...previous,
+        layerStatus: zh ? '无法恢复下载信息，请重新搜索' : 'Source info lost; search again'
+      }));
+      return;
+    }
+
+    void startPullDownload(downloadTask.modelName);
   };
 
   const handleCancelDownload = () => {
-    downloadAbortRef.current?.abort();
-    downloadAbortRef.current = null;
-    downloadRunIdRef.current += 1;
+    modelScopeTargetRef.current = null;
+    void cancelDownloadJob(downloadTask.id);
     clearDownloadTask();
     setDownloadTask((previous) => ({
       ...previous,
       isActive: false,
       isPaused: false,
-      layerStatus: zh ? '已取消' : 'Cancelled'
+      layerStatus: zh ? '已取消' : 'Cancelled',
+      speed: '—',
+      remainingTime: '—'
     }));
   };
 
@@ -437,6 +688,7 @@ function MainApp() {
               }}
               onDeleteModel={handleDeleteModel}
               onCloneModel={handleCloneModel}
+              onExportModel={handleExportModel}
             />
           )}
 
@@ -445,11 +697,13 @@ function MainApp() {
               downloadTask={downloadTask}
               onPauseDownload={handlePauseDownload}
               onResumeDownload={handleResumeDownload}
+              onRetryDownload={handleRetryDownload}
               onCancelDownload={handleCancelDownload}
               onOpenQuantPicker={() => setIsQuantPickerOpen(true)}
               selectedQuant={selectedQuant}
               onImportGguf={handleImportGguf}
               onStartNewDownload={handleStartNewDownload}
+              onStartModelScopeDownload={handleStartModelScopeDownload}
             />
           )}
 
