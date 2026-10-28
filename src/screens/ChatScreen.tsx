@@ -24,6 +24,11 @@ import {
   type ModelSettings
 } from '../lib/modelSettings';
 import { parseMessageSegments } from '../lib/markdown';
+import { readStorageJson, removeStorageKey, writeStorageJson } from '../lib/storage';
+
+const CHAT_INPUT_HEIGHT_KEY = 'ollama_chat_input_height_v1';
+const MIN_INPUT_HEIGHT = 44;
+const AUTO_INPUT_MAX_HEIGHT = 200;
 
 const FALLBACK_SETTINGS: ModelSettings = {
   temperature: 0.6,
@@ -134,6 +139,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       ? loadModelSettings(currentModel.fullTag, defaultSettings(currentModel))
       : FALLBACK_SETTINGS
   );
+  const [inputHeight, setInputHeight] = useState<number | null>(() => {
+    const stored = readStorageJson<unknown>(CHAT_INPUT_HEIGHT_KEY, null);
+    return typeof stored === 'number' && stored >= MIN_INPUT_HEIGHT && stored <= 2000
+      ? stored
+      : null;
+  });
 
   const [systemPersona, setSystemPersona] = useState(() =>
     language === 'zh' ? '通用本地 AI 助手' : 'General local AI assistant'
@@ -211,11 +222,82 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     return () => abortRef.current?.abort();
   }, []);
 
+  // Persist the manually chosen composer height (null means auto-grow).
+  useEffect(() => {
+    if (inputHeight === null) {
+      removeStorageKey(CHAT_INPUT_HEIGHT_KEY);
+    } else {
+      writeStorageJson(CHAT_INPUT_HEIGHT_KEY, inputHeight);
+    }
+  }, [inputHeight]);
+
+  // In auto mode, grow with the content after every render (including reset).
+  useEffect(() => {
+    if (inputHeight !== null) return;
+    const element = textareaRef.current;
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = `${Math.min(element.scrollHeight, AUTO_INPUT_MAX_HEIGHT)}px`;
+  }, [inputHeight]);
+
   const updateSettings = (patch: Partial<ModelSettings>) => {
     if (!currentModel) return;
     const next = { ...settings, ...patch };
     setSettings(next);
     saveModelSettings(currentModel.fullTag, next);
+  };
+
+  const maxInputHeight = () =>
+    Math.max(MIN_INPUT_HEIGHT + 24, Math.floor(window.innerHeight * 0.55));
+
+  const resetInputHeight = () => {
+    setInputHeight(null);
+  };
+
+  const adjustInputHeight = (delta: number) => {
+    const current = inputHeight ?? textareaRef.current?.offsetHeight ?? MIN_INPUT_HEIGHT;
+    setInputHeight(Math.min(Math.max(current + delta, MIN_INPUT_HEIGHT), maxInputHeight()));
+  };
+
+  const handleInputResizeStart = (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    const startY = event.clientY;
+    const startHeight = textareaRef.current?.offsetHeight ?? MIN_INPUT_HEIGHT;
+    const maxHeight = maxInputHeight();
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = 'none';
+
+    const handleMove = (moveEvent: PointerEvent) => {
+      const next = Math.min(
+        Math.max(startHeight + (startY - moveEvent.clientY), MIN_INPUT_HEIGHT),
+        maxHeight
+      );
+      setInputHeight(next);
+    };
+
+    const finish = () => {
+      document.body.style.userSelect = previousUserSelect;
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', finish);
+      window.removeEventListener('pointercancel', finish);
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', finish, { once: true });
+    window.addEventListener('pointercancel', finish, { once: true });
+  };
+
+  const handleInputResizeKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      adjustInputHeight(24);
+    } else if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      adjustInputHeight(-24);
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      resetInputHeight();
+    }
   };
 
   const toggleThinking = (id: string) => {
@@ -330,7 +412,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     setExpandedThinking((previous) => ({ ...previous, [assistantId]: true }));
     setIsGenerating(true);
     setInputText('');
-    if (textareaRef.current) {
+    if (textareaRef.current && inputHeight === null) {
       textareaRef.current.style.height = 'auto';
     }
 
@@ -1112,6 +1194,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           </div>
 
           <div className="relative bg-[var(--app-surface-high)]/95 backdrop-blur-2xl rounded-[1.75rem] p-1.5 pl-4 shadow-xl border border-[var(--app-border)] transition-all duration-200 focus-within:border-[var(--primary-accent)] focus-within:ring-2 focus-within:ring-[var(--primary-glow)]">
+            <button
+              type="button"
+              onPointerDown={handleInputResizeStart}
+              onDoubleClick={resetInputHeight}
+              onKeyDown={handleInputResizeKeyDown}
+              aria-label={t.chat.resizeInputHint}
+              title={t.chat.resizeInputHint}
+              className="group absolute -top-2 left-1/2 -translate-x-1/2 z-10 h-4 w-14 flex items-center justify-center cursor-ns-resize touch-none rounded-full focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--primary-accent)]"
+            >
+              <span className="h-1.5 w-12 rounded-full bg-[var(--app-text-muted)]/35 group-hover:bg-[var(--primary-accent)] transition-colors" />
+            </button>
             <div className="flex items-end gap-2">
               <div className="flex-1 min-w-0 py-2">
                 <textarea
@@ -1119,8 +1212,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   value={inputText}
                   onChange={(e) => {
                     setInputText(e.target.value);
-                    e.target.style.height = 'auto';
-                    e.target.style.height = Math.min(e.target.scrollHeight, 140) + 'px';
+                    if (inputHeight === null) {
+                      e.target.style.height = 'auto';
+                      e.target.style.height = `${Math.min(e.target.scrollHeight, AUTO_INPUT_MAX_HEIGHT)}px`;
+                    }
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
@@ -1131,7 +1226,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   rows={1}
                   aria-label={t.chat.inputPlaceholder}
                   placeholder={t.chat.inputPlaceholder}
-                  className="w-full bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] text-[14px] resize-none max-h-36 leading-relaxed overflow-y-auto no-scrollbar"
+                  style={inputHeight === null ? undefined : { height: `${inputHeight}px` }}
+                  className="w-full bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] text-[14px] resize-none max-h-[55vh] leading-relaxed overflow-y-auto"
                 />
               </div>
 

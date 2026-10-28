@@ -190,6 +190,7 @@ export const translations = {
       noModelDesc: '先拉取或导入一个模型，再开始对话。',
       goPull: '前往拉取',
       attachmentUnavailable: '暂不支持附件上传',
+      resizeInputHint: '拖动调整输入框高度，双击恢复自动高度',
       tokens: 'tokens'
     },
     // Telemetry Screen
@@ -472,6 +473,7 @@ export const translations = {
       noModelDesc: 'Pull or import a model before starting a chat.',
       goPull: 'Pull a model',
       attachmentUnavailable: 'Attachments are not supported yet',
+      resizeInputHint: 'Drag to resize the input; double-click to reset',
       tokens: 'tokens'
     },
     // Telemetry Screen
