@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"inverse-primary":"#673dd9","tertiary":"#ffafd3","surface-container-highest":"#36333f","outline":"#948ea0","on-tertiary-fixed":"#3d0026","primary-fixed-dim":"#cdbdff","surface-container":"#201e2a","secondary-container":"#4d31a8","on-secondary":"#330c90","surface-tint":"#cdbdff","on-tertiary-fixed-variant":"#85145a","on-primary-fixed-variant":"#4f1ac1","inverse-on-surface":"#312f3b","on-secondary-fixed-variant":"#4b2fa6","background":"#14121d","on-secondary-container":"#bdadff","surface-container-low":"#1c1a25","surface-bright":"#3a3744","secondary-fixed":"#e7deff","on-primary-container":"#f9f3ff","secondary-fixed-dim":"#cbbeff","on-surface-variant":"#cac3d7","on-primary":"#370096","outline-variant":"#494454","primary-container":"#7952ec","error-container":"#93000a","primary-fixed":"#e7deff","tertiary-fixed":"#ffd8e7","error":"#ffb4ab","on-tertiary-container":"#fff2f5","secondary":"#cbbeff","on-tertiary":"#620040","tertiary-fixed-dim":"#ffafd3","on-primary-fixed":"#20005f","on-background":"#e6e0f0","on-surface":"#e6e0f0","tertiary-container":"#ba4385","surface-dim":"#14121d","on-secondary-fixed":"#1e0061","surface-container-lowest":"#0f0d18","on-error-container":"#ffdad6","primary":"#cdbdff","inverse-surface":"#e6e0f0","on-error":"#690005","surface-container-high":"#2b2834","surface-variant":"#36333f","surface":"#14121d"},"borderRadius":{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},"spacing":{"gutter":"1rem","gutter-compact":"0.75rem","space-lg":"1.5rem","space-xl":"2rem","margin":"1.5rem","space-md":"1rem","space-xs":"0.25rem","margin-window":"1.25rem","space-sm":"0.5rem"},"fontFamily":{"label-sm":["Geist"],"body-sm":["Geist"],"code-md":["Geist"],"headline-md":["Plus Jakarta Sans"],"label-lg":["Geist"],"display-md":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"label-md":["Geist"],"headline-sm":["Plus Jakarta Sans"],"display-lg":["Plus Jakarta Sans"],"body-md":["Geist"],"body-lg":["Geist"]},"fontSize":{"label-sm":["10px",{"lineHeight":"14px","letterSpacing":"0.04em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0em","fontWeight":"400"}],"code-md":["13px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}],"headline-md":["20px",{"lineHeight":"28px","letterSpacing":"-0.005em","fontWeight":"600"}],"label-lg":["13px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"500"}],"display-md":["32px",{"lineHeight":"40px","letterSpacing":"-0.015em","fontWeight":"600"}],"headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"label-md":["11px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"500"}],"headline-sm":["16px",{"lineHeight":"24px","letterSpacing":"0em","fontWeight":"600"}],"display-lg":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"-0.005em","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"-0.01em","fontWeight":"400"}]}}}}</script></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest z-50 flex flex-col justify-between p-gutter"><div class="flex flex-col gap-space-md"><div class="flex items-center gap-space-sm px-space-xs pt-space-xs pb-space-sm"><div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-[#ff5f56] opacity-90"></div><div class="w-3 h-3 rounded-full bg-[#ffbd2e] opacity-90"></div><div class="w-3 h-3 rounded-full bg-[#27c93f] opacity-90"></div></div><div class="ml-space-sm flex items-center gap-space-xs"><span class="material-symbols-outlined text-primary text-[20px]">neurology</span><span class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">Ollama Studio</span></div></div><div class="px-space-xs"><div class="bg-surface-container-low rounded-full px-space-sm py-1 flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-[#27c93f] animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Local Engine Active</span><span class="font-code-md text-[10px] text-primary ml-auto">:11434</span></div></div><nav class="flex flex-col gap-1.5" data-active-classes="bg-primary-container text-on-primary-container font-semibold shadow-[0_0_16px_rgba(121,82,236,0.35)]"><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full transition-all group bg-primary-container text-on-primary-container font-semibold shadow-[0_0_16px_rgba(121,82,236,0.35)]" data-path="chat" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">chat_spark</span><span class="font-label-lg text-label-lg">即时对话 Chat</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="models" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">deployed_code</span><span class="font-label-lg text-label-lg">模型库 Models</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="pull" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">cloud_download</span><span class="font-label-lg text-label-lg">发现拉取 Pull</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="modelfile-lab" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">science</span><span class="font-label-lg text-label-lg">Modelfile 实验室</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="telemetry-settings" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">vital_signs</span><span class="font-label-lg text-label-lg">监控与设置 Telemetry</span></a></nav></div><div class="flex flex-col gap-space-sm bg-surface-container-low p-space-sm rounded-lg"><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-on-surface-variant">Apple Silicon M-Series</span><span class="font-label-sm text-label-sm text-tertiary font-semibold">Unified VRAM</span></div><div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden"><div class="bg-primary-container h-full rounded-full" style="width: 64%"></div></div><div class="flex justify-between items-center text-[10px] text-on-surface-variant font-code-md"><span>Allocated: 24.2 GB</span><span>Max: 36 GB</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-space-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex items-center gap-space-md flex-1"><div class="relative flex items-center w-80 bg-surface-container-high rounded-full px-space-md py-1.5"><span class="material-symbols-outlined text-outline text-[18px] mr-2">search</span><input class="bg-transparent border-none outline-none text-on-surface placeholder:text-outline font-body-sm text-body-sm w-full focus:ring-0" placeholder="Search weights, prompts, tags (⌘K)..." type="text"/><kbd class="bg-surface-container-highest text-on-surface-variant font-code-md text-[10px] px-1.5 py-0.5 rounded-full ml-1">⌘K</kbd></div><div class="hidden lg:flex items-center gap-space-xs bg-surface-container px-space-md py-1.5 rounded-full"><span class="w-2 h-2 rounded-full bg-primary animate-ping"></span><span class="font-label-sm text-label-sm text-on-surface-variant">Daemon:</span><span class="font-code-md text-code-md text-primary font-medium">127.0.0.1:11434</span></div></div><div class="flex items-center gap-space-sm"><div class="flex items-center gap-1.5 bg-secondary-container/40 text-on-secondary-container px-space-md py-1 rounded-full"><span class="material-symbols-outlined text-[16px]">memory</span><span class="font-label-sm text-label-sm font-semibold">GPU 86% · 44.8 t/s</span></div><button class="w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">notifications</span></button><button class="w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">tune</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full relative">
+<!-- Subtle Ambient Glow Orbs -->
+<div class="pointer-events-none absolute -top-12 left-1/4 w-96 h-96 bg-primary-container/20 rounded-full blur-[100px]"></div>
+<div class="pointer-events-none absolute top-1/3 -right-20 w-80 h-80 bg-tertiary-container/15 rounded-full blur-[90px]"></div>
+<!-- 1. 顶部控制栏 (Dynamic App Bar / Floating Control Bar) -->
+<header class="sticky top-16 z-30 w-full px-space-lg py-space-sm backdrop-blur-md bg-surface/85">
+<div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-space-sm">
+<!-- Left: Floating Model Switcher Pill with Popover Trigger -->
+<div class="relative group">
+<button class="flex items-center gap-space-sm bg-surface-container-high hover:bg-surface-bright text-on-surface px- space-md py-2 px-space-md rounded-full shadow-md transition-all duration-200" id="modelSelectBtn">
+<div class="relative flex items-center justify-center">
+<span class="w-2.5 h-2.5 rounded-full bg-[#27c93f] animate-pulse"></span>
+<span class="absolute w-4 h-4 rounded-full bg-[#27c93f]/30 animate-ping"></span>
+</div>
+<span class="font-headline-sm text-headline-sm font-bold tracking-tight">deepseek-r1:8b</span>
+<span class="bg-surface-container px-2 py-0.5 rounded-full font-label-sm text-label-sm text-primary tracking-wide">
+            4.9 GB VRAM
+          </span>
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant transition-transform group-hover:rotate-180">expand_more</span>
+</button>
+<!-- Dropdown Menu Mock -->
+<div class="hidden absolute top-full mt-2 left-0 w-72 bg-surface-container-high text-on-surface rounded-lg p-space-sm shadow-xl z-50" id="modelDropdown">
+<div class="px-space-sm py-1 font-label-sm text-label-sm text-on-surface-variant">已就绪本地权重</div>
+<div class="flex flex-col gap-1 mt-1">
+<button class="flex items-center justify-between w-full p-space-sm rounded-full bg-primary-container text-on-primary-container text-left font-label-lg text-label-lg">
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#27c93f]"></span>deepseek-r1:8b</span>
+<span class="text-on-primary-container/80 font-code-md text-[10px]">当前激活</span>
+</button>
+<button class="flex items-center justify-between w-full p-space-sm rounded-full hover:bg-surface-container-highest text-on-surface text-left font-label-lg text-label-lg transition-colors">
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-outline"></span>llama3.3:70b-instruct</span>
+<span class="text-on-surface-variant font-code-md text-[10px]">38.2 GB</span>
+</button>
+<button class="flex items-center justify-between w-full p-space-sm rounded-full hover:bg-surface-container-highest text-on-surface text-left font-label-lg text-label-lg transition-colors">
+<span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-outline"></span>qwen2.5-coder:14b</span>
+<span class="text-on-surface-variant font-code-md text-[10px]">8.9 GB</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Right: Telemetry & Dynamic Hyperparameters -->
+<div class="flex items-center flex-wrap gap-2">
+<!-- Telemetry Chips -->
+<div class="flex items-center gap-1.5 bg-surface-container px-space-md py-1.5 rounded-full shadow-sm">
+<span class="material-symbols-outlined text-primary text-[18px]">bolt</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">速率:</span>
+<span class="font-code-md text-[12px] font-semibold text-primary">48.2 tok/s</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container px-space-md py-1.5 rounded-full shadow-sm">
+<span class="material-symbols-outlined text-[#27c93f] text-[16px]">speed</span>
+<span class="font-label-sm text-label-sm text-on-surface">Metal 3 Turbo</span>
+</div>
+<!-- Hyperparameter Toggle Pill -->
+<div class="relative">
+<button class="flex items-center gap-1.5 bg-surface-container-high hover:bg-surface-bright text-on-surface px-space-md py-1.5 rounded-full shadow-sm transition-colors" id="paramsBtn">
+<span class="material-symbols-outlined text-[18px] text-secondary">tune</span>
+<span class="font-label-sm text-label-sm font-medium">参数调优</span>
+<span class="font-code-md text-[10px] text-tertiary">0.6 / 0.9 / 32K</span>
+</button>
+<!-- Floating Parameter Drawer Panel -->
+<div class="hidden absolute top-full right-0 mt-2 w-80 bg-surface-container-high text-on-surface rounded-lg p-space-md shadow-xl z-50 flex flex-col gap-space-md" id="paramsPanel">
+<div class="flex items-center justify-between pb-space-xs">
+<span class="font-headline-sm text-headline-sm font-semibold">采样与上下文配置</span>
+<button class="text-on-surface-variant hover:text-on-surface" id="closeParamsBtn">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+<!-- Temperature Slider -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between font-label-sm text-label-sm">
+<span class="text-on-surface-variant">Temperature (温度)</span>
+<span class="text-primary font-code-md" id="tempValue">0.60</span>
+</div>
+<input class="accent-primary cursor-pointer w-full h-1.5 bg-surface-container rounded-full" id="tempSlider" max="1" min="0" step="0.05" type="range" value="0.60"/>
+</div>
+<!-- Top-P Slider -->
+<div class="flex flex-col gap-1.5">
+<div class="flex justify-between font-label-sm text-label-sm">
+<span class="text-on-surface-variant">Top-P (核采样)</span>
+<span class="text-primary font-code-md" id="toppValue">0.90</span>
+</div>
+<input class="accent-primary cursor-pointer w-full h-1.5 bg-surface-container rounded-full" id="toppSlider" max="1" min="0" step="0.05" type="range" value="0.90"/>
+</div>
+<!-- Context Length -->
+<div class="flex items-center justify-between bg-surface-container px-space-md py-2 rounded-full">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Context Window (窗口大小)</span>
+<span class="font-code-md text-[12px] font-semibold text-secondary">32,768 tokens</span>
+</div>
+</div>
+</div>
+<!-- Clean Chat Session -->
+<button class="w-8 h-8 rounded-full bg-surface-container hover:bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors" title="开启新对话">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+</button>
+</div>
+</div>
+</header>
+<!-- 2. 气泡式聊天区域 (Expressive Chat Canvas) -->
+<div class="w-full flex-1 max-w-4xl mx-auto px-space-md py-space-xl flex flex-col gap-8 pb-48">
+<!-- Time / Session Tag -->
+<div class="flex items-center justify-center my-space-xs">
+<span class="px-space-md py-1 rounded-full bg-surface-container-low font-label-sm text-label-sm text-on-surface-variant tracking-wider uppercase">
+        本地引擎会话 · 零云端回传保障
+      </span>
+</div>
+<!-- 用户提问气泡 (User Message Cluster) -->
+<div class="flex flex-col items-end gap-1.5 max-w-2xl ml-auto w-full group">
+<div class="flex items-center gap-space-sm pr-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">您</span>
+<span class="font-label-sm text-label-sm text-outline">16:42</span>
+</div>
+<!-- Primary Container Bubble with Organic Material M3 Rounded Profile -->
+<div class="bg-primary-container text-on-primary-container p-space-md md:p-space-lg rounded-3xl rounded-br-sm shadow-md transition-transform duration-150">
+<p class="font-body-lg text-body-lg font-normal leading-relaxed">
+          请用 Swift 为 macOS 设计一个极简的后台挂载状态栏监控模块，要求调用本地 Apple Silicon 的 Metal Performance Shaders 统计当前统一内存与吞吐，并提供结构化的 JSON 导出。
+        </p>
+</div>
+<!-- User Bubble Attachment pill -->
+<div class="flex items-center gap-1.5 mt-1">
+<span class="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container-high text-on-surface-variant font-label-sm text-label-sm">
+<span class="material-symbols-outlined text-[14px]">terminal</span> Target: macOS 15.0+
+        </span>
+</div>
+</div>
+<!-- 助手回复区域 (DeepSeek-R1 Response Cluster) -->
+<div class="flex flex-col items-start gap-3 w-full group">
+<!-- Assistant Header with Status -->
+<div class="flex items-center gap-space-sm pl-1">
+<div class="w-6 h-6 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[14px]">neurology</span>
+</div>
+<span class="font-headline-sm text-headline-sm font-semibold text-on-surface">deepseek-r1</span>
+<span class="px-2 py-0.5 rounded-full bg-tertiary-container/30 text-tertiary font-label-sm text-label-sm font-medium">推理完毕 (耗时 3.4s)</span>
+</div>
+<!-- DeepSeek-R1 专属「深度思考过程 (Thinking Process)」卡片 -->
+<div class="w-full bg-surface-container-low rounded-lg p- space-md p-space-md shadow-sm transition-all duration-300">
+<button class="flex items-center justify-between w-full text-left group/think" id="toggleThinkingBtn">
+<div class="flex items-center gap-space-sm">
+<div class="w-7 h-7 rounded-full bg-surface-container flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-[18px]">psychology</span>
+</div>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold flex items-center gap-2">
+                已深度思考思考
+                <span class="text-tertiary font-code-md text-[11px] font-normal">耗时 2.8 秒 · 134 个思考 Token</span>
+</span>
+</div>
+</div>
+<div class="flex items-center gap-1 bg-surface-container-high px-space-sm py-1 rounded-full text-on-surface-variant group-hover/think:text-on-surface transition-colors">
+<span class="font-label-sm text-label-sm" id="thinkToggleText">展开细节</span>
+<span class="material-symbols-outlined text-[16px] transition-transform" id="thinkToggleIcon">expand_more</span>
+</div>
+</button>
+<!-- Collapsible Content -->
+<div class="hidden mt-space-md pt-space-sm flex flex-col gap-2 font-code-md text-code-md text-on-surface-variant bg-surface-container-lowest/60 p-space-md rounded-DEFAULT" id="thinkingContent">
+<p class="leading-relaxed">
+            1. 用户需求明确：macOS 15+ 菜单栏小程序 (NSStatusItem)，监控 Apple Silicon 的统一显存 (UMA) 以及 Metal 带宽吞吐。<br/>
+            2. 技术方案：结合 <code class="text-primary font-semibold">IOKit</code> 获取驱动层显存占用，利用 <code class="text-primary font-semibold">MTLDevice</code> 获取当前 GPU 支持矩阵。<br/>
+            3. 结构化导出：提供符合 Codable 协议的 Swift 数据结构，以便定时或按需导出 JSON 格式报告。
+          </p>
+</div>
+</div>
+<!-- 回复正文区域 (Markdown & Code Highlight) -->
+<div class="w-full flex flex-col gap-4 font-body-lg text-body-lg text-on-surface leading-relaxed pl-1">
+<p>
+          在 Apple Silicon 统一内存架构下，显存与系统内存共享物理池。我们可以通过调用底层 <code class="bg-surface-container-high px-2 py-0.5 rounded-full text-primary font-code-md text-[13px]">Metal</code> 框架并配合 <code class="bg-surface-container-high px-2 py-0.5 rounded-full text-primary font-code-md text-[13px]">mach_vm</code> / <code class="bg-surface-container-high px-2 py-0.5 rounded-full text-primary font-code-md text-[13px]">IOKit</code> 来精确提取显存分配与负载。以下是完整的模块设计：
+        </p>
+<!-- Material Style Rounded Code Block -->
+<div class="w-full bg-surface-container-lowest rounded-lg overflow-hidden shadow-lg">
+<!-- Code Block Header -->
+<div class="flex items-center justify-between px-space-md py-2.5 bg-surface-container-high">
+<div class="flex items-center gap-space-sm">
+<span class="material-symbols-outlined text-secondary text-[16px]">code</span>
+<span class="font-code-md text-[12px] font-semibold text-on-surface tracking-wide">MetalTelemetryManager.swift</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="bg-surface-container px-2 py-0.5 rounded-full font-label-sm text-label-sm text-on-surface-variant">Swift 6.0</span>
+<button class="flex items-center gap-1 bg-surface-container hover:bg-surface-bright text-on-surface px-2.5 py-1 rounded-full text-label-sm font-label-sm transition-all duration-150" id="copyCodeBtn">
+<span class="material-symbols-outlined text-[14px]" id="copyIcon">content_copy</span>
+<span id="copyText">复制源码</span>
+</button>
+</div>
+</div>
+<!-- Code Canvas -->
+<pre class="p-space-md md:p-space-lg overflow-x-auto font-code-md text-code-md text-on-surface leading-6"><code><span class="text-secondary">import</span> Foundation
+<span class="text-secondary">import</span> Metal
+<span class="text-secondary">import</span> IOKit
+
+<span class="text-outline">// 结构化导出模型</span>
+<span class="text-secondary">public struct</span> <span class="text-primary font-semibold">MetalTelemetryPayload</span>: <span class="text-tertiary">Codable</span>, <span class="text-tertiary">Sendable</span> {
+    <span class="text-secondary">public let</span> timestamp: <span class="text-tertiary">Date</span>
+    <span class="text-secondary">public let</span> allocatedVRAMBytes: <span class="text-tertiary">UInt64</span>
+    <span class="text-secondary">public let</span> maxRecommendedVRAMBytes: <span class="text-tertiary">UInt64</span>
+    <span class="text-secondary">public let</span> activeDeviceName: <span class="text-tertiary">String</span>
+}
+
+<span class="text-secondary">@MainActor</span>
+<span class="text-secondary">public final class</span> <span class="text-primary font-semibold">MetalTelemetryMonitor</span>: <span class="text-tertiary">ObservableObject</span> {
+    <span class="text-secondary">private let</span> device: <span class="text-tertiary">MTLDevice</span>?
+
+    <span class="text-secondary">public init</span>() {
+        <span class="text-secondary">self</span>.device = MTLCreateSystemDefaultDevice()
+    }
+
+    <span class="text-secondary">public func</span> <span class="text-secondary-fixed-dim font-medium">fetchCurrentTelemetry</span>() -&gt; <span class="text-primary">MetalTelemetryPayload</span>? {
+        <span class="text-secondary">guard let</span> dev = device <span class="text-secondary">else</span> { <span class="text-secondary">return nil</span> }
+        
+        <span class="text-secondary">return</span> MetalTelemetryPayload(
+            timestamp: Date(),
+            allocatedVRAMBytes: dev.currentAllocatedSize,
+            maxRecommendedVRAMBytes: dev.recommendedMaxWorkingSetSize,
+            activeDeviceName: dev.name
+        )
+    }
+
+    <span class="text-secondary">public func</span> <span class="text-secondary-fixed-dim font-medium">exportJSON</span>() <span class="text-secondary">throws</span> -&gt; <span class="text-tertiary">String</span> {
+        <span class="text-secondary">guard let</span> data = fetchCurrentTelemetry() <span class="text-secondary">else</span> { <span class="text-secondary">throw</span> NSError() }
+        <span class="text-secondary">let</span> encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        <span class="text-secondary">let</span> json = <span class="text-secondary">try</span> encoder.encode(data)
+        <span class="text-secondary">return</span> String(decoding: json, as: UTF8.self)
+    }
+}</code></pre>
+</div>
+<p class="mt-1">
+          该模块使用现代 Swift Concurrency 的 <code class="bg-surface-container-high px-2 py-0.5 rounded-full text-secondary font-code-md text-[13px]">Sendable</code> 保障线程安全，同时零运行时开销，非常适于常驻 macOS 状态栏。
+        </p>
+</div>
+<!-- Quick Feedback Pills & Metrics -->
+<div class="flex items-center gap-space-sm mt-2">
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-label-sm font-label-sm transition-colors">
+<span class="material-symbols-outlined text-[16px]">thumb_up</span> 赞同
+        </button>
+<button class="flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-label-sm font-label-sm transition-colors">
+<span class="material-symbols-outlined text-[16px]">replay</span> 重新生成
+        </button>
+<span class="text-outline font-code-md text-[11px] ml-auto">已完成 · 422 tokens</span>
+</div>
+</div>
+</div>
+<!-- 3. 底部灵动输入容器 (Expressive Pill Composer) -->
+<div class="fixed bottom-0 left-64 right-0 z-40 p-space-md flex flex-col items-center pointer-events-none">
+<!-- Floating Wrapper -->
+<div class="w-full max-w-4xl flex flex-col gap-2 pointer-events-auto">
+<!-- Quick Chips Bar (System Prompts & Output Format) -->
+<div class="flex items-center gap-2 overflow-x-auto px-2 py-1 scrollbar-none">
+<!-- System Prompt Capsule -->
+<button class="flex items-center gap-1.5 px-space-md py-1 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface text-label-sm font-label-sm backdrop-blur-md shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[14px] text-primary">psychology_alt</span>
+<span>系统人设: 资深 macOS / Metal 工程师</span>
+<span class="material-symbols-outlined text-[14px] text-on-surface-variant">keyboard_arrow_down</span>
+</button>
+<!-- Structured Output Toggle Chip -->
+<button class="flex items-center gap-1.5 px-space-md py-1 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface-variant text-label-sm font-label-sm backdrop-blur-md shadow-sm transition-colors" id="jsonToggle">
+<span class="material-symbols-outlined text-[14px]">data_object</span>
+<span>强制 JSON 结构输出</span>
+</button>
+<!-- Quick Follow-up Chip -->
+<button class="flex items-center gap-1.5 px-space-md py-1 rounded-full bg-surface-container-high/90 hover:bg-surface-bright text-on-surface-variant hover:text-on-surface text-label-sm font-label-sm backdrop-blur-md shadow-sm transition-colors">
+<span class="material-symbols-outlined text-[14px] text-tertiary">add_circle</span>
+<span>生成 SwiftUI 菜单栏界面</span>
+</button>
+</div>
+<!-- Main Pill Input Dock -->
+<div class="relative bg-surface-container-high/95 backdrop-blur-2xl rounded-3xl p-2.5 shadow-2xl transition-all duration-200">
+<div class="flex items-end gap-2">
+<!-- Attachment Button -->
+<button class="w-10 h-10 rounded-full hover:bg-surface-container-highest flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors flex-shrink-0" title="挂载本地文件/图像 (Multimodal)">
+<span class="material-symbols-outlined text-[20px]">attach_file</span>
+</button>
+<!-- Input Textarea -->
+<div class="flex-1 py-1 px-2">
+<textarea class="w-full bg-transparent border-none outline-none text-on-surface placeholder:text-outline font-body-md text-body-md resize-none max-h-36 focus:ring-0 leading-relaxed" id="promptInput" placeholder="向 deepseek-r1 发送指令，或粘贴代码片段... (Enter 发送, Shift+Enter 换行)" rows="1"></textarea>
+</div>
+<!-- Expressive Circular Send Pill (FAB Style) -->
+<button class="w-11 h-11 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shadow-lg hover:shadow-primary-container/40 hover:scale-105 active:scale-95 transition-all duration-150 flex-shrink-0" id="sendBtn" title="发送 (Enter)">
+<span class="material-symbols-outlined text-[22px]">arrow_upward</span>
+</button>
+</div>
+</div>
+<!-- Hardware Telemetry Bottom Badge -->
+<div class="flex items-center justify-center gap-space-sm pt-1">
+<div class="flex items-center gap-2 bg-surface-container-lowest/80 backdrop-blur-md px-3 py-1 rounded-full text-on-surface-variant font-code-md text-[11px] shadow-sm">
+<span class="flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-[#27c93f]"></span>
+<span>统一内存: 24.2 / 36.0 GB (67%)</span>
+</span>
+<span class="text-outline">·</span>
+<span>已缓存 KV: 1,420 tokens</span>
+<span class="text-outline">·</span>
+<span class="text-primary">温控正常 41°C</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Inline Script for Micro-interactions -->
+<script>
+    // 1. Thinking Process Toggle
+    const toggleThinkingBtn = document.getElementById('toggleThinkingBtn');
+    const thinkingContent = document.getElementById('thinkingContent');
+    const thinkToggleIcon = document.getElementById('thinkToggleIcon');
+    const thinkToggleText = document.getElementById('thinkToggleText');
+
+    if (toggleThinkingBtn && thinkingContent) {
+      toggleThinkingBtn.addEventListener('click', () => {
+        const isHidden = thinkingContent.classList.contains('hidden');
+        if (isHidden) {
+          thinkingContent.classList.remove('hidden');
+          thinkToggleIcon.style.transform = 'rotate(180deg)';
+          thinkToggleText.textContent = '折叠细节';
+        } else {
+          thinkingContent.classList.add('hidden');
+          thinkToggleIcon.style.transform = 'rotate(0deg)';
+          thinkToggleText.textContent = '展开细节';
+        }
+      });
+    }
+
+    // 2. Model Dropdown Toggle
+    const modelSelectBtn = document.getElementById('modelSelectBtn');
+    const modelDropdown = document.getElementById('modelDropdown');
+    if (modelSelectBtn && modelDropdown) {
+      modelSelectBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        modelDropdown.classList.toggle('hidden');
+      });
+      document.addEventListener('click', () => {
+        modelDropdown.classList.add('hidden');
+      });
+    }
+
+    // 3. Parameters Drawer Toggle
+    const paramsBtn = document.getElementById('paramsBtn');
+    const paramsPanel = document.getElementById('paramsPanel');
+    const closeParamsBtn = document.getElementById('closeParamsBtn');
+    if (paramsBtn && paramsPanel && closeParamsBtn) {
+      paramsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        paramsPanel.classList.toggle('hidden');
+      });
+      closeParamsBtn.addEventListener('click', () => {
+        paramsPanel.classList.add('hidden');
+      });
+      document.addEventListener('click', (e) => {
+        if (!paramsPanel.contains(e.target) && !paramsBtn.contains(e.target)) {
+          paramsPanel.classList.add('hidden');
+        }
+      });
+    }
+
+    // Sliders Live Update
+    const tempSlider = document.getElementById('tempSlider');
+    const tempValue = document.getElementById('tempValue');
+    if (tempSlider && tempValue) {
+      tempSlider.addEventListener('input', (e) => {
+        tempValue.textContent = Number(e.target.value).toFixed(2);
+      });
+    }
+
+    const toppSlider = document.getElementById('toppSlider');
+    const toppValue = document.getElementById('toppValue');
+    if (toppSlider && toppValue) {
+      toppSlider.addEventListener('input', (e) => {
+        toppValue.textContent = Number(e.target.value).toFixed(2);
+      });
+    }
+
+    // 4. Code Copy Button Feedback
+    const copyCodeBtn = document.getElementById('copyCodeBtn');
+    const copyIcon = document.getElementById('copyIcon');
+    const copyText = document.getElementById('copyText');
+    if (copyCodeBtn && copyIcon && copyText) {
+      copyCodeBtn.addEventListener('click', () => {
+        copyIcon.textContent = 'check';
+        copyText.textContent = '已复制!';
+        copyCodeBtn.classList.add('bg-primary-container', 'text-on-primary-container');
+        setTimeout(() => {
+          copyIcon.textContent = 'content_copy';
+          copyText.textContent = '复制源码';
+          copyCodeBtn.classList.remove('bg-primary-container', 'text-on-primary-container');
+        }, 2000);
+      });
+    }
+
+    // 5. JSON Toggle Chip
+    const jsonToggle = document.getElementById('jsonToggle');
+    if (jsonToggle) {
+      jsonToggle.addEventListener('click', () => {
+        const isActive = jsonToggle.classList.contains('bg-primary-container');
+        if (isActive) {
+          jsonToggle.classList.remove('bg-primary-container', 'text-on-primary-container');
+          jsonToggle.classList.add('bg-surface-container-high/90', 'text-on-surface-variant');
+        } else {
+          jsonToggle.classList.add('bg-primary-container', 'text-on-primary-container');
+          jsonToggle.classList.remove('bg-surface-container-high/90', 'text-on-surface-variant');
+        }
+      });
+    }
+
+    // 6. Textarea Auto Expand
+    const promptInput = document.getElementById('promptInput');
+    if (promptInput) {
+      promptInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 140) + 'px';
+      });
+    }
+  </script>
+</div></main></div></body></html>

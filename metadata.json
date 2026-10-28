@@ -1,0 +1,6 @@
+{
+  "name": "Ollama Studio",
+  "description": "macOS-style local Ollama model manager, puller and chat studio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

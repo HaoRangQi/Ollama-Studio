@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"inverse-primary":"#673dd9","tertiary":"#ffafd3","surface-container-highest":"#36333f","outline":"#948ea0","on-tertiary-fixed":"#3d0026","primary-fixed-dim":"#cdbdff","surface-container":"#201e2a","secondary-container":"#4d31a8","on-secondary":"#330c90","surface-tint":"#cdbdff","on-tertiary-fixed-variant":"#85145a","on-primary-fixed-variant":"#4f1ac1","inverse-on-surface":"#312f3b","on-secondary-fixed-variant":"#4b2fa6","background":"#14121d","on-secondary-container":"#bdadff","surface-container-low":"#1c1a25","surface-bright":"#3a3744","secondary-fixed":"#e7deff","on-primary-container":"#f9f3ff","secondary-fixed-dim":"#cbbeff","on-surface-variant":"#cac3d7","on-primary":"#370096","outline-variant":"#494454","primary-container":"#7952ec","error-container":"#93000a","primary-fixed":"#e7deff","tertiary-fixed":"#ffd8e7","error":"#ffb4ab","on-tertiary-container":"#fff2f5","secondary":"#cbbeff","on-tertiary":"#620040","tertiary-fixed-dim":"#ffafd3","on-primary-fixed":"#20005f","on-background":"#e6e0f0","on-surface":"#e6e0f0","tertiary-container":"#ba4385","surface-dim":"#14121d","on-secondary-fixed":"#1e0061","surface-container-lowest":"#0f0d18","on-error-container":"#ffdad6","primary":"#cdbdff","inverse-surface":"#e6e0f0","on-error":"#690005","surface-container-high":"#2b2834","surface-variant":"#36333f","surface":"#14121d"},"borderRadius":{"DEFAULT":"1rem","lg":"2rem","xl":"3rem","full":"9999px"},"spacing":{"gutter":"1rem","gutter-compact":"0.75rem","space-lg":"1.5rem","space-xl":"2rem","margin":"1.5rem","space-md":"1rem","space-xs":"0.25rem","margin-window":"1.25rem","space-sm":"0.5rem"},"fontFamily":{"label-sm":["Geist"],"body-sm":["Geist"],"code-md":["Geist"],"headline-md":["Plus Jakarta Sans"],"label-lg":["Geist"],"display-md":["Plus Jakarta Sans"],"headline-lg":["Plus Jakarta Sans"],"label-md":["Geist"],"headline-sm":["Plus Jakarta Sans"],"display-lg":["Plus Jakarta Sans"],"body-md":["Geist"],"body-lg":["Geist"]},"fontSize":{"label-sm":["10px",{"lineHeight":"14px","letterSpacing":"0.04em","fontWeight":"600"}],"body-sm":["12px",{"lineHeight":"18px","letterSpacing":"0em","fontWeight":"400"}],"code-md":["13px",{"lineHeight":"20px","letterSpacing":"0em","fontWeight":"400"}],"headline-md":["20px",{"lineHeight":"28px","letterSpacing":"-0.005em","fontWeight":"600"}],"label-lg":["13px",{"lineHeight":"18px","letterSpacing":"0.01em","fontWeight":"500"}],"display-md":["32px",{"lineHeight":"40px","letterSpacing":"-0.015em","fontWeight":"600"}],"headline-lg":["24px",{"lineHeight":"32px","letterSpacing":"-0.01em","fontWeight":"600"}],"label-md":["11px",{"lineHeight":"16px","letterSpacing":"0.02em","fontWeight":"500"}],"headline-sm":["16px",{"lineHeight":"24px","letterSpacing":"0em","fontWeight":"600"}],"display-lg":["40px",{"lineHeight":"48px","letterSpacing":"-0.02em","fontWeight":"700"}],"body-md":["14px",{"lineHeight":"22px","letterSpacing":"-0.005em","fontWeight":"400"}],"body-lg":["16px",{"lineHeight":"26px","letterSpacing":"-0.01em","fontWeight":"400"}]}}}}</script></head><body class="bg-background font-body-md text-body-md text-on-surface antialiased selection:bg-primary-container selection:text-on-primary-container"><aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-lowest z-50 flex flex-col justify-between p-gutter"><div class="flex flex-col gap-space-md"><div class="flex items-center gap-space-sm px-space-xs pt-space-xs pb-space-sm"><div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full bg-[#ff5f56] opacity-90"></div><div class="w-3 h-3 rounded-full bg-[#ffbd2e] opacity-90"></div><div class="w-3 h-3 rounded-full bg-[#27c93f] opacity-90"></div></div><div class="ml-space-sm flex items-center gap-space-xs"><span class="material-symbols-outlined text-primary text-[20px]">neurology</span><span class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">Ollama Studio</span></div></div><div class="px-space-xs"><div class="bg-surface-container-low rounded-full px-space-sm py-1 flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-[#27c93f] animate-pulse"></span><span class="font-label-sm text-label-sm text-on-surface-variant font-medium">Local Engine Active</span><span class="font-code-md text-[10px] text-primary ml-auto">:11434</span></div></div><nav class="flex flex-col gap-1.5" data-active-classes="bg-primary-container text-on-primary-container font-semibold shadow-[0_0_16px_rgba(121,82,236,0.35)]"><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="chat" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">chat_spark</span><span class="font-label-lg text-label-lg">即时对话 Chat</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="models" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">deployed_code</span><span class="font-label-lg text-label-lg">模型库 Models</span></a><a aria-current="page" class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full transition-all group bg-primary-container text-on-primary-container font-semibold shadow-[0_0_16px_rgba(121,82,236,0.35)]" data-path="pull" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">cloud_download</span><span class="font-label-lg text-label-lg">发现拉取 Pull</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="modelfile-lab" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">science</span><span class="font-label-lg text-label-lg">Modelfile 实验室</span></a><a class="flex items-center gap-space-sm px-space-md py-2.5 rounded-full text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" data-path="telemetry-settings" href="#"><span class="material-symbols-outlined text-[20px] transition-transform group-hover:scale-105">vital_signs</span><span class="font-label-lg text-label-lg">监控与设置 Telemetry</span></a></nav></div><div class="flex flex-col gap-space-sm bg-surface-container-low p-space-sm rounded-lg"><div class="flex items-center justify-between"><span class="font-label-sm text-label-sm text-on-surface-variant">Apple Silicon M-Series</span><span class="font-label-sm text-label-sm text-tertiary font-semibold">Unified VRAM</span></div><div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden"><div class="bg-primary-container h-full rounded-full" style="width: 64%"></div></div><div class="flex justify-between items-center text-[10px] text-on-surface-variant font-code-md"><span>Allocated: 24.2 GB</span><span>Max: 36 GB</span></div></div></aside><div class="pl-64"><header class="fixed top-0 left-64 right-0 h-16 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-space-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="flex items-center gap-space-md flex-1"><div class="relative flex items-center w-80 bg-surface-container-high rounded-full px-space-md py-1.5"><span class="material-symbols-outlined text-outline text-[18px] mr-2">search</span><input class="bg-transparent border-none outline-none text-on-surface placeholder:text-outline font-body-sm text-body-sm w-full focus:ring-0" placeholder="Search weights, prompts, tags (⌘K)..." type="text"/><kbd class="bg-surface-container-highest text-on-surface-variant font-code-md text-[10px] px-1.5 py-0.5 rounded-full ml-1">⌘K</kbd></div><div class="hidden lg:flex items-center gap-space-xs bg-surface-container px-space-md py-1.5 rounded-full"><span class="w-2 h-2 rounded-full bg-primary animate-ping"></span><span class="font-label-sm text-label-sm text-on-surface-variant">Daemon:</span><span class="font-code-md text-code-md text-primary font-medium">127.0.0.1:11434</span></div></div><div class="flex items-center gap-space-sm"><div class="flex items-center gap-1.5 bg-secondary-container/40 text-on-secondary-container px-space-md py-1 rounded-full"><span class="material-symbols-outlined text-[16px]">memory</span><span class="font-label-sm text-label-sm font-semibold">GPU 86% · 44.8 t/s</span></div><button class="w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">notifications</span></button><button class="w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-bright flex items-center justify-center text-on-surface-variant hover:text-on-surface transition-colors"><span class="material-symbols-outlined text-[18px]">tune</span></button><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></header><main class="relative pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<div class="p-space-lg max-w-7xl mx-auto w-full flex flex-col gap-space-xl">
+<!-- 1. 顶部操作区: CLI 灵动拉取胶囊 & 下载队列卡片 -->
+<section class="flex flex-col gap-space-lg">
+<!-- 搜索与拉取交互药丸容器 -->
+<div class="relative bg-surface-container rounded-xl p-space-sm sm:p-space-md shadow-xl overflow-hidden">
+<div class="absolute -right-20 -top-24 w-80 h-80 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="relative flex flex-col md:flex-row items-center gap-space-sm w-full">
+<div class="flex items-center gap-space-sm pl-space-md py-1 text-on-surface-variant flex-1 w-full bg-surface-container-high rounded-full focus-within:bg-surface-container-highest transition-colors">
+<span class="material-symbols-outlined text-primary text-[22px]">terminal</span>
+<span class="font-code-md text-code-md text-on-surface-variant font-medium select-none">$</span>
+<input class="bg-transparent border-none outline-none font-code-md text-code-md text-primary font-medium w-full placeholder:text-outline selection:bg-primary-container" id="pullInput" placeholder="输入模型名称如 qwen2.5:7b 或直接粘贴 pull 命令..." type="text" value="ollama pull deepseek-r1:14b"/>
+<button class="p-1 rounded-full text-outline hover:text-on-surface hover:bg-surface-bright transition-colors mr-1" id="clearInputBtn">
+<span class="material-symbols-outlined text-[18px]">backspace</span>
+</button>
+</div>
+<div class="flex items-center gap-space-xs w-full md:w-auto justify-end">
+<button class="flex items-center gap-space-xs px-space-md h-11 rounded-full bg-surface-container-highest text-on-surface hover:bg-surface-bright transition-all" id="registryPickerBtn">
+<span class="material-symbols-outlined text-[18px] text-tertiary">tune</span>
+<span class="font-label-lg text-label-lg">量化参数配置</span>
+</button>
+<button class="flex items-center gap-space-sm px-space-xl h-11 rounded-full bg-primary-container text-on-primary-container hover:shadow-[0_0_24px_rgba(121,82,236,0.5)] transition-all font-semibold active:scale-95" id="startPullBtn">
+<span class="material-symbols-outlined text-[20px]">download</span>
+<span class="font-label-lg text-label-lg">拉取权重 Run</span>
+</button>
+</div>
+</div>
+</div>
+<!-- 动态下载任务浮动面板 (Active Task Card) -->
+<div class="relative bg-gradient-to-r from-surface-container-low via-surface-container to-surface-container-low rounded-xl p-space-lg shadow-lg overflow-hidden" id="activeDownloadCard">
+<div class="flex flex-col lg:flex-row lg:items-center justify-between gap-space-md mb-space-md">
+<div class="flex items-start sm:items-center gap-space-md">
+<div class="relative w-12 h-12 rounded-full bg-primary-container/20 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-primary text-[28px] animate-bounce">cloud_download</span>
+<div class="absolute inset-0 rounded-full border border-primary/30 animate-ping"></div>
+</div>
+<div class="flex flex-col min-w-0">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="font-headline-sm text-headline-sm text-on-surface font-semibold tracking-tight">deepseek-r1:14b</span>
+<span class="bg-surface-container-highest text-primary font-code-md text-[11px] px-2 py-0.5 rounded-full font-medium">Q4_K_M</span>
+<span class="bg-primary-container/30 text-on-primary-container font-label-sm text-label-sm px-2.5 py-0.5 rounded-full flex items-center gap-1 font-semibold">
+<span class="w-1.5 h-1.5 rounded-full bg-[#27c93f] animate-pulse"></span> 传输中 Layer 28/48
+                </span>
+</div>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate mt-0.5">本地目标：~/.ollama/models/manifests/registry.ollama.ai/library/deepseek-r1</span>
+</div>
+</div>
+<!-- 右侧速率指标与控制器 -->
+<div class="flex items-center gap-space-md self-end lg:self-center">
+<div class="flex items-baseline gap-space-xs bg-surface-container-highest px-space-md py-1.5 rounded-full">
+<span class="font-label-sm text-label-sm text-on-surface-variant">速率:</span>
+<span class="font-code-md text-code-md text-primary font-bold">52.4 MB/s</span>
+<span class="text-outline text-xs">·</span>
+<span class="font-label-sm text-label-sm text-tertiary font-medium">预计剩余 42s</span>
+</div>
+<div class="flex items-center gap-1">
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-all" title="暂停拉取">
+<span class="material-symbols-outlined text-[18px]">pause</span>
+</button>
+<button class="w-9 h-9 rounded-full bg-surface-container-high hover:bg-error-container text-on-surface-variant hover:text-on-error flex items-center justify-center transition-all" title="取消任务">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+</div>
+</div>
+</div>
+<!-- M3 灵动多段进度条 -->
+<div class="flex flex-col gap-1.5">
+<div class="w-full bg-surface-container-lowest h-3 rounded-full overflow-hidden p-0.5 flex gap-1">
+<div class="bg-primary-container h-full rounded-full transition-all duration-300" style="width: 48%"></div>
+<div class="bg-primary/80 h-full rounded-full transition-all duration-300 animate-pulse" style="width: 17%"></div>
+<div class="bg-surface-container-highest h-full rounded-full flex-1 opacity-60"></div>
+</div>
+<div class="flex justify-between items-center text-on-surface-variant font-code-md text-[11px] px-1">
+<span class="flex items-center gap-1">
+<span class="material-symbols-outlined text-[13px] text-primary">data_usage</span>
+              已下载 5.8 GB / 总计 8.9 GB (65.1%)
+            </span>
+<span class="text-outline">SHA256: 0a9e71f54...verified</span>
+</div>
+</div>
+</div>
+</section>
+<!-- 2. 推荐主打横幅 (Hero Feature Card): DeepSeek-R1 全系列蒸馏版 -->
+<section class="relative bg-surface-container-low rounded-xl p-space-lg sm:p-space-xl overflow-hidden shadow-xl">
+<!-- 柔和生动的背景光晕装饰 -->
+<div class="absolute -right-12 -top-16 w-96 h-96 bg-primary-container/25 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute right-48 -bottom-24 w-80 h-80 bg-tertiary-container/20 rounded-full blur-3xl pointer-events-none"></div>
+<div class="relative grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-center">
+<div class="lg:col-span-8 flex flex-col gap-space-md">
+<div class="flex items-center gap-space-xs flex-wrap">
+<span class="bg-tertiary/20 text-tertiary font-label-sm text-label-sm px-3 py-1 rounded-full font-semibold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">auto_awesome</span> SOTA 强化推理架构
+            </span>
+<span class="bg-surface-container-highest text-on-surface-variant font-label-sm text-label-sm px-3 py-1 rounded-full">
+              开源权重 · 零配置即开即用
+            </span>
+<span class="bg-secondary-container/40 text-on-secondary-container font-label-sm text-label-sm px-3 py-1 rounded-full font-medium">
+              支持 Apple Silicon 深度加速
+            </span>
+</div>
+<div>
+<h2 class="font-display-md text-display-md text-on-surface font-bold tracking-tight">
+              DeepSeek-R1 蒸馏推理旗舰
+            </h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mt-space-xs leading-relaxed">
+              基于大规模强化学习先验蒸馏，具备自发思维链推理（Chain-of-Thought）。数学推导、算法构思与代码攻坚性能媲美顶尖闭源前沿模型。
+            </p>
+</div>
+<div class="flex flex-wrap items-center gap-space-md pt-space-xs">
+<button class="flex items-center gap-space-sm px-space-xl h-12 rounded-full bg-primary-container text-on-primary-container hover:shadow-[0_0_24px_rgba(121,82,236,0.6)] font-semibold transition-all transform active:scale-95" onclick="quickPull('deepseek-r1:8b')">
+<span class="material-symbols-outlined text-[20px]">bolt</span>
+<span class="font-label-lg text-label-lg">一键拉取推荐款 (8B·4.9GB)</span>
+</button>
+<button class="flex items-center gap-space-xs px-space-lg h-12 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface transition-all" onclick="quickPull('deepseek-r1:1.5b')">
+<span class="font-label-lg text-label-lg">极速尝鲜 (1.5B)</span>
+</button>
+<div class="flex items-center gap-1.5 text-on-surface-variant font-code-md text-body-sm pl-space-xs">
+<span class="material-symbols-outlined text-[16px] text-tertiary">verified</span>
+<span>100% 离线隐私保护</span>
+</div>
+</div>
+</div>
+<!-- 显存开销矩阵卡片 (Hero Right Visual) -->
+<div class="lg:col-span-4 bg-surface-container-lowest/80 backdrop-blur-md rounded-lg p-space-md flex flex-col gap-space-sm shadow-md">
+<div class="flex items-center justify-between pb-space-xs">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider font-semibold">Mac 显存预估分配</span>
+<span class="font-code-md text-code-md text-primary font-medium">Unified VRAM</span>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface font-medium">1.5B (Q4_K_M)</span>
+<span class="text-[#27c93f] font-code-md font-semibold">1.8 GB · 极速流畅</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-[#27c93f] h-full rounded-full" style="width: 15%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface font-medium">8B (Q4_K_M) ⭐ 推荐</span>
+<span class="text-primary font-code-md font-semibold">5.2 GB · 甜点平衡</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 42%"></div>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex justify-between items-center text-xs">
+<span class="text-on-surface font-medium">14B (Q4_K_M)</span>
+<span class="text-tertiary font-code-md font-semibold">9.4 GB · 高精推导</span>
+</div>
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-tertiary-container h-full rounded-full" style="width: 74%"></div>
+</div>
+</div>
+<p class="text-[11px] text-outline font-body-sm pt-1">
+            * 针对 M1/M2/M3/M4 系列芯片自适应分配，支持完全卸载至 GPU 核心。
+          </p>
+</div>
+</div>
+</section>
+<!-- 3. 发现分类与卡片矩阵 (Model Hub Directory) -->
+<section class="flex flex-col gap-space-md">
+<!-- 标题栏与 M3 滚动筛选芯片 -->
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-md">
+<div>
+<h3 class="font-headline-lg text-headline-lg text-on-surface font-bold">精选模型生态库</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">一键部署来自 Ollama 官方及开源社区的高人气模型权重</p>
+</div>
+<!-- 筛选芯片 -->
+<div class="flex items-center gap-space-xs overflow-x-auto pb-1" id="filterChipsGroup">
+<button class="filter-chip active flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-lg text-label-lg bg-primary-container text-on-primary-container transition-all" data-cat="all">
+<span class="material-symbols-outlined text-[16px]">stars</span> 全部精选
+          </button>
+<button class="filter-chip flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-all" data-cat="reason">
+<span class="material-symbols-outlined text-[16px]">psychology</span> 深度推理
+          </button>
+<button class="filter-chip flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-all" data-cat="code">
+<span class="material-symbols-outlined text-[16px]">terminal</span> 代码专家
+          </button>
+<button class="filter-chip flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-all" data-cat="vision">
+<span class="material-symbols-outlined text-[16px]">visibility</span> 多模态视觉
+          </button>
+<button class="filter-chip flex items-center gap-1.5 px-space-md py-1.5 rounded-full font-label-lg text-label-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high transition-all" data-cat="general">
+<span class="material-symbols-outlined text-[16px]">forum</span> 通用对话
+          </button>
+</div>
+</div>
+<!-- 模型卡片栅格 (Cards Grid) -->
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-space-md">
+<!-- 卡片 1: DeepSeek-R1 (推理) -->
+<div class="model-item flex flex-col justify-between bg-surface-container rounded-lg p-space-lg hover:-translate-y-1 transition-all duration-200 shadow-md group" data-category="reason">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">psychology_alt</span>
+</div>
+<span class="bg-[#27c93f]/15 text-[#27c93f] font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-semibold">
+                8GB 内存适配良好
+              </span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold group-hover:text-primary transition-colors">deepseek-r1</h4>
+<span class="text-outline text-xs">v1.5</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                第一代强推理蒸馏开源大模型，具备反思、修正与复杂逻辑验证能力。
+              </p>
+</div>
+<!-- 尺寸参数切换胶囊 -->
+<div class="flex items-center gap-1.5 flex-wrap pt-1">
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">1.5b</button>
+<button class="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-code-md font-semibold">7b</button>
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">8b</button>
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">14b</button>
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">32b</button>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-md mt-space-sm bg-surface-container-low -mx-space-lg -mb-space-lg p-space-md rounded-b-lg">
+<div class="flex flex-col">
+<span class="font-code-md text-[11px] text-on-surface-variant">体积: ~4.7 GB</span>
+<span class="font-label-sm text-label-sm text-outline">拉取量 1.2M+</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-full bg-primary-container text-on-primary-container hover:shadow-[0_0_12px_rgba(121,82,236,0.4)] transition-all font-semibold active:scale-95" onclick="quickPull('deepseek-r1:7b')">
+<span class="material-symbols-outlined text-[16px]">download</span>
+<span class="font-label-lg text-label-lg">拉取 7B</span>
+</button>
+</div>
+</div>
+<!-- 卡片 2: Llama 3.3 (通用) -->
+<div class="model-item flex flex-col justify-between bg-surface-container rounded-lg p-space-lg hover:-translate-y-1 transition-all duration-200 shadow-md group" data-category="general">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-secondary-container/40 flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[24px]">forum</span>
+</div>
+<span class="bg-tertiary-container/30 text-tertiary font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-semibold">
+                建议 36GB+ 统一内存
+              </span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold group-hover:text-primary transition-colors">llama3.3</h4>
+<span class="text-outline text-xs">Meta</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                Meta 全新 70B 顶尖旗舰模型，具备卓越的多语言支持、128K 宽广上下文窗口。
+              </p>
+</div>
+<div class="flex items-center gap-1.5 flex-wrap pt-1">
+<button class="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-code-md font-semibold">70b</button>
+<span class="text-[11px] text-on-surface-variant font-code-md pl-1">Q4_K_M (42.5 GB)</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-md mt-space-sm bg-surface-container-low -mx-space-lg -mb-space-lg p-space-md rounded-b-lg">
+<div class="flex flex-col">
+<span class="font-code-md text-[11px] text-on-surface-variant">上下文: 128k</span>
+<span class="font-label-sm text-label-sm text-outline">拉取量 860K+</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-full bg-surface-container-highest hover:bg-primary-container hover:text-on-primary-container text-on-surface transition-all font-semibold active:scale-95" onclick="quickPull('llama3.3:70b')">
+<span class="material-symbols-outlined text-[16px]">download</span>
+<span class="font-label-lg text-label-lg">拉取 70B</span>
+</button>
+</div>
+</div>
+<!-- 卡片 3: Qwen 2.5 Coder (代码专家) -->
+<div class="model-item flex flex-col justify-between bg-surface-container rounded-lg p-space-lg hover:-translate-y-1 transition-all duration-200 shadow-md group" data-category="code">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">code</span>
+</div>
+<span class="bg-[#27c93f]/15 text-[#27c93f] font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-semibold">
+                16GB 内存完美适配
+              </span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold group-hover:text-primary transition-colors">qwen2.5-coder</h4>
+<span class="text-outline text-xs">Alibaba</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                通义千问专精代码生成模型，覆盖 92 种语言，支持长代码补全与复杂系统级重构。
+              </p>
+</div>
+<div class="flex items-center gap-1.5 flex-wrap pt-1">
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">1.5b</button>
+<button class="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-code-md font-semibold">7b</button>
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">14b</button>
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">32b</button>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-md mt-space-sm bg-surface-container-low -mx-space-lg -mb-space-lg p-space-md rounded-b-lg">
+<div class="flex flex-col">
+<span class="font-code-md text-[11px] text-on-surface-variant">体积: ~4.7 GB</span>
+<span class="font-label-sm text-label-sm text-outline">拉取量 940K+</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-full bg-primary-container text-on-primary-container hover:shadow-[0_0_12px_rgba(121,82,236,0.4)] transition-all font-semibold active:scale-95" onclick="quickPull('qwen2.5-coder:7b')">
+<span class="material-symbols-outlined text-[16px]">download</span>
+<span class="font-label-lg text-label-lg">拉取 7B</span>
+</button>
+</div>
+</div>
+<!-- 卡片 4: MiniCPM-V 2.6 (多模态视觉) -->
+<div class="model-item flex flex-col justify-between bg-surface-container rounded-lg p-space-lg hover:-translate-y-1 transition-all duration-200 shadow-md group" data-category="vision">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/30 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-[24px]">photo_camera</span>
+</div>
+<span class="bg-[#27c93f]/15 text-[#27c93f] font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-semibold">
+                端侧单图/视频理解
+              </span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold group-hover:text-primary transition-colors">minicpm-v</h4>
+<span class="text-outline text-xs">OpenBMB</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                强大的端侧多模态模型，支持 OCR、复杂图表细粒度识别与端到端实时视频流解析。
+              </p>
+</div>
+<div class="flex items-center gap-1.5 flex-wrap pt-1">
+<button class="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-code-md font-semibold">8b (2.6)</button>
+<span class="text-[11px] text-on-surface-variant font-code-md pl-1">VLM 高清像素引擎</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-md mt-space-sm bg-surface-container-low -mx-space-lg -mb-space-lg p-space-md rounded-b-lg">
+<div class="flex flex-col">
+<span class="font-code-md text-[11px] text-on-surface-variant">体积: ~5.5 GB</span>
+<span class="font-label-sm text-label-sm text-outline">拉取量 310K+</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-full bg-surface-container-highest hover:bg-primary-container hover:text-on-primary-container text-on-surface transition-all font-semibold active:scale-95" onclick="quickPull('minicpm-v:8b')">
+<span class="material-symbols-outlined text-[16px]">download</span>
+<span class="font-label-lg text-label-lg">拉取 8B</span>
+</button>
+</div>
+</div>
+<!-- 卡片 5: LLaVA-NeXT (视觉) -->
+<div class="model-item flex flex-col justify-between bg-surface-container rounded-lg p-space-lg hover:-translate-y-1 transition-all duration-200 shadow-md group" data-category="vision">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-secondary-container/40 flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined text-[24px]">visibility</span>
+</div>
+<span class="bg-[#27c93f]/15 text-[#27c93f] font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-semibold">
+                16GB 内存完美适配
+              </span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold group-hover:text-primary transition-colors">llava</h4>
+<span class="text-outline text-xs">v1.6</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                广受赞誉的多模态视觉问答先驱，兼具敏锐的图像构图理解与多轮视觉交谈。
+              </p>
+</div>
+<div class="flex items-center gap-1.5 flex-wrap pt-1">
+<button class="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-code-md font-semibold">7b</button>
+<button class="px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface text-[11px] font-code-md font-medium hover:bg-primary-container hover:text-on-primary-container transition-colors">13b</button>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-md mt-space-sm bg-surface-container-low -mx-space-lg -mb-space-lg p-space-md rounded-b-lg">
+<div class="flex flex-col">
+<span class="font-code-md text-[11px] text-on-surface-variant">体积: ~4.5 GB</span>
+<span class="font-label-sm text-label-sm text-outline">拉取量 1.5M+</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-full bg-surface-container-highest hover:bg-primary-container hover:text-on-primary-container text-on-surface transition-all font-semibold active:scale-95" onclick="quickPull('llava:7b')">
+<span class="material-symbols-outlined text-[16px]">download</span>
+<span class="font-label-lg text-label-lg">拉取 7B</span>
+</button>
+</div>
+</div>
+<!-- 卡片 6: Nomic-Embed-Text (嵌入向量) -->
+<div class="model-item flex flex-col justify-between bg-surface-container rounded-lg p-space-lg hover:-translate-y-1 transition-all duration-200 shadow-md group" data-category="general">
+<div class="flex flex-col gap-space-sm">
+<div class="flex items-start justify-between">
+<div class="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-[24px]">hub</span>
+</div>
+<span class="bg-[#27c93f]/15 text-[#27c93f] font-label-sm text-label-sm px-2.5 py-0.5 rounded-full font-semibold">
+                极低资源开销 (274MB)
+              </span>
+</div>
+<div>
+<div class="flex items-center gap-space-xs">
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-semibold group-hover:text-primary transition-colors">nomic-embed-text</h4>
+<span class="text-outline text-xs">v1.5</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant line-clamp-2 mt-1">
+                专为本地 RAG 知识库检索设计的长文本嵌入模型，原生支持 8192 序列长度。
+              </p>
+</div>
+<div class="flex items-center gap-1.5 flex-wrap pt-1">
+<button class="px-2.5 py-0.5 rounded-full bg-primary text-on-primary text-[11px] font-code-md font-semibold">v1.5 (F16)</button>
+<span class="text-[11px] text-on-surface-variant font-code-md pl-1">Embedding 推荐</span>
+</div>
+</div>
+<div class="flex items-center justify-between pt-space-md mt-space-sm bg-surface-container-low -mx-space-lg -mb-space-lg p-space-md rounded-b-lg">
+<div class="flex flex-col">
+<span class="font-code-md text-[11px] text-on-surface-variant">体积: ~274 MB</span>
+<span class="font-label-sm text-label-sm text-outline">拉取量 2.1M+</span>
+</div>
+<button class="flex items-center gap-1.5 px-space-md py-1.5 rounded-full bg-surface-container-highest hover:bg-primary-container hover:text-on-primary-container text-on-surface transition-all font-semibold active:scale-95" onclick="quickPull('nomic-embed-text')">
+<span class="material-symbols-outlined text-[16px]">download</span>
+<span class="font-label-lg text-label-lg">拉取 Embedding</span>
+</button>
+</div>
+</div>
+</div>
+</section>
+<!-- 4. 本地 GGUF 导入面板 (Local Model File Hub) -->
+<section class="bg-surface-container-low rounded-xl p-space-lg sm:p-space-xl flex flex-col gap-space-md shadow-lg">
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-space-xs">
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface font-semibold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-primary text-[22px]">extension</span>
+            导入本地权重文件 (Import .gguf)
+          </h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">直接利用本地下载的量化模型，一键生成专属 Modelfile 并注册至 Ollama</p>
+</div>
+<button class="self-start sm:self-center flex items-center gap-1 font-label-lg text-label-lg text-primary hover:underline">
+<span>查看 Modelfile 模板规范</span>
+<span class="material-symbols-outlined text-[16px]">arrow_forward</span>
+</button>
+</div>
+<!-- 拖拽容器 -->
+<div class="group relative rounded-xl bg-surface-container hover:bg-surface-container-high transition-all p-space-xl flex flex-col items-center justify-center text-center cursor-pointer shadow-inner" id="dropZone">
+<div class="w-16 h-16 rounded-full bg-primary-container/20 flex items-center justify-center text-primary mb-space-sm group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-[32px]">upload_file</span>
+</div>
+<h4 class="font-headline-sm text-headline-sm text-on-surface font-medium">将 .gguf 文件拖放到此处，或点击浏览</h4>
+<p class="font-body-sm text-body-sm text-on-surface-variant max-w-md mt-1">
+          支持来自 HuggingFace 或本地编译的单个/分卷 GGUF 权重文件，自动检测层数配置与量化格式。
+        </p>
+<div class="flex items-center gap-space-sm mt-space-md">
+<span class="bg-surface-container-highest text-on-surface-variant font-code-md text-[11px] px-3 py-1 rounded-full">
+            自动构建 FROM ./model.gguf
+          </span>
+<span class="bg-surface-container-highest text-on-surface-variant font-code-md text-[11px] px-3 py-1 rounded-full">
+            智能预设 System Prompt
+          </span>
+</div>
+<input accept=".gguf" class="hidden" id="fileInput" type="file"/>
+</div>
+</section>
+</div>
+</div>
+<script>
+  // 快速拉取功能：填入搜索框并提示
+  function quickPull(modelTag) {
+    const input = document.getElementById('pullInput');
+    input.value = `ollama pull ${modelTag}`;
+    input.focus();
+    // 视觉反馈动效
+    const card = document.getElementById('activeDownloadCard');
+    card.classList.add('scale-[1.01]');
+    setTimeout(() => card.classList.remove('scale-[1.01]'), 200);
+  }
+
+  // 筛选芯片交互
+  const filterButtons = document.querySelectorAll('.filter-chip');
+  const modelItems = document.querySelectorAll('.model-item');
+
+  filterButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // 样式切换
+      filterButtons.forEach(b => {
+        b.classList.remove('bg-primary-container', 'text-on-primary-container');
+        b.classList.add('bg-surface-container', 'text-on-surface-variant');
+      });
+      btn.classList.add('bg-primary-container', 'text-on-primary-container');
+      btn.classList.remove('bg-surface-container', 'text-on-surface-variant');
+
+      // 过滤项目
+      const targetCat = btn.getAttribute('data-cat');
+      modelItems.forEach(item => {
+        if (targetCat === 'all' || item.getAttribute('data-category') === targetCat) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // 拖拽区模拟交互
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+
+  dropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+      const fileName = e.target.files[0].name;
+      alert(`已载入本地模型: ${fileName}，正在准备初始化 Modelfile...`);
+    }
+  });
+
+  // 清空按钮
+  document.getElementById('clearInputBtn').addEventListener('click', () => {
+    const input = document.getElementById('pullInput');
+    input.value = 'ollama pull ';
+    input.focus();
+  });
+
+  // 拉取按钮点击
+  document.getElementById('startPullBtn').addEventListener('click', () => {
+    const val = document.getElementById('pullInput').value;
+    alert(`开始执行: ${val}`);
+  });
+</script></main></div></body></html>

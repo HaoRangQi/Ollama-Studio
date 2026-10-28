@@ -1,0 +1,158 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-surface: var(--app-bg);
+  --color-surface-dim: var(--app-bg);
+  --color-surface-bright: var(--app-surface-highest);
+  --color-surface-container-lowest: var(--app-sidebar);
+  --color-surface-container-low: var(--app-surface);
+  --color-surface-container: var(--app-surface);
+  --color-surface-container-high: var(--app-surface-high);
+  --color-surface-container-highest: var(--app-surface-highest);
+  --color-on-surface: var(--app-text);
+  --color-on-surface-variant: var(--app-text-muted);
+  --color-inverse-surface: var(--app-text);
+  --color-inverse-on-surface: var(--app-bg);
+  --color-outline: #948ea0;
+  --color-outline-variant: var(--app-border);
+  --color-surface-tint: var(--primary-tint);
+  --color-primary: var(--primary-tint);
+  --color-on-primary: #370096;
+  --color-primary-container: var(--primary-accent);
+  --color-on-primary-container: #f9f3ff;
+  --color-secondary: var(--primary-tint);
+  --color-secondary-container: var(--primary-container);
+  --color-tertiary: #ffafd3;
+  --color-tertiary-container: #ba4385;
+  --color-background: var(--app-bg);
+  --color-on-background: var(--app-text);
+
+  --font-headline:
+    'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Geist Variable', 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-code: 'Geist Variable', 'Geist', 'JetBrains Mono Variable', 'JetBrains Mono', monospace;
+}
+
+:root {
+  --primary-accent: #7952ec;
+  --primary-container: #4d31a8;
+  --primary-tint: #cdbdff;
+  --primary-glow: rgba(121, 82, 236, 0.45);
+
+  --app-bg: #14121d;
+  --app-surface: #201e2a;
+  --app-surface-high: #2b2834;
+  --app-surface-highest: #36333f;
+  --app-sidebar: #0f0d18;
+  --app-text: #e6e0f0;
+  --app-text-muted: #cac3d7;
+  --app-border: rgba(255, 255, 255, 0.08);
+}
+
+:root.light {
+  --app-bg: #f4f3f9;
+  --app-surface: #ffffff;
+  --app-surface-high: #f0edf7;
+  --app-surface-highest: #e4dfef;
+  --app-sidebar: #eae6f4;
+  --app-text: #1c1827;
+  --app-text-muted: #5c546b;
+  --app-border: rgba(0, 0, 0, 0.08);
+}
+
+/* Base resets & typography */
+html,
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-body);
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  overscroll-behavior: none;
+  transition:
+    background-color 0.25s ease,
+    color 0.25s ease;
+}
+
+h1,
+h2,
+h3,
+h4,
+.font-headline {
+  font-family: var(--font-headline);
+}
+
+code,
+pre,
+.font-code {
+  font-family: var(--font-code);
+}
+
+/* Material Symbols styling helper */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  display: inline-block;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variation-settings:
+    'FILL' 0,
+    'wght' 400,
+    'GRAD' 0,
+    'opsz' 24;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 142, 160, 0.25);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 142, 160, 0.45);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Keyboard focus stays visible on every interactive element. */
+:focus-visible {
+  outline: 2px solid var(--primary-accent);
+  outline-offset: 2px;
+}
+
+.safe-area-inset-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

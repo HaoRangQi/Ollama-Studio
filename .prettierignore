@@ -1,0 +1,11 @@
+node_modules/
+.npm-cache/
+dist/
+coverage/
+server.js
+package-lock.json
+public/assets/
+docs/context/
+AGENTS.md
+PROJECT_INDEX.md
+README.md
