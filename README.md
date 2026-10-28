@@ -4,6 +4,16 @@
 
 > 实时状态与下一步见 [`docs/context/NOW.md`](docs/context/NOW.md)；已知风险见 [`docs/context/RISKS.md`](docs/context/RISKS.md)。
 
+## 界面预览
+
+> 截图为演示数据，不代表本机实际模型或设备信息。点击图片可查看大图。
+
+| 模型库 | 即时对话 |
+| --- | --- |
+| [![模型库：本机模型列表、运行状态与采样参数](docs/assets/screenshots/models.png)](docs/assets/screenshots/models.png) | [![即时对话：流式回复、模型切换与上下文参数](docs/assets/screenshots/chat.png)](docs/assets/screenshots/chat.png) |
+| **发现与拉取** | **监控与设置** |
+| [![发现与拉取：ModelScope、Hugging Face 与 Ollama 官方搜索](docs/assets/screenshots/pull.png)](docs/assets/screenshots/pull.png) | [![监控与设置：磁盘、内存、CPU、GPU 指标、缓存清理与服务控制](docs/assets/screenshots/telemetry.png)](docs/assets/screenshots/telemetry.png) |
+
 ## 项目定位
 
 Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和筛选模型、拉取与量化选择、对话与参数调节、用 Modelfile 派生模型、查看守护进程与推理遥测。界面按 Material 3 Expressive 风格实现，支持明暗主题、五套强调色和中英双语。

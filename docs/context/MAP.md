@@ -40,6 +40,7 @@ ollama-studio/
 │   ├── DECISIONS.md
 │   ├── RISKS.md
 │   └── history/README.md
+├── docs/assets/screenshots/    # README 界面截图（演示数据）
 ├── public/assets/aistudio/     # 设计参考：PNG / HTML / Material 3 token markdown
 ├── dist/                       # 构建产物（gitignore）
 ├── server.js                   # esbuild 产物（gitignore）
