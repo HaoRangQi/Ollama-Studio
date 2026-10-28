@@ -106,7 +106,7 @@ export const translations = {
     // Pull Screen
     pull: {
       cliPlaceholder: '输入模型名称如 qwen2.5:7b 或直接粘贴 pull 命令...',
-      quantConfigBtn: '量化参数配置',
+      quantConfigBtn: '默认量化偏好',
       runPullBtn: '拉取权重 Run',
       activeTaskPaused: '任务已暂停',
       rate: '速率:',
@@ -387,7 +387,7 @@ export const translations = {
     // Pull Screen
     pull: {
       cliPlaceholder: 'Enter model name e.g. qwen2.5:7b or paste pull command...',
-      quantConfigBtn: 'Quantization Config',
+      quantConfigBtn: 'Default quant',
       runPullBtn: 'Run Pull',
       activeTaskPaused: 'Task Paused',
       rate: 'Rate:',

@@ -55,6 +55,15 @@ export const PullScreen: React.FC<PullScreenProps> = ({
       : DEFAULT_CATALOG_PAGE_SIZE;
   });
   const [expandedQuants, setExpandedQuants] = useState<Record<string, boolean>>({});
+  const [selectedQuants, setSelectedQuants] = useState<Record<string, string>>({});
+
+  const revealDownloadTask = () => {
+    window.setTimeout(() => {
+      document
+        .getElementById('download-task')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
+  };
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -70,6 +79,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     if (!raw) return;
     onStartNewDownload(raw);
     showToast(language === 'zh' ? `正在开始拉取: ${raw}` : `Starting pull: ${raw}`);
+    revealDownloadTask();
   };
 
   const handleQuickPullModel = (modelTag: string) => {
@@ -78,6 +88,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     showToast(
       language === 'zh' ? `已添加至拉取队列: ${modelTag}` : `Added to pull queue: ${modelTag}`
     );
+    revealDownloadTask();
   };
 
   const handleSizeChange = (modelId: string, size: string) => {
@@ -124,6 +135,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     setCatalogSearched(false);
     setCatalogPage(1);
     setExpandedQuants({});
+    setSelectedQuants({});
   };
 
   const handleCatalogSourceChange = (source: CatalogSource) => {
@@ -140,6 +152,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     setCatalogSearched(true);
     setCatalogPage(1);
     setExpandedQuants({});
+    setSelectedQuants({});
     try {
       const results =
         catalogSource === 'huggingface'
@@ -174,6 +187,20 @@ export const PullScreen: React.FC<PullScreenProps> = ({
 
     setPullInput(command);
     showToast(language === 'zh' ? `已填入命令：${command}` : `Command filled: ${command}`);
+  };
+
+  const handleDownloadCatalogModel = (result: CatalogSearchResult, quant?: string) => {
+    if (result.source === 'huggingface' && !quant) {
+      showToast(language === 'zh' ? '请先选择一个量化标签' : 'Choose a quantization tag first');
+      return;
+    }
+
+    const target = result.source === 'huggingface' ? `hf.co/${result.name}:${quant}` : result.name;
+
+    setPullInput(`ollama pull ${target}`);
+    onStartNewDownload(target);
+    showToast(language === 'zh' ? `已开始下载：${target}` : `Downloading: ${target}`);
+    revealDownloadTask();
   };
 
   const importGgufFile = async (file: File) => {
@@ -287,7 +314,10 @@ export const PullScreen: React.FC<PullScreenProps> = ({
 
         {/* 动态下载任务浮动面板 (Active Task Card) */}
         {downloadTask.isActive && (
-          <div className="relative bg-[var(--app-surface-high)] rounded-3xl p-6 shadow-xl overflow-hidden border border-[var(--app-border)] transition-transform">
+          <div
+            id="download-task"
+            className="relative bg-[var(--app-surface-high)] rounded-3xl p-6 shadow-xl overflow-hidden border border-[var(--app-border)] transition-transform scroll-mt-24"
+          >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
               <div className="flex items-start sm:items-center gap-4">
                 <div
@@ -890,18 +920,27 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 <div className="flex flex-col gap-3">
                   {visibleCatalogResults.map((result) => {
                     const key = `${result.source}:${result.name}`;
+                    const selectedQuant = selectedQuants[key] ?? result.quants?.[0];
                     return (
                       <CatalogResultRow
                         key={key}
                         result={result}
                         quantsExpanded={Boolean(expandedQuants[key])}
+                        selectedQuant={selectedQuant}
                         onToggleQuants={() =>
                           setExpandedQuants((previous) => ({
                             ...previous,
                             [key]: !previous[key]
                           }))
                         }
-                        onUseModel={handleUseCatalogModel}
+                        onSelectQuant={(quant) =>
+                          setSelectedQuants((previous) => ({
+                            ...previous,
+                            [key]: quant
+                          }))
+                        }
+                        onDownload={(quant) => handleDownloadCatalogModel(result, quant)}
+                        onFillCommand={(quant) => handleUseCatalogModel(result, quant)}
                       />
                     );
                   })}
