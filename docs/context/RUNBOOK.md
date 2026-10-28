@@ -232,6 +232,7 @@
 - 内置：`Contents/Resources/runtime/node`、`server/server.js`、`server/dist/` 与 `server/package.json`（`{"type":"module"}`）。`package.json` 必须随包分发：它声明 ESM，并让 Node 不再向上遍历父目录查找模块类型；缺失时从受保护目录启动会卡在 package.json 查找，安装到 `/Applications` 后则可能按 CommonJS 解析而启动失败。
 - 启动：`open "build/Ollama Studio Menu.app"`；服务监听 `127.0.0.1:3210`，菜单栏出现图标，默认打开浏览器。
 - 验证：**已执行（2026-10-29）通过**。重新打包后启动，Node 子进程正常监听 `127.0.0.1:3210`；`POST /api/downloads` 的非法 HF 仓库返回 400 `Hugging Face 仓库格式应为 owner/name。`，`file:"../model.gguf"` 返回 400 `文件路径非法。`，确认内置服务已是 HF 服务端直下版本。
+- 2026-10-29 02:24 重新打包（Chat 导航图标复刻后）：`npm run build:menu` 退出码 0；App 启动后 `OllamaStudioMenu` PID 72421、内置 Node PID 72449 监听 `127.0.0.1:3210`；`/healthz` 与 `/ollama/api/version` 均返回 200（Ollama 0.40.7）。headless Chrome 打开 `http://127.0.0.1:3210/` 并点击 Chat，确认 `.chat-mark` 组合字形、标签“即时对话 Chat”单行、按钮 223×44 px、选中背景 `rgb(121, 82, 236)`。产物 `build/Ollama Studio Menu.app` 127 MB、DMG 47 MB。
 - 未验证：通过 App 发起真实 HF 下载或真实 `ollama create`；安装到 `/Applications`、登录项、自动更新、Developer ID 签名与公证。
 
 ## Ollama 连通性检查

@@ -164,82 +164,14 @@ pre,
   outline: none;
 }
 
-/* Chat 是主入口：active 时用主色渐变、流光和星芒，其他导航保持原样式。 */
-.nav-chat-active {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  background-image:
-    radial-gradient(130% 180% at 16% 0%, rgba(255, 255, 255, 0.26), transparent 46%),
-    linear-gradient(135deg, var(--primary-accent) 0%, var(--primary-container) 100%);
-  box-shadow:
-    0 10px 30px -10px var(--primary-glow),
-    0 0 24px var(--primary-glow),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3);
-  transition:
-    box-shadow 240ms ease,
-    filter 240ms ease;
-}
-
-.nav-chat-active::before {
-  content: '';
-  position: absolute;
-  z-index: -1;
-  top: -60%;
-  bottom: -60%;
-  left: 0;
-  width: 40%;
-  background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.18), transparent);
-  animation: nav-chat-sheen 6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-  pointer-events: none;
-}
-
-.nav-chat-active:hover {
-  filter: brightness(1.06);
-  box-shadow:
-    0 12px 34px -10px var(--primary-glow),
-    0 0 28px var(--primary-glow),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.28),
-    inset 0 1px 0 rgba(255, 255, 255, 0.36);
-}
-
-.nav-chat-sparkle {
-  filter: drop-shadow(0 0 4px var(--primary-glow));
-  transform-origin: center;
-  animation: nav-chat-sparkle 3.4s ease-in-out infinite;
-}
-
-@keyframes nav-chat-sheen {
-  0%,
-  52% {
-    transform: translateX(-220%) rotate(8deg);
-    opacity: 0;
-  }
-  58% {
-    opacity: 1;
-  }
-  78% {
-    transform: translateX(260%) rotate(8deg);
-    opacity: 1;
-  }
-  84%,
-  100% {
-    transform: translateX(260%) rotate(8deg);
-    opacity: 0;
-  }
-}
-
-@keyframes nav-chat-sparkle {
-  0%,
-  100% {
-    transform: scale(0.88) rotate(-4deg);
-    opacity: 0.72;
-  }
-  50% {
-    transform: scale(1.14) rotate(8deg);
-    opacity: 1;
-  }
+/* chat_spark 的四个字形片段按行内文本排列，保持首版的组合效果。
+   19px 让组合标记和单行标签一起放进 256px 侧栏。 */
+.chat-mark {
+  display: inline-flex;
+  align-items: baseline;
+  white-space: nowrap;
+  font-size: 19px;
+  line-height: 1;
 }
 
 .safe-area-inset-bottom {
