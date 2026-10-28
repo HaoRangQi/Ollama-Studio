@@ -15,7 +15,7 @@ export const MobileNav: React.FC<MobileNavProps> = ({
 }) => {
   const { t } = useAppTheme();
   const items: { id: NavScreen; label: string; icon: string }[] = [
-    { id: 'chat', label: t.nav.chat, icon: 'chat_spark' },
+    { id: 'chat', label: t.nav.chat, icon: 'forum' },
     { id: 'models', label: t.nav.models, icon: 'deployed_code' },
     { id: 'pull', label: t.nav.pull, icon: 'cloud_download' },
     { id: 'modelfile-lab', label: t.nav.modelfileLab, icon: 'science' },

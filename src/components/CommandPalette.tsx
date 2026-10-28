@@ -49,7 +49,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   );
 
   const quickActions = [
-    { label: t.nav.chat, icon: 'chat_spark', action: () => onNavigate('chat') },
+    { label: t.nav.chat, icon: 'forum', action: () => onNavigate('chat') },
     { label: t.nav.models, icon: 'deployed_code', action: () => onNavigate('models') },
     { label: t.nav.pull, icon: 'cloud_download', action: () => onNavigate('pull') },
     { label: t.nav.modelfileLab, icon: 'science', action: () => onNavigate('modelfile-lab') },
@@ -73,13 +73,19 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   ].filter((a) => a.label.toLowerCase().includes(query.toLowerCase()));
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-start justify-center pt-24 p-4 animate-in fade-in duration-150">
+    <div
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-md flex items-start justify-center pt-24 p-4 animate-in fade-in duration-150"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={language === 'zh' ? '命令面板' : 'Command palette'}
+    >
       <div
         className="bg-[var(--app-surface)] border border-[var(--app-border)] w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-all text-[var(--app-text)]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Input Bar */}
-        <div className="flex items-center gap-3 px-6 py-4 border-b border-[var(--app-border)] bg-[var(--app-surface-high)]">
+        <div className="flex items-center gap-3 px-6 py-4 border-b border-[var(--app-border)] bg-[var(--app-surface-high)] transition-colors focus-within:border-b-[var(--primary-accent)]">
           <span
             className="material-symbols-outlined text-[22px]"
             style={{ color: 'var(--primary-accent)' }}
@@ -92,11 +98,20 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t.cmdPalette.searchPlaceholder}
-            className="w-full bg-transparent border-none outline-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] font-body text-[15px]"
+            className="w-full bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] font-body text-[15px]"
           />
           <kbd className="bg-[var(--app-surface-highest)] text-[var(--app-text-muted)] font-code text-[11px] px-2 py-0.5 rounded-full border border-[var(--app-border)]">
             ESC
           </kbd>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={language === 'zh' ? '关闭命令面板' : 'Close command palette'}
+            title={language === 'zh' ? '关闭 (Esc)' : 'Close (Esc)'}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-surface-highest)] transition-colors cursor-pointer shrink-0"
+          >
+            <span className="material-symbols-outlined text-[18px]">close</span>
+          </button>
         </div>
 
         {/* Search Results */}
@@ -210,7 +225,12 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
             </kbd>
             <span>{t.cmdPalette.footerSelect}</span>
           </div>
-          <span style={{ color: 'var(--primary-accent)' }}>Ollama Studio</span>
+          <div className="flex items-center gap-3">
+            <span className="text-[10px] opacity-80">
+              {language === 'zh' ? '点击外部或 Esc 关闭' : 'Click outside or Esc to close'}
+            </span>
+            <span style={{ color: 'var(--primary-accent)' }}>Ollama Studio</span>
+          </div>
         </div>
       </div>
     </div>

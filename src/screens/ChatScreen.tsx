@@ -510,7 +510,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
           className="w-16 h-16 rounded-3xl flex items-center justify-center border border-[var(--app-border)]"
           style={{ backgroundColor: 'var(--app-surface-high)', color: 'var(--primary-accent)' }}
         >
-          <span className="material-symbols-outlined text-[34px]">chat_spark</span>
+          <span className="material-symbols-outlined text-[34px]">forum</span>
         </div>
         <h1 className="font-headline text-[22px] text-[var(--app-text)] font-bold">
           {t.chat.noModelTitle}
@@ -889,7 +889,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
               className="w-16 h-16 rounded-3xl flex items-center justify-center mb-2 border border-[var(--app-border)] shadow-md"
               style={{ backgroundColor: 'var(--app-surface-high)', color: 'var(--primary-accent)' }}
             >
-              <span className="material-symbols-outlined text-[34px]">chat_spark</span>
+              <span className="material-symbols-outlined text-[34px]">forum</span>
             </div>
             <h3 className="font-headline text-[20px] text-[var(--app-text)] font-bold">
               {t.chat.emptyWelcome} {currentModel.name}
@@ -1062,7 +1062,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="fixed bottom-16 lg:bottom-0 left-0 lg:left-64 right-0 z-40 p-3 sm:p-4 flex flex-col items-center pointer-events-none">
+      <div className="fixed bottom-16 lg:bottom-0 left-0 lg:left-64 right-0 z-40 px-3 pb-3 pt-8 sm:px-4 sm:pb-4 sm:pt-10 flex flex-col items-center pointer-events-none bg-gradient-to-t from-[var(--app-bg)] via-[var(--app-bg)]/95 to-transparent">
         <div className="w-full max-w-4xl flex flex-col gap-2 pointer-events-auto">
           <div className="flex items-center gap-2 overflow-x-auto px-2 py-1 no-scrollbar">
             <button
@@ -1111,18 +1111,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </button>
           </div>
 
-          <div className="relative bg-[var(--app-surface-high)]/95 backdrop-blur-2xl rounded-3xl p-2.5 shadow-2xl border border-[var(--app-border)] transition-all duration-200">
+          <div className="relative bg-[var(--app-surface-high)]/95 backdrop-blur-2xl rounded-[1.75rem] p-1.5 pl-4 shadow-xl border border-[var(--app-border)] transition-all duration-200 focus-within:border-[var(--primary-accent)] focus-within:ring-2 focus-within:ring-[var(--primary-glow)]">
             <div className="flex items-end gap-2">
-              <button
-                disabled
-                title={t.chat.attachmentUnavailable}
-                aria-label={t.chat.attachmentUnavailable}
-                className="w-10 h-10 rounded-full flex items-center justify-center text-[var(--app-text-muted)] opacity-50 cursor-not-allowed shrink-0"
-              >
-                <span className="material-symbols-outlined text-[20px]">attach_file</span>
-              </button>
-
-              <div className="flex-1 py-1 px-2">
+              <div className="flex-1 min-w-0 py-2">
                 <textarea
                   ref={textareaRef}
                   value={inputText}
@@ -1139,8 +1130,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   }}
                   rows={1}
                   aria-label={t.chat.inputPlaceholder}
-                  placeholder={`${currentModel.name} ${t.chat.inputPlaceholder}`}
-                  className="w-full bg-transparent border-none outline-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] text-[14px] resize-none max-h-36 leading-relaxed"
+                  placeholder={t.chat.inputPlaceholder}
+                  className="w-full bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] text-[14px] resize-none max-h-36 leading-relaxed overflow-y-auto no-scrollbar"
                 />
               </div>
 
@@ -1156,15 +1147,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 aria-label={
                   isGenerating ? t.chat.stopGeneration : language === 'zh' ? '发送' : 'Send'
                 }
-                className={`w-11 h-11 rounded-full text-white flex items-center justify-center shadow-lg transition-all duration-150 shrink-0 cursor-pointer ${
-                  !isGenerating && !inputText.trim()
-                    ? 'opacity-50 cursor-not-allowed'
-                    : 'hover:scale-105 active:scale-95'
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 shrink-0 ${
+                  isGenerating
+                    ? 'bg-[#ba4385]/20 text-[#ffafd3] hover:bg-[#ba4385]/40 cursor-pointer'
+                    : inputText.trim()
+                      ? 'text-white hover:scale-105 active:scale-95 cursor-pointer'
+                      : 'bg-[var(--app-surface-highest)] text-[var(--app-text-muted)] cursor-not-allowed'
                 }`}
-                style={{
-                  backgroundColor: 'var(--primary-accent)',
-                  boxShadow: '0 0 16px var(--primary-glow)'
-                }}
+                style={
+                  !isGenerating && inputText.trim()
+                    ? {
+                        backgroundColor: 'var(--primary-accent)',
+                        boxShadow: '0 0 16px var(--primary-glow)'
+                      }
+                    : undefined
+                }
                 title={
                   isGenerating
                     ? t.chat.stopGeneration
@@ -1173,7 +1170,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                       : 'Send (Enter)'
                 }
               >
-                <span className="material-symbols-outlined text-[22px]">
+                <span className="material-symbols-outlined text-[20px]">
                   {isGenerating ? 'stop' : 'arrow_upward'}
                 </span>
               </button>

@@ -169,7 +169,7 @@ export const translations = {
       systemPersona: '系统人设:',
       forceJson: '强制 JSON 结构输出',
       quickFollowup: '生成 SwiftUI 菜单栏界面',
-      inputPlaceholder: '发送指令，或粘贴代码片段... (Enter 发送, Shift+Enter 换行)',
+      inputPlaceholder: '输入消息…（Enter 发送，Shift+Enter 换行）',
       telemetryMemory: '统一内存: 24.2 / 36.0 GB (67%)',
       telemetryKv: '已缓存 KV: 1,420 tokens',
       telemetryTemp: '温控正常 41°C',
@@ -451,8 +451,7 @@ export const translations = {
       systemPersona: 'System Persona:',
       forceJson: 'Enforce JSON Structure',
       quickFollowup: 'Generate SwiftUI MenuBar UI',
-      inputPlaceholder:
-        'Send instruction or paste code snippet... (Enter to send, Shift+Enter for new line)',
+      inputPlaceholder: 'Type a message… (Enter to send, Shift+Enter for newline)',
       telemetryMemory: 'Unified RAM: 24.2 / 36.0 GB (67%)',
       telemetryKv: 'Cached KV: 1,420 tokens',
       telemetryTemp: 'Thermal OK 41°C',

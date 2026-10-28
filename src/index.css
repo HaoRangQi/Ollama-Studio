@@ -142,6 +142,12 @@ pre,
   outline-offset: 2px;
 }
 
+/* Inputs whose container already draws a focus ring should not draw a second
+   box. This rule is unlayered so it wins over Tailwind's layered utilities. */
+:focus-visible.focus-ring-none {
+  outline: none;
+}
+
 .safe-area-inset-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }

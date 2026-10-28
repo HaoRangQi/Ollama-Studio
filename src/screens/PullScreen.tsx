@@ -659,7 +659,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                       ? '搜索 Ollama 模型库，例如 qwen、coder、vision…'
                       : 'Search Ollama models, e.g. qwen, coder, vision…'
                 }
-                className="bg-transparent border-none outline-none text-[13px] w-full text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
+                className="bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[13px] w-full text-[var(--app-text)] placeholder:text-[var(--app-text-muted)]"
               />
               {catalogQuery && (
                 <button

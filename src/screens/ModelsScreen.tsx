@@ -354,7 +354,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder={t.models.searchPlaceholder}
-              className="w-full bg-[var(--app-surface-high)] text-[var(--app-text)] text-[13px] pl-10 pr-4 py-2 rounded-full outline-none focus:bg-[var(--app-surface-highest)] border border-[var(--app-border)] transition-colors"
+              className="w-full bg-[var(--app-surface-high)] text-[var(--app-text)] text-[13px] pl-10 pr-4 py-2 rounded-full outline-none focus-visible:outline-none focus-ring-none focus:bg-[var(--app-surface-highest)] focus:border-[var(--primary-accent)] border border-[var(--app-border)] transition-colors"
             />
             <span
               className="material-symbols-outlined absolute left-3 top-2.5 text-[18px]"
