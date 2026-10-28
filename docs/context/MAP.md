@@ -173,7 +173,7 @@ App.handleStartNewDownload
 
 - 真实：`/api/version`、`/api/tags`、`/api/ps`、`/api/chat`、`/api/pull`、`/api/delete`、`/api/copy`、`/api/create`、`/api/generate`（加载/释放）、`/api/embed`（embedding 加载）、`/api/import`（本机 CLI）。
 - 演示：`src/data/mockData.ts` 的 `INITIAL_MODELS`（离线回退）、`INITIAL_CURATED_MODELS`、`INITIAL_DAEMON_CONFIG`；`INITIAL_DOWNLOAD_TASK` / `INITIAL_CHAT_MESSAGES` 已不再作为初始状态。
-- 无数据库、无全局状态库；主题/语言、会话、参数、下载任务、daemon 界面配置写 `localStorage`。
+- 无数据库、无全局状态库；主题/语言、会话、参数、下载任务、daemon 界面配置、搜索每页条数写 `localStorage`。
 
 ### 已知占位/模拟点
 

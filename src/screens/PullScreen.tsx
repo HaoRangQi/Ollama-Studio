@@ -5,8 +5,11 @@ import { searchHuggingFaceCatalog, searchOllamaCatalog } from '../api/catalog';
 import type { CatalogSearchResult, CatalogSource } from '../api/catalog';
 import { CatalogResultRow } from '../components/CatalogResultRow';
 import { useAppTheme } from '../context/ThemeContext';
+import { readStorageJson, writeStorageJson } from '../lib/storage';
 
-const CATALOG_PAGE_SIZE = 6;
+const CATALOG_PAGE_SIZE_OPTIONS = [6, 12, 24] as const;
+const DEFAULT_CATALOG_PAGE_SIZE = 6;
+const CATALOG_PAGE_SIZE_KEY = 'ollama_catalog_page_size_v1';
 
 interface PullScreenProps {
   downloadTask: DownloadTask;
@@ -44,6 +47,13 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   const [importingGguf, setImportingGguf] = useState(false);
   const [catalogSearched, setCatalogSearched] = useState(false);
   const [catalogPage, setCatalogPage] = useState(1);
+  const [catalogPageSize, setCatalogPageSize] = useState<number>(() => {
+    const stored = readStorageJson<unknown>(CATALOG_PAGE_SIZE_KEY, DEFAULT_CATALOG_PAGE_SIZE);
+    return typeof stored === 'number' &&
+      (CATALOG_PAGE_SIZE_OPTIONS as readonly number[]).includes(stored)
+      ? stored
+      : DEFAULT_CATALOG_PAGE_SIZE;
+  });
   const [expandedQuants, setExpandedQuants] = useState<Record<string, boolean>>({});
 
   const showToast = (msg: string) => {
@@ -81,15 +91,21 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     (m) => activeCategory === 'all' || m.category === activeCategory
   );
 
-  const catalogPageCount = Math.max(1, Math.ceil(catalogResults.length / CATALOG_PAGE_SIZE));
+  const catalogPageCount = Math.max(1, Math.ceil(catalogResults.length / catalogPageSize));
   const safeCatalogPage = Math.min(catalogPage, catalogPageCount);
   const visibleCatalogResults = catalogResults.slice(
-    (safeCatalogPage - 1) * CATALOG_PAGE_SIZE,
-    safeCatalogPage * CATALOG_PAGE_SIZE
+    (safeCatalogPage - 1) * catalogPageSize,
+    safeCatalogPage * catalogPageSize
   );
   const catalogFirstIndex =
-    catalogResults.length === 0 ? 0 : (safeCatalogPage - 1) * CATALOG_PAGE_SIZE + 1;
-  const catalogLastIndex = Math.min(safeCatalogPage * CATALOG_PAGE_SIZE, catalogResults.length);
+    catalogResults.length === 0 ? 0 : (safeCatalogPage - 1) * catalogPageSize + 1;
+  const catalogLastIndex = Math.min(safeCatalogPage * catalogPageSize, catalogResults.length);
+
+  const handleCatalogPageSizeChange = (size: number) => {
+    setCatalogPageSize(size);
+    setCatalogPage(1);
+    writeStorageJson(CATALOG_PAGE_SIZE_KEY, size);
+  };
 
   const goToCatalogPage = (page: number) => {
     const next = Math.min(Math.max(page, 1), catalogPageCount);
@@ -892,9 +908,30 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
-                  <span className="text-[11px] text-[var(--app-text-muted)] font-code">
-                    {catalogFirstIndex}–{catalogLastIndex} / {catalogResults.length}
-                  </span>
+                  <div className="flex items-center gap-3 flex-wrap justify-center">
+                    <span className="text-[11px] text-[var(--app-text-muted)] font-code">
+                      {catalogFirstIndex}–{catalogLastIndex} / {catalogResults.length}
+                    </span>
+                    <label
+                      htmlFor="catalog-page-size"
+                      className="flex items-center gap-1.5 text-[11px] text-[var(--app-text-muted)]"
+                    >
+                      <span>{language === 'zh' ? '每页' : 'Per page'}</span>
+                      <select
+                        id="catalog-page-size"
+                        value={catalogPageSize}
+                        onChange={(e) => handleCatalogPageSizeChange(Number(e.target.value))}
+                        className="bg-[var(--app-surface-high)] text-[var(--app-text)] font-code text-[11px] px-2.5 py-1 rounded-full border border-[var(--app-border)] outline-none focus-visible:outline-none focus-ring-none focus:border-[var(--primary-accent)] cursor-pointer"
+                      >
+                        {CATALOG_PAGE_SIZE_OPTIONS.map((size) => (
+                          <option key={size} value={size}>
+                            {size}
+                          </option>
+                        ))}
+                      </select>
+                      <span>{language === 'zh' ? '条' : 'items'}</span>
+                    </label>
+                  </div>
                   {catalogPageCount > 1 && (
                     <div className="flex items-center gap-1">
                       <button
