@@ -10,6 +10,8 @@ export interface CatalogSearchResult {
   likes?: number;
   tags?: string[];
   quants?: string[];
+  pipelineTag?: string;
+  lastModified?: string;
 }
 
 interface HuggingFaceModel {
@@ -20,6 +22,7 @@ interface HuggingFaceModel {
   likes?: number;
   tags?: string[];
   pipeline_tag?: string;
+  lastModified?: string;
   siblings?: Array<{ rfilename?: string }>;
 }
 
@@ -153,19 +156,23 @@ export async function searchHuggingFaceCatalog(
       const tags = (model.tags ?? []).filter(
         (tag) => !/^(base_model:|license:|region:|arxiv:)/.test(tag)
       );
+      const tagSummary = tags
+        .filter((tag) => tag !== 'gguf')
+        .slice(0, 4)
+        .join(' · ');
       return {
         source: 'huggingface' as const,
         name: id,
         description:
-          model.pipeline_tag?.replace(/-/g, ' ') ||
-          tags.slice(0, 3).join(' · ') ||
-          'GGUF model on Hugging Face',
+          tagSummary || model.pipeline_tag?.replace(/-/g, ' ') || 'GGUF model on Hugging Face',
         url: `https://huggingface.co/${id}`,
         author: model.author || id.split('/')[0],
         downloads: model.downloads,
         likes: model.likes,
         tags: tags.slice(0, 6),
-        quants: extractQuants(model.siblings)
+        quants: extractQuants(model.siblings),
+        pipelineTag: model.pipeline_tag,
+        lastModified: model.lastModified
       };
     });
 }

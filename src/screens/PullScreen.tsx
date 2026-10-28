@@ -3,7 +3,10 @@ import { CuratedHubModel, DownloadTask } from '../types';
 import { INITIAL_CURATED_MODELS } from '../data/mockData';
 import { searchHuggingFaceCatalog, searchOllamaCatalog } from '../api/catalog';
 import type { CatalogSearchResult, CatalogSource } from '../api/catalog';
+import { CatalogResultRow } from '../components/CatalogResultRow';
 import { useAppTheme } from '../context/ThemeContext';
+
+const CATALOG_PAGE_SIZE = 6;
 
 interface PullScreenProps {
   downloadTask: DownloadTask;
@@ -40,6 +43,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [importingGguf, setImportingGguf] = useState(false);
   const [catalogSearched, setCatalogSearched] = useState(false);
+  const [catalogPage, setCatalogPage] = useState(1);
+  const [expandedQuants, setExpandedQuants] = useState<Record<string, boolean>>({});
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -76,10 +81,24 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     (m) => activeCategory === 'all' || m.category === activeCategory
   );
 
-  const formatCompact = (value: number) => {
-    if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
-    if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`;
-    return String(value);
+  const catalogPageCount = Math.max(1, Math.ceil(catalogResults.length / CATALOG_PAGE_SIZE));
+  const safeCatalogPage = Math.min(catalogPage, catalogPageCount);
+  const visibleCatalogResults = catalogResults.slice(
+    (safeCatalogPage - 1) * CATALOG_PAGE_SIZE,
+    safeCatalogPage * CATALOG_PAGE_SIZE
+  );
+  const catalogFirstIndex =
+    catalogResults.length === 0 ? 0 : (safeCatalogPage - 1) * CATALOG_PAGE_SIZE + 1;
+  const catalogLastIndex = Math.min(safeCatalogPage * CATALOG_PAGE_SIZE, catalogResults.length);
+
+  const goToCatalogPage = (page: number) => {
+    const next = Math.min(Math.max(page, 1), catalogPageCount);
+    setCatalogPage(next);
+    window.requestAnimationFrame(() => {
+      document
+        .getElementById('catalog-results')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   };
 
   const resetCatalogSearch = () => {
@@ -87,6 +106,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     setCatalogResults([]);
     setCatalogError(null);
     setCatalogSearched(false);
+    setCatalogPage(1);
+    setExpandedQuants({});
   };
 
   const handleCatalogSourceChange = (source: CatalogSource) => {
@@ -101,6 +122,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     setCatalogLoading(true);
     setCatalogError(null);
     setCatalogSearched(true);
+    setCatalogPage(1);
+    setExpandedQuants({});
     try {
       const results =
         catalogSource === 'huggingface'
@@ -847,122 +870,76 @@ export const PullScreen: React.FC<PullScreenProps> = ({
             )}
 
             {catalogResults.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {catalogResults.map((result) => (
-                  <div
-                    key={`${result.source}:${result.name}`}
-                    className="flex flex-col justify-between bg-[var(--app-surface)] rounded-2xl p-4 border border-[var(--app-border)] shadow-sm"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-start gap-2">
-                          <span
-                            className="material-symbols-outlined text-[18px] shrink-0"
-                            style={{ color: 'var(--primary-accent)' }}
-                          >
-                            {result.source === 'huggingface' ? 'deployed_code' : 'travel_explore'}
-                          </span>
-                          <h5 className="font-headline text-[14px] text-[var(--app-text)] font-bold break-all">
-                            {result.name}
-                          </h5>
-                        </div>
-
-                        {result.source === 'huggingface' ? (
-                          <>
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-[var(--app-text-muted)] mt-2">
-                              {result.author && <span>{result.author}</span>}
-                              {typeof result.downloads === 'number' && (
-                                <span>↓ {formatCompact(result.downloads)}</span>
-                              )}
-                              {typeof result.likes === 'number' && (
-                                <span>♥ {formatCompact(result.likes)}</span>
-                              )}
-                            </div>
-                            <p className="text-[12px] text-[var(--app-text-muted)] line-clamp-2 mt-1 leading-relaxed">
-                              {result.description}
-                            </p>
-                            {result.tags && result.tags.length > 0 && (
-                              <div className="flex flex-wrap gap-1 mt-2">
-                                {result.tags.slice(0, 3).map((tag) => (
-                                  <span
-                                    key={tag}
-                                    className="px-1.5 py-0.5 rounded-md bg-[var(--app-surface-high)] text-[10px] text-[var(--app-text-muted)]"
-                                  >
-                                    {tag}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <p className="text-[12px] text-[var(--app-text-muted)] line-clamp-3 mt-2 leading-relaxed">
-                            {result.description}
-                          </p>
-                        )}
-                      </div>
-                      <a
-                        href={result.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition-colors shrink-0"
-                        title={
-                          result.source === 'huggingface'
-                            ? '在 huggingface.co 查看'
-                            : '在 ollama.com 查看'
+              <div id="catalog-results" className="flex flex-col gap-3 scroll-mt-24">
+                <div className="flex flex-col gap-3">
+                  {visibleCatalogResults.map((result) => {
+                    const key = `${result.source}:${result.name}`;
+                    return (
+                      <CatalogResultRow
+                        key={key}
+                        result={result}
+                        quantsExpanded={Boolean(expandedQuants[key])}
+                        onToggleQuants={() =>
+                          setExpandedQuants((previous) => ({
+                            ...previous,
+                            [key]: !previous[key]
+                          }))
                         }
-                      >
-                        <span className="material-symbols-outlined text-[18px]">open_in_new</span>
-                      </a>
-                    </div>
+                        onUseModel={handleUseCatalogModel}
+                      />
+                    );
+                  })}
+                </div>
 
-                    <div className="flex flex-col gap-2 mt-4">
-                      {result.source === 'huggingface' ? (
-                        result.quants && result.quants.length > 0 ? (
-                          <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="text-[10px] text-[var(--app-text-muted)] font-medium">
-                              {language === 'zh' ? '量化' : 'Quant'}
-                            </span>
-                            {result.quants.map((quant) => (
-                              <button
-                                key={quant}
-                                onClick={() => handleUseCatalogModel(result, quant)}
-                                className="px-2 py-1 rounded-full text-[10px] font-code font-semibold bg-[var(--app-surface-high)] text-[var(--app-text)] border border-[var(--app-border)] hover:border-[var(--primary-accent)] transition-colors cursor-pointer"
-                                title={`ollama pull hf.co/${result.name}:${quant}`}
-                              >
-                                {quant}
-                              </button>
-                            ))}
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-[var(--app-text-muted)]">
-                            {language === 'zh'
-                              ? '未发现可识别的量化标签，请到模型页选择文件'
-                              : 'No recognizable quant tags; choose a file on the model page'}
-                          </span>
-                        )
-                      ) : (
-                        <button
-                          onClick={() => handleUseCatalogModel(result)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold text-white transition-all active:scale-95 cursor-pointer w-fit"
-                          style={{ backgroundColor: 'var(--primary-accent)' }}
-                        >
-                          <span className="material-symbols-outlined text-[15px]">
-                            content_paste
-                          </span>
-                          <span>{language === 'zh' ? '填入拉取命令' : 'Fill pull command'}</span>
-                        </button>
-                      )}
-                      <a
-                        href={result.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] border border-[var(--app-border)] transition-colors w-fit"
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+                  <span className="text-[11px] text-[var(--app-text-muted)] font-code">
+                    {catalogFirstIndex}–{catalogLastIndex} / {catalogResults.length}
+                  </span>
+                  {catalogPageCount > 1 && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => goToCatalogPage(safeCatalogPage - 1)}
+                        disabled={safeCatalogPage === 1}
+                        aria-label={language === 'zh' ? '上一页' : 'Previous page'}
+                        className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] border border-[var(--app-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
                       >
-                        {language === 'zh' ? '查看模型页' : 'Model page'}
-                      </a>
+                        <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                      </button>
+                      {Array.from({ length: catalogPageCount }, (_, index) => index + 1).map(
+                        (page) => (
+                          <button
+                            key={page}
+                            type="button"
+                            onClick={() => goToCatalogPage(page)}
+                            aria-current={page === safeCatalogPage ? 'page' : undefined}
+                            className={`w-8 h-8 rounded-full text-[12px] font-code font-semibold transition-colors cursor-pointer ${
+                              page === safeCatalogPage
+                                ? 'text-white'
+                                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] border border-[var(--app-border)]'
+                            }`}
+                            style={
+                              page === safeCatalogPage
+                                ? { backgroundColor: 'var(--primary-accent)' }
+                                : {}
+                            }
+                          >
+                            {page}
+                          </button>
+                        )
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => goToCatalogPage(safeCatalogPage + 1)}
+                        disabled={safeCatalogPage === catalogPageCount}
+                        aria-label={language === 'zh' ? '下一页' : 'Next page'}
+                        className="w-8 h-8 rounded-full flex items-center justify-center bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] border border-[var(--app-border)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                      </button>
                     </div>
-                  </div>
-                ))}
+                  )}
+                </div>
               </div>
             )}
           </div>
