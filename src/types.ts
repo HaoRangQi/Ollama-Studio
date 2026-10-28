@@ -82,12 +82,22 @@ export interface DownloadTask {
   error?: string;
 }
 
+export interface ChatAttachment {
+  id: string;
+  kind: 'image' | 'video';
+  name: string;
+  mimeType: string;
+  /** JPEG data URLs. A video contributes one URL per sampled frame. */
+  dataUrls: string[];
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
   modelName?: string;
+  attachments?: ChatAttachment[];
   duration?: string;
   thinkingTime?: string;
   thinkingTokens?: number;

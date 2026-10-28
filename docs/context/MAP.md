@@ -52,6 +52,7 @@ ollama-studio/
     │   ├── modelSettings.ts    # 每模型采样参数与 keep_alive
     │   ├── downloadTask.ts     # 下载任务元数据与中断标记
     │   ├── markdown.ts         # fenced code block 解析
+    │   ├── attachments.ts      # 图片压缩、视频抽帧、base64 转换
     │   └── *.test.ts
     ├── hooks/useOllama.ts      # connecting | online | offline
     ├── components/
@@ -60,6 +61,7 @@ ollama-studio/
     │   ├── Header.tsx
     │   ├── ConnectionBanner.tsx
     │   ├── CommandPalette.tsx
+    │   ├── CatalogResultRow.tsx # 搜索结果长条卡片
     │   ├── PullModal.tsx
     │   ├── QuantizationPickerModal.tsx
     │   └── ThemePaletteModal.tsx
@@ -128,7 +130,8 @@ ChatScreen
 ```
 
 - 会话操作：`createSession`、`setActiveSession`、`upsertSession`、`updateSessionMessages`、`removeSession`、`renameSession`；标题取首条用户消息（最多 40 字符）。
-- 流式更新按 token 写入会话；保存经过 300 ms 防抖。切换模型会中止当前流。
+- 附件：`src/lib/attachments.ts` 把图片压缩为 JPEG，把视频抽取最多 3 帧；`ChatMessage.attachments` 持久化缩略图/帧的 data URL；发送时转换为 `/api/chat` 的 `images`（去掉 `data:...;base64,` 前缀）。PDF/任意文件被拒绝。
+- 流式更新按 token 写入会话；保存经过 300 ms 防抖。切换模型会中止当前流；localStorage 写满时提示附件可能不保留。
 - 参数在 Models 页或 Chat 参数面板修改后立即写入 `ollama_model_settings_v1`；只作为对话默认值，不修改模型文件。
 - 回复按 fenced code block 拆分为文本/代码段；代码块带复制按钮。
 
@@ -165,7 +168,7 @@ App.handleStartNewDownload
 
 - `ModelsScreen`：分类、搜索、布局、参数（持久化默认值）、加载/释放显存、删除/克隆；空模型时显示拉取入口。
 - `PullScreen`：CLI 输入、精选列表、分类、HF/Ollama 搜索、下载任务卡、GGUF 拖拽/选择。
-- `ChatScreen`：多会话、消息流、生成中标记、参数面板、JSON/人设、思考折叠、代码块复制。
+- `ChatScreen`：多会话、消息流、生成中标记、参数面板、JSON/人设、思考折叠、代码块复制、图片/视频附件（视频抽帧、缩略图、移除、拖放）。
 - `ModelfileLabScreen`：基础模型、参数、System Prompt、真实 `/api/create` 构建；无模型时显示空状态。
 - `TelemetryScreen`：实时连接状态、模型/显存统计、事件日志、daemon 界面配置持久化；Ollama 不提供 GPU/ANE/磁盘指标。
 

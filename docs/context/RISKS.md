@@ -13,7 +13,7 @@
 | R-003 | 部分业务数据只存在内存 | 会话（v2 多会话）、模型参数、下载任务元数据、主题/语言、daemon 界面配置均已持久化；模型参数仅作为对话默认值 | 模型文件本身不被修改；未完成下载需重新拉取 | 按 D-119/D-125/D-130 保持边界；UI 已注明参数语义 | 已缓解 |
 | R-004 | 依赖与构建未验证 | `npm ci`/安装、`typecheck`、`lint`、`format:check`、`test`、`build` 均通过；生成 `dist/`、`server.js` | 已缓解；本机 npm 缓存权限仍需绕过 | 保持锁文件；CI 在新环境复验；记录 Node/npm 版本 | 已缓解 |
 | R-005 | 仓库未初始化 Git | 2026-10-28 执行 `git init -b main` 并创建本地基线提交（不推送） | 仍无远端、无协作流程 | 需要远端时由所有者创建并配置 remote；不擅自推送 | 部分缓解 |
-| R-006 | 无测试、无 CI、无 ESLint/Prettier | 已添加 Vitest 59 个测试、`.github/workflows/ci.yml`、ESLint 10 flat config、Prettier 3 | 已建立回归保护；CI 尚未在 GitHub 实际运行 | 首次推送后观察 Actions 结果；按 D-123 维护 | 已解决（本地验证） |
+| R-006 | 无测试、无 CI、无 ESLint/Prettier | 已添加 Vitest 65 个测试、`.github/workflows/ci.yml`、ESLint 10 flat config、Prettier 3 | 已建立回归保护；CI 尚未在 GitHub 实际运行 | 首次推送后观察 Actions 结果；按 D-123 维护 | 已解决（本地验证） |
 | R-007 | 依赖与配置冗余、能力声明误导 | 已移除 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 不再声明 Gemini；包名改为 `ollama-studio` | 供应链面减小 | 新增依赖前确认实际引用 | 已解决 |
 | R-008 | 开发服务器绑定 `0.0.0.0` | `dev` 改为 `vite --port=3000 --host=127.0.0.1`；新增显式 `dev:lan` | 默认只本机可访问 | `dev:lan` 仅可信网络临时使用；生产默认 loopback | 已解决 |
 | R-009 | GGUF 导入依赖本机 Ollama CLI | `importGgufStream` 在上传非空后预检 `ollama --version`，缺失返回 503；开发/生产均已用真实 GGUF 验证 | 远端 Ollama 部署受限 | 保留 503 明确错误；后续评估 Ollama API blob 上传或桌面壳 | 部分缓解（本机可用） |
@@ -37,14 +37,19 @@
 | R-027 | TypeScript 固定 6.0.3 以兼容 lint 工具 | typescript-eslint peer 要求 `<6.1.0`；升级 TS 7 会 ERESOLVE | 无法使用 TS 7 新特性/性能改进 | 等 typescript-eslint 支持后升级并复验 | 已知，待后续 |
 | R-028 | 模型加载/卸载只做了请求级单测 | `loadModel`/`unloadModel` 的 `/api/generate`、`/api/embed`、`keep_alive` 已由 Vitest 校验；未在真实 UI 点击加载/释放 | 真实 `/api/ps` 状态变化与错误提示可能未覆盖 | 用 1B 小模型人工验收一次并卸载；记录 `/api/ps` | 未验证 |
 | R-029 | GitHub Actions 尚未实际运行 | 仅本地执行了与 CI 相同的命令；无远端仓库 | 环境差异（Node 缓存、字体安装）可能失败 | 初始化远端后观察首次运行；必要时调整 | 待核实 |
+| R-030 | 附件以 base64 存入 `localStorage`，可能超配额 | 每条消息最多 6 个附件、数据 URL 合计最多 4M 字符；`saveChatStore` 失败时显示“可能不会保留”提示 | 大量图片会占用存储，刷新后可能丢失附件或整个会话 | 控制附件数量/尺寸；后续评估 IndexedDB；失败提示已存在 | 部分缓解 |
+| R-031 | 真实多模态推理未验证 | 附件测试用页面内 mock `/api/chat` 捕获请求，确认发送 1 张图片 + 3 个视频帧；未让真实模型解析 | 模型可能忽略图片、拒绝图片或返回错误；当前 MiniCPM 1B 的 capabilities 未声明 vision | 用声明 vision 的模型（如 `huihui_ai/qwen3.8-abliterated:27b-q4_K_L`）人工验证一次，记录结果并卸载 | 未验证 |
+| R-032 | 视频抽帧依赖浏览器编解码器 | 仅用 WebM/VP9 验证；H.264/HEVC/MOV 未测 | 部分视频会报“浏览器无法解码”，无法生成帧 | 错误提示换 MP4/WebM；后续测常见格式或引入转码 | 部分缓解 |
+| R-033 | Ollama 不接受 PDF/任意文件 | `/api/chat` 只有 `images` 字段；UI 选择器仅接受 `image/*,video/*`，其他文件明确拒绝 | 用户可能误以为可以上传 PDF/文档 | UI/README 明确边界；PDF 需先转图片或使用其他工具 | 已记录（能力限制） |
 
 ## 建议优先级
 
 1. **人工验收**：逐页检查窄屏、键盘操作、主题/语言切换、多会话、代码块复制、空模型状态。
-2. **R-028**：用 `minicpm-v-4.7-1b-heretic:q4_k_m` 在真实 UI 验证加载/释放与 `/api/ps`，测试后卸载。
-3. **R-024**：在正常网络复测 HF 拉取；若仍失败，保留手动下载/本地导入指引。
-4. **R-029 / R-019 / R-025**：配置远端后观察 CI；确认是否需要更强的代理鉴权/TLS。
-5. **R-015 / R-021 / D-131**：评估 Playwright + axe，或继续人工验收。
-6. **R-017 / R-026 / R-027**：缓存权限、图标子集化、TS 升级作为维护项。
+2. **R-031**：用声明 vision 能力的模型人工验证图片/视频帧推理；选择资源可接受的模型，测试后卸载。
+3. **R-028**：用 `minicpm-v-4.7-1b-heretic:q4_k_m` 在真实 UI 验证加载/释放与 `/api/ps`，测试后卸载。
+4. **R-024**：在正常网络复测 HF 拉取；若仍失败，保留手动下载/本地导入指引。
+5. **R-029 / R-019 / R-025**：配置远端后观察 CI；确认是否需要更强的代理鉴权/TLS。
+6. **R-015 / R-021 / D-131**：评估 Playwright + axe，或继续人工验收。
+7. **R-017 / R-026 / R-027 / R-030 / R-032**：缓存权限、图标子集化、TS 升级、附件存储与视频编码作为维护项。
 
 > 以上是建议，不是已确认决策；执行前在 `DECISIONS.md` 中确认对应事项。

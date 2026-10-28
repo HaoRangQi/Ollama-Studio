@@ -16,7 +16,7 @@
 
 ### 工程基础
 
-- [x] 添加 Vitest（Node 环境）与 59 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断、GGUF 名称与空上传。
+- [x] 添加 Vitest（Node 环境）与 65 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断、GGUF 名称与空上传、附件类型/base64 转换。
 - [x] 添加 ESLint 10 flat config、Prettier 3，`npm run lint`、`format:check` 通过；开启 TypeScript `strict`。
 - [x] 添加 `.github/workflows/ci.yml`：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`（尚未在 GitHub 实际运行）。
 - [x] 移除未使用依赖 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 移除 Gemini 能力声明；包名改为 `ollama-studio`，版本 `0.1.0`。
@@ -40,6 +40,7 @@
 - [x] 模型库搜索与本地精选分区：搜索时只显示搜索结果并隐藏“本地精选分类”，清空或点击“返回本地精选”后恢复精选列表；分类 chips 不再暗示会筛选远程结果。
 - [x] 搜索结果改为横向长条卡片列表：每页默认 6 条，可切换 6/12/24 条并写入 `ollama_catalog_page_size_v1`；支持页码/上一页/下一页、量化标签预览与展开（8→全部）、作者/下载/标签/量化数量等信息。量化标签点击后用主题色选中，行内“下载 <quant>”直接启动 `/api/pull` 并滚动到进度卡；“仅填入命令”保留旧行为。
 - [x] 命令面板支持点击遮罩、右上角 X、Esc 三种关闭方式；聊天输入框移除无效附件按钮、缩短占位文案、改为容器聚焦环，默认高度 96px，并支持拖拽或方向键调整高度、双击恢复自动高度，高度写入 `ollama_chat_input_height_v1`；同时设置 `overflow-x-hidden`，空内容不再出现横向滚动条。
+- [x] 聊天支持图片/视频附件：图片在浏览器压缩为 JPEG；视频抽取 3 帧；随 `/api/chat` 的 `images` 发送；支持缩略图预览、移除、拖放；PDF/压缩包等任意文件明确拒绝。附件随会话持久化，localStorage 超配额时提示可能不保留。
 - [x] ⌘K 现在可以从任意页面打开命令面板（此前只能关闭）。
 - [x] 导出 GGUF、深度清理、附件入口在无 API 时禁用并说明原因，不再显示假成功 toast。
 
@@ -55,6 +56,8 @@
 
 未开始 / 仍未验证：
 
+- [ ] 真实视觉模型推理（图片/视频帧）未验证；当前只用 mock `/api/chat` 检查了 `images` 请求体。
+- [ ] 视频解码兼容性未逐格式验证；仅测试了 WebM/VP9，H.264/HEVC/MOV 可能因浏览器编解码器失败。
 - [ ] 完整人工视觉/窄屏/a11y 验收（逐页点击、键盘、屏幕阅读器）。
 - [ ] 真实 UI 中的模型加载/释放（`keep_alive`）与 `/api/ps` 状态变化；当前只有请求级单测。
 - [ ] 正常网络下 HF 直拉成功路径（本机 DNS 仍把 CDN 解析为 `198.18.0.85`）。

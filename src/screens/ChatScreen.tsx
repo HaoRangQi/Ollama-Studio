@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { ChatMessage, OllamaModel } from '../types';
+import type { ChatAttachment, ChatMessage, OllamaModel } from '../types';
 import { OllamaChatChunk, OllamaChatMessage, OllamaError, streamChat } from '../api/ollama';
 import { useAppTheme } from '../context/ThemeContext';
 import {
@@ -25,6 +25,14 @@ import {
 } from '../lib/modelSettings';
 import { parseMessageSegments } from '../lib/markdown';
 import { readStorageJson, removeStorageKey, writeStorageJson } from '../lib/storage';
+import {
+  MAX_ATTACHMENTS,
+  MAX_TOTAL_DATA_URL_CHARS,
+  attachmentDataSize,
+  attachmentImages,
+  createAttachment,
+  isSupportedAttachment
+} from '../lib/attachments';
 
 const CHAT_INPUT_HEIGHT_KEY = 'ollama_chat_input_height_v1';
 const MIN_INPUT_HEIGHT = 44;
@@ -146,6 +154,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       ? stored
       : null;
   });
+  const [pendingAttachments, setPendingAttachments] = useState<ChatAttachment[]>([]);
+  const [isProcessingAttachments, setIsProcessingAttachments] = useState(false);
 
   const [systemPersona, setSystemPersona] = useState(() =>
     language === 'zh' ? '通用本地 AI 助手' : 'General local AI assistant'
@@ -155,11 +165,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
   const generatingRef = useRef(false);
   const currentModelRef = useRef(currentModel);
   const storeRef = useRef(store);
+  const persistenceWarningRef = useRef(false);
 
   const modelTag = currentModel?.fullTag ?? '';
   const sessions = modelTag ? getSessions(store, modelTag) : [];
@@ -167,6 +179,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const messages = useMemo(() => activeSession?.messages ?? [], [activeSession]);
   const sortedSessions = [...sessions].sort((a, b) => b.updatedAt - a.updatedAt);
   const latestAssistant = [...messages].reverse().find((message) => message.role === 'assistant');
+  const canSend = inputText.trim().length > 0 || pendingAttachments.length > 0;
+  const sendActive = canSend && !isProcessingAttachments;
+  const modelSupportsVision = Boolean(currentModel?.capabilities?.includes('vision'));
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -184,9 +199,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   // Persist sessions with a short debounce; streaming updates arrive per token.
   useEffect(() => {
     storeRef.current = store;
-    const timer = window.setTimeout(() => saveChatStore(store), 300);
+    const timer = window.setTimeout(() => {
+      if (saveChatStore(store)) {
+        persistenceWarningRef.current = false;
+        return;
+      }
+      if (persistenceWarningRef.current) return;
+      persistenceWarningRef.current = true;
+      setToastMessage(
+        language === 'zh'
+          ? '本地存储空间不足，附件可能不会在刷新后保留。'
+          : 'Local storage is full; attachments may not persist after reload.'
+      );
+      window.setTimeout(() => setToastMessage(null), 3000);
+    }, 300);
     return () => window.clearTimeout(timer);
-  }, [store]);
+  }, [store, language]);
 
   // Flush the latest sessions when the tab closes or the screen unmounts.
   useEffect(() => {
@@ -249,6 +277,67 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     const next = { ...settings, ...patch };
     setSettings(next);
     saveModelSettings(currentModel.fullTag, next);
+  };
+
+  const handleAttachmentFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    if (isProcessingAttachments) return;
+    if (isGenerating || generatingRef.current) {
+      showToast(
+        language === 'zh'
+          ? '生成过程中不能添加附件，请先停止。'
+          : 'Stop the current generation before adding attachments.'
+      );
+      return;
+    }
+
+    const incoming = Array.from(files);
+    if (pendingAttachments.length + incoming.length > MAX_ATTACHMENTS) {
+      showToast(
+        language === 'zh'
+          ? `每条消息最多 ${MAX_ATTACHMENTS} 个附件。`
+          : `At most ${MAX_ATTACHMENTS} attachments per message.`
+      );
+      return;
+    }
+
+    const unsupported = incoming.find((file) => !isSupportedAttachment(file));
+    if (unsupported) {
+      showToast(
+        language === 'zh'
+          ? `不支持 ${unsupported.name}：仅支持图片或视频。`
+          : `${unsupported.name} is not supported; only images and videos.`
+      );
+      return;
+    }
+
+    setIsProcessingAttachments(true);
+    try {
+      const created: ChatAttachment[] = [];
+      for (const file of incoming) {
+        created.push(await createAttachment(file));
+      }
+      const next = [...pendingAttachments, ...created];
+      if (attachmentDataSize(next) > MAX_TOTAL_DATA_URL_CHARS) {
+        showToast(
+          language === 'zh'
+            ? '附件总大小过大，请减少数量或选择更小的文件。'
+            : 'Attachments are too large; reduce the count or pick smaller files.'
+        );
+        return;
+      }
+      setPendingAttachments(next);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast(language === 'zh' ? `附件处理失败：${message}` : `Attachment failed: ${message}`);
+    } finally {
+      setIsProcessingAttachments(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAttachment = (id: string) => {
+    setPendingAttachments((previous) => previous.filter((attachment) => attachment.id !== id));
   };
 
   const maxInputHeight = () =>
@@ -368,7 +457,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     };
   };
 
-  const startCompletion = async (prompt: string, baseStore: ChatStore, sessionId: string) => {
+  const startCompletion = async (
+    prompt: string,
+    baseStore: ChatStore,
+    sessionId: string,
+    attachments: ChatAttachment[] = []
+  ) => {
     if (!currentModel || !modelTag || generatingRef.current) return;
     generatingRef.current = true;
 
@@ -381,7 +475,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       id: createMessageId('user'),
       role: 'user',
       content: prompt,
-      timestamp
+      timestamp,
+      attachments: attachments.length > 0 ? attachments : undefined
     };
     const assistantId = createMessageId('assistant');
     const assistantMsg: ChatMessage = {
@@ -398,12 +493,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     const history: OllamaChatMessage[] = [
       ...(systemPersona.trim() ? [{ role: 'system' as const, content: systemPersona }] : []),
       ...sessionMessages
-        .filter((message) => message.content.trim())
+        .filter((message) => message.content.trim() || (message.attachments?.length ?? 0) > 0)
         .map((message) => ({
           role: message.role,
-          content: message.content
+          content: message.content,
+          ...(message.attachments?.length ? { images: attachmentImages(message.attachments) } : {})
         })),
-      { role: 'user', content: prompt }
+      {
+        role: 'user',
+        content: prompt,
+        ...(attachments.length > 0 ? { images: attachmentImages(attachments) } : {})
+      }
     ];
 
     setStore((previous) =>
@@ -543,10 +643,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleSendMessage = (textToSend?: string) => {
     const prompt = (textToSend ?? inputText).trim();
-    if (!prompt || isGenerating || generatingRef.current || !currentModel) return;
+    const attachments = pendingAttachments;
+    if (
+      (!prompt && attachments.length === 0) ||
+      isGenerating ||
+      generatingRef.current ||
+      isProcessingAttachments ||
+      !currentModel
+    ) {
+      return;
+    }
+
+    const effectivePrompt = prompt || t.chat.describeAttachments;
     const { store: baseStore, sessionId } = ensureSession(store);
     setStore(baseStore);
-    void startCompletion(prompt, baseStore, sessionId);
+    setPendingAttachments([]);
+    void startCompletion(effectivePrompt, baseStore, sessionId, attachments);
   };
 
   const handleStop = () => {
@@ -564,12 +676,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     }
     if (userIndex < 0) return;
 
-    const prompt = activeSession.messages[userIndex].content;
+    const userMessage = activeSession.messages[userIndex];
+    const prompt = userMessage.content || t.chat.describeAttachments;
+    const attachments = userMessage.attachments ?? [];
     const cleaned = updateSessionMessages(store, modelTag, activeSession.id, (current) =>
       current.slice(0, userIndex)
     );
     setStore(cleaned);
-    void startCompletion(prompt, cleaned, activeSession.id);
+    void startCompletion(prompt, cleaned, activeSession.id, attachments);
   };
 
   const personas =
@@ -1001,6 +1115,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     {msg.timestamp}
                   </span>
                 </div>
+                {msg.attachments && msg.attachments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 justify-end">
+                    {msg.attachments.map((attachment) => (
+                      <div key={attachment.id} data-attachment-id={attachment.id} className="w-28">
+                        <div className="relative">
+                          <img
+                            src={attachment.dataUrls[0]}
+                            alt={attachment.name}
+                            className="w-28 h-28 object-cover rounded-2xl border border-[var(--app-border)] shadow-sm"
+                          />
+                          {attachment.kind === 'video' && (
+                            <span className="absolute bottom-1.5 left-1.5 px-2 py-0.5 rounded-full bg-black/70 text-white text-[9px] font-medium">
+                              {t.chat.videoLabel} · {attachment.dataUrls.length}
+                            </span>
+                          )}
+                        </div>
+                        <span
+                          className="block text-[9px] text-[var(--app-text-muted)] truncate mt-1 text-right"
+                          title={attachment.name}
+                        >
+                          {attachment.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div
                   className="text-white p-4 md:p-5 rounded-3xl rounded-br-sm shadow-md transition-transform leading-relaxed text-[15px] font-normal"
                   style={{ backgroundColor: 'var(--primary-accent)' }}
@@ -1197,7 +1337,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             </button>
           </div>
 
-          <div className="relative bg-[var(--app-surface-high)]/95 backdrop-blur-2xl rounded-[1.75rem] p-1.5 pl-4 shadow-xl border border-[var(--app-border)] transition-all duration-200 focus-within:border-[var(--primary-accent)] focus-within:ring-2 focus-within:ring-[var(--primary-glow)]">
+          <div
+            className="relative bg-[var(--app-surface-high)]/95 backdrop-blur-2xl rounded-[1.75rem] p-1.5 pl-4 shadow-xl border border-[var(--app-border)] transition-all duration-200 focus-within:border-[var(--primary-accent)] focus-within:ring-2 focus-within:ring-[var(--primary-glow)]"
+            onDragOver={(event) => {
+              if (Array.from(event.dataTransfer.types).includes('Files')) {
+                event.preventDefault();
+              }
+            }}
+            onDrop={(event) => {
+              event.preventDefault();
+              void handleAttachmentFiles(event.dataTransfer.files);
+            }}
+          >
             <button
               type="button"
               onPointerDown={handleInputResizeStart}
@@ -1209,7 +1360,80 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             >
               <span className="h-1.5 w-12 rounded-full bg-[var(--app-text-muted)]/35 group-hover:bg-[var(--primary-accent)] transition-colors" />
             </button>
+
+            {pendingAttachments.length > 0 && (
+              <div className="flex flex-wrap gap-2 px-2 pt-2">
+                {pendingAttachments.map((attachment) => (
+                  <div
+                    key={attachment.id}
+                    data-pending-attachment-id={attachment.id}
+                    className="relative w-20"
+                  >
+                    <div className="relative">
+                      <img
+                        src={attachment.dataUrls[0]}
+                        alt={attachment.name}
+                        className="w-20 h-20 object-cover rounded-xl border border-[var(--app-border)] shadow-sm"
+                      />
+                      {attachment.kind === 'video' && (
+                        <span className="absolute bottom-1 left-1 px-1.5 py-0.5 rounded-full bg-black/70 text-white text-[9px] font-medium">
+                          {t.chat.videoLabel} · {attachment.dataUrls.length}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(attachment.id)}
+                      aria-label={t.chat.removeAttachment}
+                      title={t.chat.removeAttachment}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[var(--app-surface-highest)] border border-[var(--app-border)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] flex items-center justify-center shadow-sm cursor-pointer"
+                    >
+                      <span className="material-symbols-outlined text-[12px]">close</span>
+                    </button>
+                    <span
+                      className="block text-[9px] text-[var(--app-text-muted)] truncate mt-1"
+                      title={attachment.name}
+                    >
+                      {attachment.name}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex items-end gap-2">
+              <div className="relative shrink-0 mb-1">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isGenerating || isProcessingAttachments}
+                  aria-label={t.chat.addAttachment}
+                  title={t.chat.addAttachment}
+                  className="w-9 h-9 rounded-full flex items-center justify-center text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-surface-highest)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                >
+                  <span
+                    className={`material-symbols-outlined text-[20px] ${
+                      isProcessingAttachments ? 'animate-spin' : ''
+                    }`}
+                  >
+                    {isProcessingAttachments ? 'progress_activity' : 'attach_file'}
+                  </span>
+                </button>
+                {pendingAttachments.length > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-[var(--primary-accent)] text-white text-[9px] font-bold flex items-center justify-center pointer-events-none">
+                    {pendingAttachments.length}
+                  </span>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*,video/*"
+                  multiple
+                  className="hidden"
+                  onChange={(event) => void handleAttachmentFiles(event.target.files)}
+                />
+              </div>
+
               <div className="flex-1 min-w-0 py-2">
                 <textarea
                   ref={textareaRef}
@@ -1248,19 +1472,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     handleSendMessage();
                   }
                 }}
-                disabled={!isGenerating && !inputText.trim()}
+                disabled={!isGenerating && !sendActive}
                 aria-label={
                   isGenerating ? t.chat.stopGeneration : language === 'zh' ? '发送' : 'Send'
                 }
-                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 shrink-0 ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 shrink-0 mb-0.5 ${
                   isGenerating
                     ? 'bg-[#ba4385]/20 text-[#ffafd3] hover:bg-[#ba4385]/40 cursor-pointer'
-                    : inputText.trim()
+                    : sendActive
                       ? 'text-white hover:scale-105 active:scale-95 cursor-pointer'
                       : 'bg-[var(--app-surface-highest)] text-[var(--app-text-muted)] cursor-not-allowed'
                 }`}
                 style={
-                  !isGenerating && inputText.trim()
+                  !isGenerating && sendActive
                     ? {
                         backgroundColor: 'var(--primary-accent)',
                         boxShadow: '0 0 16px var(--primary-glow)'
@@ -1280,6 +1504,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                 </span>
               </button>
             </div>
+
+            {(pendingAttachments.length > 0 || isProcessingAttachments) && (
+              <div className="px-3 pb-1.5 pt-1 text-[10px] text-[var(--app-text-muted)] leading-relaxed">
+                {isProcessingAttachments ? (
+                  t.chat.processingAttachment
+                ) : (
+                  <>
+                    {t.chat.attachmentHint}
+                    {!modelSupportsVision && (
+                      <span className="text-[#ffbd2e]"> {t.chat.visionWarning}</span>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-center gap-2 pt-0.5">

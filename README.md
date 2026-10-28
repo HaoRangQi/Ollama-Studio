@@ -21,7 +21,7 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 - 遥测页显示真实连接状态、版本、模型/显存统计与事件日志；Ollama 不提供的 GPU/ANE/磁盘指标改为只读说明。
 - 代理默认绑定 `127.0.0.1`；可选 `PROXY_TOKEN` 保护 `/ollama/*` 与 `/api/import`。
 - 字体与 Material Symbols 已自托管，不再依赖 Google Fonts。
-- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（59 个测试）、GitHub Actions CI。
+- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（65 个测试）、GitHub Actions CI。
 - 已用 headless Chrome 对开发/生产首屏、真实模型列表与代理做冒烟验证；**未做完整逐页人工视觉/a11y 验收**。
 - Hugging Face 直拉仍受本机 DNS 限制；需要正常网络或本地 GGUF 导入。
 
@@ -33,7 +33,7 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 | --- | --- | --- |
 | 模型库 | 真实模型列表、卡片/列表、分类、搜索、参数默认值持久化、真实删除/克隆、加载/释放显存 | 参数不写入模型文件；导出 GGUF 无 API，按钮禁用 |
 | 发现拉取 | CLI 输入、量化选择、精选模型与独立搜索视图、HF/Ollama 搜索、搜索结果长条列表与分页、可调每页条数（6/12/24）、量化选中与行内下载、真实 `/api/pull` 进度、暂停/继续/取消、GGUF 上传 | HF 量化由文件名推断；GGUF 导入依赖本机 `ollama` CLI；HF 下载受网络限制 |
-| 即时对话 | 真实流式 `/api/chat`、停止、思考折叠、参数、JSON、人设、错误提示、多会话、代码块复制、可拖拽调整输入框高度 | 附件上传未实现（按钮已移除）；无 E2E 测试 |
+| 即时对话 | 真实流式 `/api/chat`、停止、思考折叠、参数、JSON、人设、错误提示、多会话、代码块复制、可拖拽调整输入框高度、图片/视频附件（视频抽 3 帧） | Ollama 仅接受 `images`，不支持 PDF/任意文件；真实多模态推理未做自动化验收 |
 | Modelfile 实验室 | 可视化生成 `FROM` / `PARAMETER` / `SYSTEM`、预设、真实 `/api/create`、测试对话 | 参数编辑不会同步到已有模型 |
 | 监控与设置 | 真实连接/版本/模型/显存统计、事件日志、模型存储卡片、配置持久化 | Ollama 不提供 GPU/ANE/磁盘 API；服务停止/重启/GC 为只读说明 |
 | 全局 | ⌘K 命令面板、主题调色盘、中英切换、明暗模式、移动端底部导航 | 仍需人工窄屏/a11y 验收 |
@@ -122,10 +122,11 @@ npm start
 
 ## 验证状态
 
-- `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（59 个测试）、`npm run build`：2026-10-28 全部通过。
+- `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（65 个测试）、`npm run build`：2026-10-28 全部通过。
 - 生产服务器（3101）与开发服务器（3001）：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、`/api/import` 校验与 headless Chrome 首屏渲染通过。
 - 代理令牌：无令牌 401、Bearer 令牌 200、`/api/import` 无令牌 401，均已验证。
-- **未执行**：真实 UI 中的模型加载/卸载、完整逐页视觉/窄屏/a11y 验收、GitHub Actions 远端运行、正常网络下的 HF 直拉。
+- 图片/视频附件：CDP 选择 PNG + WebM，视频抽 3 帧；mock `/api/chat` 捕获到 4 个 `images` 和默认描述文本；未执行真实视觉推理。
+- **未执行**：真实 UI 中的模型加载/卸载、真实多模态推理、完整逐页视觉/窄屏/a11y 验收、GitHub Actions 远端运行、正常网络下的 HF 直拉。
 
 ## 文档
 

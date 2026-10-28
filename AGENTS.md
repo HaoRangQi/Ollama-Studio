@@ -5,7 +5,7 @@
 ## 1. 项目与边界
 
 - **项目**：Ollama Studio，面向 Ollama 本地模型的 macOS 风格模型管理与对话界面。
-- **当前形态**：React + TypeScript + Vite 单页应用 + 同源 `/ollama` 代理（开发用 Vite，生产用 `server.ts`/Express）。已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（流式）、`POST /api/pull`（流式进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`、`POST /api/generate`（加载/释放）、`POST /api/embed`（embedding 加载），以及 Hugging Face / ollama.com 模型库关键字搜索；聊天支持每模型多会话，模型参数作为对话默认值持久化，下载任务元数据可恢复为中断状态，遥测为实时只读状态。GGUF 文件上传已通过本机 `ollama create` CLI 接通（需要本机安装 Ollama）。工程侧有 Vitest 单测、ESLint/Prettier、TypeScript strict 与 GitHub Actions CI。安装、构建、运行与 Git 状态以 `docs/context/NOW.md` 和 `docs/context/RUNBOOK.md` 为准。
+- **当前形态**：React + TypeScript + Vite 单页应用 + 同源 `/ollama` 代理（开发用 Vite，生产用 `server.ts`/Express）。已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（流式）、`POST /api/pull`（流式进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`、`POST /api/generate`（加载/释放）、`POST /api/embed`（embedding 加载），以及 Hugging Face / ollama.com 模型库关键字搜索；聊天支持每模型多会话、图片/视频附件（视频在浏览器抽帧后以 `images` 发送，Ollama 不接受 PDF/任意文件），模型参数作为对话默认值持久化，下载任务元数据可恢复为中断状态，遥测为实时只读状态。GGUF 文件上传已通过本机 `ollama create` CLI 接通（需要本机安装 Ollama）。工程侧有 Vitest 单测、ESLint/Prettier、TypeScript strict 与 GitHub Actions CI。安装、构建、运行与 Git 状态以 `docs/context/NOW.md` 和 `docs/context/RUNBOOK.md` 为准。
 - **目标方向**：保留现有视觉与交互，逐步接入真实 Ollama 能力，并把仓库作为标准软件仓库维护。
 - **事实边界**：不得把原型能力写成已实现能力；不得在未执行时声称安装、构建、测试、运行或部署成功。缺失事实写“待核实”。
 

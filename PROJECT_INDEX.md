@@ -26,6 +26,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 改多会话、会话持久化与 v1 迁移 | `src/lib/chatSessions.ts`；`src/screens/ChatScreen.tsx` |
 | 改模型采样参数默认值、keep_alive | `src/lib/modelSettings.ts`；`src/screens/ModelsScreen.tsx`；`src/screens/ChatScreen.tsx` |
 | 改代码块解析/复制 | `src/lib/markdown.ts`；`src/screens/ChatScreen.tsx` |
+| 改图片/视频附件、抽帧、附件拒绝规则 | `src/lib/attachments.ts`；`src/screens/ChatScreen.tsx`；类型 `ChatAttachment` 在 `src/types.ts` |
 | 改遥测/日志/配置持久化 | `src/screens/TelemetryScreen.tsx`；`src/hooks/useOllama.ts`；`ollama_daemon_config_v1` |
 | 改离线/连接中/空模型提示 | `src/components/ConnectionBanner.tsx`；`src/screens/ModelsScreen.tsx`；`src/screens/ChatScreen.tsx` |
 | 改聊天流式输出、停止、思考、参数面板 | `src/screens/ChatScreen.tsx`；`src/api/ollama.ts` 的 `streamChat` |
