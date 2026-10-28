@@ -264,7 +264,7 @@
 ## Git 与发布
 
 - 2026-10-28：`git init -b main`，创建本地基线提交 `6198c59`。
-- 2026-10-29：远端 `origin` 配置为 `https://github.com/HaoRangQi/Ollama-Studio.git`；本次待提交并推送，推送结果与 GitHub Actions 首次运行另行记录。
+- 2026-10-29：推送 `main` 到 `origin`（`ccc1ba4..f8b66d0`）；GitHub Actions 运行 `40739185722` 全步骤成功（typecheck、lint、format:check、test、build）。运行环境 `ubuntu-latest` + Node 24；注解提示 `actions/checkout@v4`、`actions/setup-node@v4` 的 Node 20 已弃用并被强制使用 Node 24，不影响本次结果。
 - tag、发布流程：**未执行**（无版本 tag、无发布流水线）。
 - 许可证：Apache-2.0（`LICENSE`）。
 

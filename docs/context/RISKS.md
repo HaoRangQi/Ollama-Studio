@@ -12,8 +12,8 @@
 | R-002 | 聊天回复曾是关键词硬编码 | 现已使用 `streamChat` + `/api/chat`；`src/api/ollama.test.ts` 覆盖流式解析、错误与中止 | 已能真实推理；视觉/长会话仍缺人工验收 | 保持单测；真实推理用用户指定小模型并卸载 | 已解决，待人工验收 |
 | R-003 | 部分业务数据只存在内存 | 会话（v2 多会话）、模型参数、下载任务元数据、主题/语言、daemon 界面配置均已持久化；模型参数仅作为对话默认值 | 模型文件本身不被修改；未完成下载需重新拉取 | 按 D-119/D-125/D-130 保持边界；UI 已注明参数语义 | 已缓解 |
 | R-004 | 依赖与构建未验证 | `npm ci`/安装、`typecheck`、`lint`、`format:check`、`test`、`build` 均通过；生成 `dist/`、`server.js` | 已缓解；本机 npm 缓存权限仍需绕过 | 保持锁文件；CI 在新环境复验；记录 Node/npm 版本 | 已缓解 |
-| R-005 | 仓库未初始化 Git | 2026-10-28 执行 `git init -b main` 并创建本地基线提交；2026-10-29 配置 `origin` 为 GitHub 仓库，待推送 | 远端尚无本次提交，协作与发布基线未建立 | 由仓库所有者授权后推送；本次任务已获推送授权 | 部分缓解 |
-| R-006 | 无测试、无 CI、无 ESLint/Prettier | 已添加 Vitest 133 个测试、`.github/workflows/ci.yml`、ESLint 10 flat config、Prettier 3 | 已建立回归保护；CI 尚未在 GitHub 实际运行 | 首次推送后观察 Actions 结果；按 D-123 维护 | 已解决（本地验证） |
+| R-005 | 仓库未初始化 Git | 2026-10-28 执行 `git init -b main` 并创建本地基线提交；2026-10-29 配置 `origin` 并推送 `main`（`ccc1ba4..f8b66d0`） | 协作与发布基线已建立 | 后续变更按 `AGENTS.md` 提交/验证规则执行 | 已解决 |
+| R-006 | 无测试、无 CI、无 ESLint/Prettier | 已添加 Vitest 133 个测试、`.github/workflows/ci.yml`、ESLint 10 flat config、Prettier 3 | 已建立回归保护；GitHub Actions 首次运行 `40739185722` 通过 | 按 D-123 维护；新增检查同步到 CI | 已解决 |
 | R-007 | 依赖与配置冗余、能力声明误导 | 已移除 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 不再声明 Gemini；包名改为 `ollama-studio` | 供应链面减小 | 新增依赖前确认实际引用 | 已解决 |
 | R-008 | 开发服务器绑定 `0.0.0.0` | `dev` 改为 `vite --port=3000 --host=127.0.0.1`；新增显式 `dev:lan` | 默认只本机可访问 | `dev:lan` 仅可信网络临时使用；生产默认 loopback | 已解决 |
 | R-009 | GGUF 导入依赖本机 Ollama CLI | `importGgufStream` 在上传非空后预检 `ollama --version`，缺失返回 503；开发/生产均已用真实 GGUF 验证 | 远端 Ollama 部署受限 | 保留 503 明确错误；后续评估 Ollama API blob 上传或桌面壳 | 部分缓解（本机可用） |
@@ -36,7 +36,7 @@
 | R-026 | 字体图标自托管增加构建体积 | `material-symbols-outlined.woff2` 约 4 MB；构建输出包含多语言字体子集 | 首屏字体下载增大（本地应用影响较小） | 后续按实际使用图标子集化 | 已知，低 |
 | R-027 | TypeScript 固定 6.0.3 以兼容 lint 工具 | typescript-eslint peer 要求 `<6.1.0`；升级 TS 7 会 ERESOLVE | 无法使用 TS 7 新特性/性能改进 | 等 typescript-eslint 支持后升级并复验 | 已知，待后续 |
 | R-028 | 模型加载/卸载只做了请求级单测 | `loadModel`/`unloadModel` 的 `/api/generate`、`/api/embed`、`keep_alive` 已由 Vitest 校验；未在真实 UI 点击加载/释放 | 真实 `/api/ps` 状态变化与错误提示可能未覆盖 | 用 1B 小模型人工验收一次并卸载；记录 `/api/ps` | 未验证 |
-| R-029 | GitHub Actions 尚未实际运行 | 仅本地执行了与 CI 相同的命令；`origin` 已配置，尚未推送/触发 Actions | 环境差异（Node 缓存、字体安装）可能失败 | 推送后观察首次运行；必要时调整 | 待核实 |
+| R-029 | GitHub Actions 运行覆盖有限 | 首次运行 `40739185722` 在 `ubuntu-latest` + Node 24 上通过 typecheck、lint、format:check、test、build；Actions 注解提示 `actions/checkout@v4`、`actions/setup-node@v4` 的 Node 20 已弃用并被强制使用 Node 24，不影响本次结果 | 未覆盖 macOS 运行时、菜单栏 App 构建与真实 Ollama 会话 | 后续升级 action 版本；macOS/菜单栏验收单独执行 | 部分缓解 |
 | R-030 | 附件以 base64 存入 `localStorage`，可能超配额 | 每条消息最多 6 个附件、数据 URL 合计最多 4M 字符；`saveChatStore` 失败时显示“可能不会保留”提示 | 大量图片会占用存储，刷新后可能丢失附件或整个会话 | 控制附件数量/尺寸；后续评估 IndexedDB；失败提示已存在 | 部分缓解 |
 | R-031 | 真实多模态推理未验证 | 附件测试用页面内 mock `/api/chat` 捕获请求，确认发送 1 张图片 + 3 个视频帧；未让真实模型解析 | 模型可能忽略图片、拒绝图片或返回错误；当前 MiniCPM 1B 的 capabilities 未声明 vision | 用声明 vision 的模型（如 `huihui_ai/qwen3.8-abliterated:27b-q4_K_L`）人工验证一次，记录结果并卸载 | 未验证 |
 | R-032 | 视频抽帧依赖浏览器编解码器 | 仅用 WebM/VP9 验证；H.264/HEVC/MOV 未测 | 部分视频会报“浏览器无法解码”，无法生成帧 | 错误提示换 MP4/WebM；后续测常见格式或引入转码 | 部分缓解 |

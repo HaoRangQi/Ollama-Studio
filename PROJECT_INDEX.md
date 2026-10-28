@@ -61,7 +61,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 - 无路由库：页面由 `App.tsx` 的 `currentScreen` state 切换。
 - 无全局状态库、无数据库；主题/语言、会话、参数、下载任务、daemon 界面配置写 `localStorage`。
 - 无 Playwright/组件测试；当前只有 Vitest 单元测试与 headless DOM 冒烟。
-- 远端 `origin` 已配置为 GitHub（HaoRangQi/Ollama-Studio）；无版本 tag、无发布流水线。
+- 远端 `origin` 已配置为 GitHub（HaoRangQi/Ollama-Studio），`main` 已推送；无版本 tag、无发布流水线。
 - 无 Tauri/Electron 桌面壳；`macos/menu-bar/` 是可选的 macOS 菜单栏封装，不是跨平台桌面框架。
 - 仓库内无部署配置（未发现 Docker、Vercel、Netlify、Cloud Run 等配置）。
 - `server.ts` 已存在，`server.js` 是构建产物（已 gitignore）；`package-lock.json` 已存在。

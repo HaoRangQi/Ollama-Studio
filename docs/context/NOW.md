@@ -18,7 +18,7 @@
 
 - [x] 添加 Vitest（Node 环境）与 133 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断与失败 source 持久化、GGUF 名称与空上传、附件类型/base64 转换、ModelScope URL/量化映射、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF 导出 manifest/model/projector/重名/目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 与 daemon 命令构建、`ollama serve` 命令生成。
 - [x] 添加 ESLint 10 flat config、Prettier 3，`npm run lint`、`format:check` 通过；开启 TypeScript `strict`。
-- [x] 添加 `.github/workflows/ci.yml`：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`（尚未在 GitHub 实际运行）。
+- [x] 添加 `.github/workflows/ci.yml`：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`；2026-10-29 首次远端运行 `40739185722` 通过。
 - [x] 移除未使用依赖 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 移除 Gemini 能力声明；包名改为 `ollama-studio`，版本 `0.1.0`。
 - [x] TypeScript 固定 `6.0.3`（typescript-eslint peer 要求 `<6.1.0`；TS 7 会 ERESOLVE）。
 - [x] 字体与 Material Symbols 通过 npm 自托管，移除 Google Fonts 外链。
@@ -98,7 +98,7 @@
 - [ ] 20 GB 级模型导出与跨文件系统完整复制未实测；当前真实导出为 529 MB，同卷 APFS clone。
 - [ ] daemon 自动重启/停止未执行；macOS Automation 权限弹窗、systemd/Windows 分支与执行失败提示未实测。默认 `ALLOW_DAEMON_CONTROL` 关闭。
 - [ ] 通过新 HF 直下路径执行真实大模型下载与真实 `ollama create`（小文件链路已用假 CLI 验证，未改动真实模型列表）；本机 DNS 仍把 CDN 解析为 `198.18.x.x`。
-- [ ] GitHub Actions 首次远端运行（`origin` 已配置，尚无运行记录）。
+- [x] GitHub Actions 首次远端运行：2026-10-29 推送 `f8b66d0`，运行 `40739185722` 在 `ubuntu-latest` + Node 24 上通过 typecheck、lint、format:check、test 与 build。
 - [ ] Tauri 迁移触发条件（D-114，仍待决策）。
 - [ ] 图标子集化（Material Symbols 全量约 4 MB）。
 - [ ] 发布流程/版本 tag（`origin` 已配置；无 tag、无发布流水线）。
@@ -109,7 +109,7 @@
 | --- | --- | --- |
 | 外部模型源被本机 DNS/代理阻断 | `us.aws.cdn.hf.co` → `198.18.x.x`，`*.r2.cloudflarestorage.com`（Ollama 官方 registry blob）→ `198.18.0.245`，Ollama 原生 pull 报 `redirect target not allowed`；应用内 HF 已改为服务端 `fetch` 直下 + `ollama create`，小文件实测成功，Ollama 原生 pull 仍不可用 | `RISKS.md` R-024、R-049、`RUNBOOK.md` 5.1、13 |
 | ModelScope 下载依赖本地服务与 `ollama create` | 需要本机安装 Ollama CLI；单文件上限 20 GB；无断点续传（Range 续传已列为待办，用户要求暂缓）；结果质量依赖 ModelScope 搜索 | `RISKS.md` R-039 |
-| 远端 CI 未实际运行 | `origin` 已配置为 GitHub，尚未观察 Actions；无版本 tag/发布流水线 | `RISKS.md` R-005、R-029 |
+| 远端 CI 仅覆盖 Ubuntu | 首次运行已通过，但未覆盖 macOS 运行时、菜单栏 App 构建与真实 Ollama；无版本 tag/发布流水线 | `RISKS.md` R-029 |
 | 代理令牌为共享密钥 | `VITE_PROXY_TOKEN` 进入前端产物；无 TLS/限流/审计 | `RISKS.md` R-025、D-126 |
 | 人工验收未完成 | 视觉、窄屏、a11y、多步交互问题可能漏过 | `RISKS.md` R-015、R-021、D-131 |
 | 真实加载/卸载未点击验证 | keep_alive 与 `/api/ps` 的 UI 反馈未覆盖 | `RISKS.md` R-028 |

@@ -176,6 +176,7 @@ open "build/Ollama Studio Menu.app"
 ## 验证状态
 
 - `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（133 个测试）、`npm run build`：2026-10-29 全部通过。
+- GitHub Actions CI：首次远端运行（[40739185722](https://github.com/HaoRangQi/Ollama-Studio/actions/runs/40739185722)）在 `ubuntu-latest` + Node 24 上通过 typecheck、lint、format check、测试与构建。
 - 服务端后台下载与缓存清理：ModelScope 下载中两次刷新进度连续（63.1% → 80.1%）；缓存清理在 fixture 上将未引用 blob 移入回收站并保留被引用 blob；明细弹窗按体积列出文件并可定位到文件管理器；真实 `~/.ollama/models` 只读扫描到 6 个被引用 blob（约 21.8 GB），未执行 orphan 清理。
 - Hugging Face 服务端直下：真实下载 1,185,376 字节 GGUF（经 `huggingface.co` 302 到 CDN），流式写入临时目录并调用假 `ollama create`；`resolving → downloading → creating → success` 的 `completed/total` 一致，临时目录无残留。CDP 验证搜索结果下载按钮与粘贴 `hf.co/<repo>:<quant>` 均向 `/api/downloads` 发送 `kind:"huggingface"`，`/api/pull` 调用为 0。**未下载大模型，未向真实 Ollama 注册模型。**
 - 菜单栏 App：`npm run build:menu` 生成 `Ollama Studio Menu.app` 与 DMG；重新打包后启动成功，内置服务监听 `127.0.0.1:3210`，非法 Hugging Face 仓库/文件请求返回预期 400。包内包含 `server/package.json`（`{"type":"module"}`），不依赖仓库根目录的 package.json。**未安装到 `/Applications`，未通过 App 发起真实模型下载。**
@@ -187,7 +188,7 @@ open "build/Ollama Studio Menu.app"
 - 图片/视频附件：CDP 选择 PNG + WebM，视频抽 3 帧；mock `/api/chat` 捕获到 4 个 `images` 和默认描述文本；未执行真实视觉推理。
 - GGUF 导出：fixture 通过 `POST /api/export` 导出 model + projector，内容与重名序号正确；越界目录 403、非法模型名 400；真实 0.8B 模型导出 529,297,312 字节，文件头为 `GGUF`，SHA256 与 manifest 的 `sha256:fb89581…` 一致，耗时约 1.2 秒（APFS clone）。CDP mock 验证模型页按钮请求 `{model:"diodel/qwen3.5-0.8b-q4_k_m-gguf:latest"}` 并显示含 mmproj 的成功 toast。
 - 系统指标与服务检测：`GET /api/metrics` 返回真实磁盘容量、内存、CPU load 与 macOS `ioreg` GPU 利用率（本机 Apple M1 Pro）；`GET /api/daemon` 识别 Ollama.app 与 PID，`POST /api/daemon/control` 在未设置 `ALLOW_DAEMON_CONTROL=1` 时返回 403；CDP 确认遥测页显示 GPU、磁盘已用、启动命令、全部卸载与服务控制面板。
-- **未执行**：真实 UI 中的模型加载/卸载与“全部卸载”、真实多模态推理、完整逐页视觉/窄屏/a11y 验收、GitHub Actions 远端运行、真实大模型 HF 下载与真实 `ollama create`、真实 20 GB 级模型导出、daemon 自动重启/停止（含 macOS Automation 权限弹窗）、systemd/Windows 分支。
+- **未执行**：真实 UI 中的模型加载/卸载与“全部卸载”、真实多模态推理、完整逐页视觉/窄屏/a11y 验收、真实大模型 HF 下载与真实 `ollama create`、真实 20 GB 级模型导出、daemon 自动重启/停止（含 macOS Automation 权限弹窗）、systemd/Windows 分支。
 
 ## 文档
 
