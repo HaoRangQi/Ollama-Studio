@@ -2,6 +2,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { translations, Language } from '../i18n/translations';
 
+function readPreference(key: string): string | null {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writePreference(key: string, value: string): void {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Private mode or blocked storage: keep the in-memory preference.
+  }
+}
+
 export type ThemeMode = 'dark' | 'light';
 export type AccentPalette = 'lavender' | 'emerald' | 'amber' | 'sakura' | 'cyan';
 
@@ -85,21 +101,22 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>(() => {
-    return (localStorage.getItem('ollama_theme_mode') as ThemeMode) || 'dark';
-  });
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(() =>
+    readPreference('ollama_theme_mode') === 'light' ? 'light' : 'dark'
+  );
 
   const [accentPalette, setAccentPaletteState] = useState<AccentPalette>(() => {
-    return (localStorage.getItem('ollama_accent_palette') as AccentPalette) || 'lavender';
+    const stored = readPreference('ollama_accent_palette');
+    return stored && stored in PALETTES ? (stored as AccentPalette) : 'lavender';
   });
 
-  const [language, setLanguageState] = useState<Language>(() => {
-    return (localStorage.getItem('ollama_language') as Language) || 'zh';
-  });
+  const [language, setLanguageState] = useState<Language>(() =>
+    readPreference('ollama_language') === 'en' ? 'en' : 'zh'
+  );
 
   const setThemeMode = (mode: ThemeMode) => {
     setThemeModeState(mode);
-    localStorage.setItem('ollama_theme_mode', mode);
+    writePreference('ollama_theme_mode', mode);
   };
 
   const toggleTheme = () => {
@@ -108,21 +125,22 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const setAccentPalette = (palette: AccentPalette) => {
     setAccentPaletteState(palette);
-    localStorage.setItem('ollama_accent_palette', palette);
+    writePreference('ollama_accent_palette', palette);
   };
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem('ollama_language', lang);
+    writePreference('ollama_language', lang);
   };
 
   const toggleLanguage = () => {
     setLanguage(language === 'zh' ? 'en' : 'zh');
   };
 
-  // Sync theme and CSS variables to root
+  // Sync theme, language and CSS variables to root
   useEffect(() => {
     const root = document.documentElement;
+    root.lang = language === 'zh' ? 'zh-CN' : 'en';
     const current = PALETTES[accentPalette] || PALETTES.lavender;
 
     // Dark/Light class
@@ -159,7 +177,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       root.style.setProperty('--app-text-muted', '#5c546b');
       root.style.setProperty('--app-border', 'rgba(0, 0, 0, 0.08)');
     }
-  }, [themeMode, accentPalette]);
+  }, [themeMode, accentPalette, language]);
 
   const t = translations[language] || translations.zh;
   const currentPaletteConfig = PALETTES[accentPalette] || PALETTES.lavender;

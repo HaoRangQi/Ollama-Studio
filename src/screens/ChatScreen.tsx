@@ -145,6 +145,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const runIdRef = useRef(0);
+  const generatingRef = useRef(false);
+  const currentModelRef = useRef(currentModel);
+  const storeRef = useRef(store);
 
   const modelTag = currentModel?.fullTag ?? '';
   const sessions = modelTag ? getSessions(store, modelTag) : [];
@@ -168,22 +171,41 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   // Persist sessions with a short debounce; streaming updates arrive per token.
   useEffect(() => {
+    storeRef.current = store;
     const timer = window.setTimeout(() => saveChatStore(store), 300);
     return () => window.clearTimeout(timer);
   }, [store]);
 
+  // Flush the latest sessions when the tab closes or the screen unmounts.
+  useEffect(() => {
+    const flush = () => saveChatStore(storeRef.current);
+    window.addEventListener('beforeunload', flush);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      saveChatStore(storeRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    currentModelRef.current = currentModel;
+  }, [currentModel]);
+
   // Load per-model defaults and stop any in-flight generation on model switch.
+  // Keyed by tag so a background refresh that recreates the object does not
+  // abort an active stream.
   useEffect(() => {
     abortRef.current?.abort();
     runIdRef.current += 1;
+    generatingRef.current = false;
     setIsGenerating(false);
     setShowModelDropdown(false);
     setShowSessions(false);
     setShowParamsPanel(false);
     setEditingSessionId(null);
-    if (!currentModel) return;
-    setSettings(loadModelSettings(currentModel.fullTag, defaultSettings(currentModel)));
-  }, [currentModel]);
+    const model = currentModelRef.current;
+    if (!model) return;
+    setSettings(loadModelSettings(model.fullTag, defaultSettings(model)));
+  }, [modelTag]);
 
   useEffect(() => {
     return () => abortRef.current?.abort();
@@ -215,6 +237,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   const handleNewSession = () => {
     abortRef.current?.abort();
     runIdRef.current += 1;
+    generatingRef.current = false;
     setIsGenerating(false);
     if (!modelTag) return;
     const session = createSession([], Date.now());
@@ -233,6 +256,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     if (activeSession?.id === sessionId) {
       abortRef.current?.abort();
       runIdRef.current += 1;
+      generatingRef.current = false;
       setIsGenerating(false);
     }
     setStore((previous) => removeSession(previous, modelTag, sessionId));
@@ -259,7 +283,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   const startCompletion = async (prompt: string, baseStore: ChatStore, sessionId: string) => {
-    if (!currentModel || !modelTag) return;
+    if (!currentModel || !modelTag || generatingRef.current) return;
+    generatingRef.current = true;
 
     const startedAt = Date.now();
     const timestamp = new Date().toLocaleTimeString([], {
@@ -423,6 +448,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       }
     } finally {
       if (runIdRef.current === runId) {
+        generatingRef.current = false;
         setIsGenerating(false);
         abortRef.current = null;
       }
@@ -431,7 +457,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const handleSendMessage = (textToSend?: string) => {
     const prompt = (textToSend ?? inputText).trim();
-    if (!prompt || isGenerating || !currentModel) return;
+    if (!prompt || isGenerating || generatingRef.current || !currentModel) return;
     const { store: baseStore, sessionId } = ensureSession(store);
     setStore(baseStore);
     void startCompletion(prompt, baseStore, sessionId);
@@ -442,7 +468,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   const handleRegenerate = (assistantId: string) => {
-    if (!activeSession || isGenerating) return;
+    if (!activeSession || isGenerating || generatingRef.current) return;
     const index = activeSession.messages.findIndex((message) => message.id === assistantId);
     if (index < 0) return;
 
