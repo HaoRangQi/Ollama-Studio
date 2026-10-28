@@ -21,7 +21,7 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 - 遥测页显示真实连接状态、版本、模型/显存统计与事件日志；Ollama 不提供的 GPU/ANE/磁盘指标改为只读说明。
 - 代理默认绑定 `127.0.0.1`；可选 `PROXY_TOKEN` 保护 `/ollama/*` 与 `/api/import`。
 - 字体与 Material Symbols 已自托管，不再依赖 Google Fonts。
-- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（58 个测试）、GitHub Actions CI。
+- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（59 个测试）、GitHub Actions CI。
 - 已用 headless Chrome 对开发/生产首屏、真实模型列表与代理做冒烟验证；**未做完整逐页人工视觉/a11y 验收**。
 - Hugging Face 直拉仍受本机 DNS 限制；需要正常网络或本地 GGUF 导入。
 
@@ -122,7 +122,7 @@ npm start
 
 ## 验证状态
 
-- `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（58 个测试）、`npm run build`：2026-10-28 全部通过。
+- `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（59 个测试）、`npm run build`：2026-10-28 全部通过。
 - 生产服务器（3101）与开发服务器（3001）：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、`/api/import` 校验与 headless Chrome 首屏渲染通过。
 - 代理令牌：无令牌 401、Bearer 令牌 200、`/api/import` 无令牌 401，均已验证。
 - **未执行**：真实 UI 中的模型加载/卸载、完整逐页视觉/窄屏/a11y 验收、GitHub Actions 远端运行、正常网络下的 HF 直拉。

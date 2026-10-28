@@ -114,13 +114,16 @@ function MainApp() {
   useEffect(() => {
     if (!downloadTask.modelName) return;
     if (!downloadTask.isActive && !downloadTask.isComplete) return;
-    saveDownloadTask(downloadTask);
+    const timer = window.setTimeout(() => saveDownloadTask(downloadTask), 300);
+    return () => window.clearTimeout(timer);
   }, [downloadTask]);
 
   // Load or eject a model through real keep_alive requests
   const handleToggleVram = async (modelId: string) => {
     const target = models.find((model) => model.id === modelId) ?? selectedModel;
-    if (!target) return;
+    if (!target) {
+      throw new Error(zh ? '未找到模型。' : 'Model not found.');
+    }
 
     const options: KeepAliveOptions = {
       kind: target.capabilities?.includes('embedding') ? 'embed' : 'generate'

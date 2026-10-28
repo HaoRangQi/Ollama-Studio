@@ -16,7 +16,7 @@
 
 ### 工程基础
 
-- [x] 添加 Vitest（Node 环境）与 58 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断、GGUF 名称与空上传。
+- [x] 添加 Vitest（Node 环境）与 59 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断、GGUF 名称与空上传。
 - [x] 添加 ESLint 10 flat config、Prettier 3，`npm run lint`、`format:check` 通过；开启 TypeScript `strict`。
 - [x] 添加 `.github/workflows/ci.yml`：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`（尚未在 GitHub 实际运行）。
 - [x] 移除未使用依赖 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 移除 Gemini 能力声明；包名改为 `ollama-studio`，版本 `0.1.0`。

@@ -53,7 +53,7 @@
 ### 4. 单元测试
 
 - 命令：`npm test`（监听：`npm run test:watch`；覆盖率：`npm run coverage`）
-- 结果：**已执行（2026-10-28）通过**：7 个测试文件、58 个测试。
+- 结果：**已执行（2026-10-28）通过**：7 个测试文件、59 个测试。
 - 覆盖：NDJSON 分片/错误/中止、`pullModel`、`loadModel`/`unloadModel`（generate/embed/keep_alive）、模型映射、会话存储与 v1→v2 迁移、模型参数归一化、下载任务中断、GGUF 名称与空上传。
 - 未覆盖：真实浏览器、真实 Ollama 流、真实模型加载/卸载、GGUF 成功导入（需 CLI）。
 

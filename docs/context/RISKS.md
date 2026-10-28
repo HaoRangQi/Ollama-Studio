@@ -13,7 +13,7 @@
 | R-003 | 部分业务数据只存在内存 | 会话（v2 多会话）、模型参数、下载任务元数据、主题/语言、daemon 界面配置均已持久化；模型参数仅作为对话默认值 | 模型文件本身不被修改；未完成下载需重新拉取 | 按 D-119/D-125/D-130 保持边界；UI 已注明参数语义 | 已缓解 |
 | R-004 | 依赖与构建未验证 | `npm ci`/安装、`typecheck`、`lint`、`format:check`、`test`、`build` 均通过；生成 `dist/`、`server.js` | 已缓解；本机 npm 缓存权限仍需绕过 | 保持锁文件；CI 在新环境复验；记录 Node/npm 版本 | 已缓解 |
 | R-005 | 仓库未初始化 Git | 2026-10-28 执行 `git init -b main` 并创建本地基线提交（不推送） | 仍无远端、无协作流程 | 需要远端时由所有者创建并配置 remote；不擅自推送 | 部分缓解 |
-| R-006 | 无测试、无 CI、无 ESLint/Prettier | 已添加 Vitest 58 个测试、`.github/workflows/ci.yml`、ESLint 10 flat config、Prettier 3 | 已建立回归保护；CI 尚未在 GitHub 实际运行 | 首次推送后观察 Actions 结果；按 D-123 维护 | 已解决（本地验证） |
+| R-006 | 无测试、无 CI、无 ESLint/Prettier | 已添加 Vitest 59 个测试、`.github/workflows/ci.yml`、ESLint 10 flat config、Prettier 3 | 已建立回归保护；CI 尚未在 GitHub 实际运行 | 首次推送后观察 Actions 结果；按 D-123 维护 | 已解决（本地验证） |
 | R-007 | 依赖与配置冗余、能力声明误导 | 已移除 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 不再声明 Gemini；包名改为 `ollama-studio` | 供应链面减小 | 新增依赖前确认实际引用 | 已解决 |
 | R-008 | 开发服务器绑定 `0.0.0.0` | `dev` 改为 `vite --port=3000 --host=127.0.0.1`；新增显式 `dev:lan` | 默认只本机可访问 | `dev:lan` 仅可信网络临时使用；生产默认 loopback | 已解决 |
 | R-009 | GGUF 导入依赖本机 Ollama CLI | `importGgufStream` 在上传非空后预检 `ollama --version`，缺失返回 503；开发/生产均已用真实 GGUF 验证 | 远端 Ollama 部署受限 | 保留 503 明确错误；后续评估 Ollama API blob 上传或桌面壳 | 部分缓解（本机可用） |

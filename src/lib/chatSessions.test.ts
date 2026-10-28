@@ -23,11 +23,12 @@ function message(id: string, role: ChatMessage['role'], content: string): ChatMe
   return { id, role, content, timestamp: '12:00' };
 }
 
-function installStorage() {
+function installStorage(options: { failWrites?: boolean } = {}) {
   const data = new Map<string, string>();
   const localStorage = {
     getItem: (key: string) => data.get(key) ?? null,
     setItem: (key: string, value: string) => {
+      if (options.failWrites) throw new Error('quota exceeded');
       data.set(key, value);
     },
     removeItem: (key: string) => {
@@ -167,6 +168,15 @@ describe('loadChatStore', () => {
     const storage = installStorage();
     storage.set(CHAT_STORE_KEY, '{not json');
     expect(loadChatStore()).toEqual(createEmptyStore());
+  });
+
+  it('keeps legacy data when the v2 write fails', () => {
+    const storage = installStorage({ failWrites: true });
+    storage.set(LEGACY_CHAT_STORE_KEY, JSON.stringify({ m: [message('1', 'user', 'legacy')] }));
+
+    const store = loadChatStore();
+    expect(store.sessionsByModel.m).toHaveLength(1);
+    expect(storage.has(LEGACY_CHAT_STORE_KEY)).toBe(true);
   });
 
   it('persists through saveChatStore', () => {

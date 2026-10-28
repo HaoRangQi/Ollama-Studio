@@ -225,8 +225,9 @@ export function loadChatStore(): ChatStore {
   if (legacy) {
     const migrated = migrateLegacySessions(legacy);
     if (Object.keys(migrated.sessionsByModel).length > 0) {
-      saveChatStore(migrated);
-      removeStorageKey(LEGACY_CHAT_STORE_KEY);
+      if (saveChatStore(migrated)) {
+        removeStorageKey(LEGACY_CHAT_STORE_KEY);
+      }
     }
     return migrated;
   }
