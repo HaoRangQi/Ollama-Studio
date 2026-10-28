@@ -69,27 +69,12 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     setCuratedList((prev) => prev.map((m) => (m.id === modelId ? { ...m, activeSize: size } : m)));
   };
 
-  const normalizedQuery = catalogQuery.trim().toLowerCase();
-  const filteredCurated = curatedList.filter((m) => {
-    if (activeCategory !== 'all' && m.category !== activeCategory) return false;
-    if (!normalizedQuery) return true;
-    return [
-      m.name,
-      m.description,
-      m.descriptionEn ?? '',
-      m.author,
-      m.version,
-      m.category,
-      m.tagNote ?? '',
-      m.tagNoteEn ?? '',
-      m.hardwareFit,
-      m.hardwareFitEn ?? '',
-      ...m.sizes
-    ]
-      .join(' ')
-      .toLowerCase()
-      .includes(normalizedQuery);
-  });
+  // Category chips only scope the local curated list. Catalog search results
+  // are shown in a separate mode so the chips cannot be mistaken for filters
+  // that apply to remote results.
+  const filteredCurated = curatedList.filter(
+    (m) => activeCategory === 'all' || m.category === activeCategory
+  );
 
   const formatCompact = (value: number) => {
     if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`;
@@ -97,11 +82,16 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     return String(value);
   };
 
-  const handleCatalogSourceChange = (source: CatalogSource) => {
-    setCatalogSource(source);
+  const resetCatalogSearch = () => {
+    setCatalogQuery('');
     setCatalogResults([]);
     setCatalogError(null);
     setCatalogSearched(false);
+  };
+
+  const handleCatalogSourceChange = (source: CatalogSource) => {
+    setCatalogSource(source);
+    resetCatalogSearch();
   };
 
   const handleCatalogSearch = async () => {
@@ -553,13 +543,41 @@ export const PullScreen: React.FC<PullScreenProps> = ({
 
       {/* 3. 发现分类与卡片矩阵 (Model Hub Directory) */}
       <section className="flex flex-col gap-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div>
             <h3 className="font-headline text-[22px] text-[var(--app-text)] font-bold">
-              {t.pull.hubTitle}
+              {catalogSearched
+                ? catalogSource === 'huggingface'
+                  ? language === 'zh'
+                    ? 'Hugging Face 搜索结果'
+                    : 'Hugging Face results'
+                  : language === 'zh'
+                    ? 'Ollama 库搜索结果'
+                    : 'Ollama library results'
+                : t.pull.hubTitle}
             </h3>
-            <p className="text-[13px] text-[var(--app-text-muted)]">{t.pull.hubSubtitle}</p>
+            <p className="text-[13px] text-[var(--app-text-muted)]">
+              {catalogSearched
+                ? catalogSource === 'huggingface'
+                  ? language === 'zh'
+                    ? '来自 huggingface.co，仅 GGUF 仓库，按下载量排序'
+                    : 'From huggingface.co, GGUF repos only, sorted by downloads'
+                  : language === 'zh'
+                    ? '来自 ollama.com，按关键词匹配'
+                    : 'From ollama.com, matched by keyword'
+                : t.pull.hubSubtitle}
+            </p>
           </div>
+          {catalogSearched && (
+            <button
+              type="button"
+              onClick={resetCatalogSearch}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-surface-high)] text-[var(--app-text)] text-[12px] font-semibold border border-[var(--app-border)] hover:bg-[var(--app-surface-highest)] transition-colors cursor-pointer w-fit shrink-0"
+            >
+              <span className="material-symbols-outlined text-[16px]">arrow_back</span>
+              <span>{language === 'zh' ? '返回本地精选' : 'Back to curated'}</span>
+            </button>
+          )}
         </div>
 
         {/* 关键字搜索：本地精选即时过滤 + Ollama / Hugging Face 公共目录 */}
@@ -645,12 +663,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
               />
               {catalogQuery && (
                 <button
-                  onClick={() => {
-                    setCatalogQuery('');
-                    setCatalogResults([]);
-                    setCatalogError(null);
-                    setCatalogSearched(false);
-                  }}
+                  onClick={resetCatalogSearch}
                   className="p-1 rounded-full text-[var(--app-text-muted)] hover:text-[var(--app-text)] hover:bg-[var(--app-surface-highest)] transition-colors cursor-pointer"
                   title={language === 'zh' ? '清空搜索' : 'Clear search'}
                 >
@@ -708,110 +721,105 @@ export const PullScreen: React.FC<PullScreenProps> = ({
           <p className="text-[11px] text-[var(--app-text-muted)] px-1">
             {catalogSource === 'huggingface'
               ? language === 'zh'
-                ? '输入关键词即时过滤下方本地精选；搜索会查询 Hugging Face 的 GGUF 仓库。选择量化标签后填入 ollama pull hf.co/<repo>:<quant>；点击“拉取权重”会通过 /api/pull 实时下载。'
-                : 'Keywords filter the local curated list immediately. Search queries Hugging Face GGUF repos. Pick a quantization tag to fill ollama pull hf.co/<repo>:<quant>; “Run” downloads through /api/pull with live progress.'
+                ? '输入关键词搜索 Hugging Face 的 GGUF 仓库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。选择量化标签后填入 ollama pull hf.co/<repo>:<quant>。'
+                : 'Search Hugging Face GGUF repos. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return. Pick a quant tag to fill ollama pull hf.co/<repo>:<quant>.'
               : language === 'zh'
-                ? '输入关键词即时过滤下方本地精选；搜索会查询 ollama.com 的公共模型库。搜索结果填入 ollama pull 命令；点击“拉取权重”会通过 /api/pull 实时下载。'
-                : 'Keywords filter the local curated list immediately. Search queries the public ollama.com catalog. Results fill the ollama pull command; “Run” downloads through /api/pull with live progress.'}
+                ? '输入关键词搜索 ollama.com 的公共模型库；搜索时下方会切换为搜索结果，清空或点击“返回本地精选”可回到精选列表。'
+                : 'Search the public ollama.com catalog. While searching, the curated list is replaced by results; clear the query or choose “Back to curated” to return.'}
           </p>
         </div>
 
-        {/* 筛选芯片 */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-          <button
-            onClick={() => setActiveCategory('all')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'all'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
-            }`}
-            style={activeCategory === 'all' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">stars</span>
-            <span>{t.pull.hubAll}</span>
-          </button>
-          <button
-            onClick={() => setActiveCategory('reason')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'reason'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
-            }`}
-            style={activeCategory === 'reason' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">psychology</span>
-            <span>{t.pull.hubReason}</span>
-          </button>
-          <button
-            onClick={() => setActiveCategory('code')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'code'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
-            }`}
-            style={activeCategory === 'code' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">terminal</span>
-            <span>{t.pull.hubCode}</span>
-          </button>
-          <button
-            onClick={() => setActiveCategory('vision')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'vision'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
-            }`}
-            style={activeCategory === 'vision' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">visibility</span>
-            <span>{t.pull.hubVision}</span>
-          </button>
-          <button
-            onClick={() => setActiveCategory('general')}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
-              activeCategory === 'general'
-                ? 'text-white font-semibold shadow-md'
-                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
-            }`}
-            style={activeCategory === 'general' ? { backgroundColor: 'var(--primary-accent)' } : {}}
-          >
-            <span className="material-symbols-outlined text-[16px]">forum</span>
-            <span>{t.pull.hubGeneral}</span>
-          </button>
-        </div>
+        {/* 本地精选分类：只作用于精选列表，搜索模式下隐藏 */}
+        {!catalogSearched && (
+          <div className="flex flex-col gap-2">
+            <span className="text-[11px] font-semibold text-[var(--app-text-muted)] px-1 uppercase tracking-wider">
+              {language === 'zh' ? '本地精选分类' : 'Curated categories'}
+            </span>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              <button
+                onClick={() => setActiveCategory('all')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
+                  activeCategory === 'all'
+                    ? 'text-white font-semibold shadow-md'
+                    : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
+                }`}
+                style={activeCategory === 'all' ? { backgroundColor: 'var(--primary-accent)' } : {}}
+              >
+                <span className="material-symbols-outlined text-[16px]">stars</span>
+                <span>{t.pull.hubAll}</span>
+              </button>
+              <button
+                onClick={() => setActiveCategory('reason')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
+                  activeCategory === 'reason'
+                    ? 'text-white font-semibold shadow-md'
+                    : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
+                }`}
+                style={
+                  activeCategory === 'reason' ? { backgroundColor: 'var(--primary-accent)' } : {}
+                }
+              >
+                <span className="material-symbols-outlined text-[16px]">psychology</span>
+                <span>{t.pull.hubReason}</span>
+              </button>
+              <button
+                onClick={() => setActiveCategory('code')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
+                  activeCategory === 'code'
+                    ? 'text-white font-semibold shadow-md'
+                    : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
+                }`}
+                style={
+                  activeCategory === 'code' ? { backgroundColor: 'var(--primary-accent)' } : {}
+                }
+              >
+                <span className="material-symbols-outlined text-[16px]">terminal</span>
+                <span>{t.pull.hubCode}</span>
+              </button>
+              <button
+                onClick={() => setActiveCategory('vision')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
+                  activeCategory === 'vision'
+                    ? 'text-white font-semibold shadow-md'
+                    : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
+                }`}
+                style={
+                  activeCategory === 'vision' ? { backgroundColor: 'var(--primary-accent)' } : {}
+                }
+              >
+                <span className="material-symbols-outlined text-[16px]">visibility</span>
+                <span>{t.pull.hubVision}</span>
+              </button>
+              <button
+                onClick={() => setActiveCategory('general')}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-medium transition-all cursor-pointer ${
+                  activeCategory === 'general'
+                    ? 'text-white font-semibold shadow-md'
+                    : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-highest)]'
+                }`}
+                style={
+                  activeCategory === 'general' ? { backgroundColor: 'var(--primary-accent)' } : {}
+                }
+              >
+                <span className="material-symbols-outlined text-[16px]">forum</span>
+                <span>{t.pull.hubGeneral}</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {catalogSearched && (
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h4 className="font-headline text-[17px] text-[var(--app-text)] font-bold">
-                  {catalogSource === 'huggingface'
-                    ? language === 'zh'
-                      ? 'Hugging Face 搜索结果'
-                      : 'Hugging Face results'
-                    : language === 'zh'
-                      ? 'Ollama 库搜索结果'
-                      : 'Ollama library results'}
-                </h4>
-                <p className="text-[11px] text-[var(--app-text-muted)]">
-                  {catalogSource === 'huggingface'
-                    ? language === 'zh'
-                      ? '来自 huggingface.co，仅 GGUF 仓库，按下载量排序'
-                      : 'From huggingface.co, GGUF repos only, sorted by downloads'
-                    : language === 'zh'
-                      ? '来自 ollama.com，按关键词匹配'
-                      : 'From ollama.com, matched by keyword'}
-                </p>
-              </div>
-              {catalogLoading && (
+            {catalogLoading && (
+              <div className="flex items-center justify-end">
                 <span className="text-[11px] text-[var(--app-text-muted)] flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[15px] animate-spin">
                     progress_activity
                   </span>
                   {language === 'zh' ? '查询中…' : 'Loading…'}
                 </span>
-              )}
-            </div>
+              </div>
+            )}
 
             {catalogError && (
               <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-3 text-[12px] text-[var(--app-text-muted)]">
@@ -960,104 +968,108 @@ export const PullScreen: React.FC<PullScreenProps> = ({
           </div>
         )}
 
-        {filteredCurated.length === 0 && (
-          <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 text-[12px] text-[var(--app-text-muted)]">
-            {language === 'zh'
-              ? '本地精选没有匹配项；试试上方“搜索 Hugging Face”或更短的关键词。'
-              : 'No curated matches. Try “Search library” above or a shorter keyword.'}
-          </div>
-        )}
-
-        {/* 模型卡片栅格 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filteredCurated.map((m) => (
-            <div
-              key={m.id}
-              className="flex flex-col justify-between bg-[var(--app-surface)] rounded-3xl p-6 hover:-translate-y-1 transition-all duration-200 shadow-md group border border-[var(--app-border)]"
-            >
-              <div className="flex flex-col gap-3">
-                <div className="flex items-start justify-between">
-                  <div
-                    className={`w-10 h-10 rounded-2xl ${m.iconBg} ${m.iconColor} flex items-center justify-center border border-[var(--app-border)]`}
-                  >
-                    <span className="material-symbols-outlined text-[24px]">{m.icon}</span>
-                  </div>
-                  <span
-                    className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold border ${
-                      m.hardwareFitColor === 'green'
-                        ? 'bg-[#27c93f]/15 text-[#27c93f] border-[#27c93f]/30'
-                        : 'bg-[#ba4385]/20 text-[#ffafd3] border-[#ba4385]/30'
-                    }`}
-                  >
-                    {language === 'zh' ? m.hardwareFit : (m.hardwareFitEn ?? m.hardwareFit)}
-                  </span>
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="font-headline text-[18px] text-[var(--app-text)] font-bold transition-colors">
-                      {m.name}
-                    </h4>
-                    <span className="text-[var(--app-text-muted)] text-xs font-code">
-                      {m.version}
-                    </span>
-                  </div>
-                  <p className="text-[12px] text-[var(--app-text-muted)] line-clamp-2 mt-1 leading-relaxed">
-                    {language === 'zh' ? m.description : (m.descriptionEn ?? m.description)}
-                  </p>
-                </div>
-
-                {/* 尺寸选择胶囊 */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-1">
-                  {m.sizes.map((s) => {
-                    const isSelected = m.activeSize === s;
-                    return (
-                      <button
-                        key={s}
-                        onClick={() => handleSizeChange(m.id, s)}
-                        className={`px-2.5 py-0.5 rounded-full text-[11px] font-code transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'text-white font-bold shadow-sm'
-                            : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
-                        }`}
-                        style={isSelected ? { backgroundColor: 'var(--primary-accent)' } : {}}
-                      >
-                        {s}
-                      </button>
-                    );
-                  })}
-                  {m.tagNote && (
-                    <span className="text-[11px] text-[var(--app-text-muted)] font-code pl-1">
-                      {language === 'zh' ? m.tagNote : (m.tagNoteEn ?? m.tagNote)}
-                    </span>
-                  )}
-                </div>
+        {!catalogSearched && (
+          <>
+            {filteredCurated.length === 0 && (
+              <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-4 text-[12px] text-[var(--app-text-muted)]">
+                {language === 'zh'
+                  ? '该分类下没有本地精选；切换到“全部精选”，或使用上方搜索。'
+                  : 'No curated models in this category. Choose “All” or use search above.'}
               </div>
+            )}
 
-              {/* 卡片底栏 */}
-              <div className="flex items-center justify-between pt-4 mt-4 bg-[var(--app-surface-high)] -mx-6 -mb-6 p-4 rounded-b-3xl border-t border-[var(--app-border)]">
-                <div className="flex flex-col">
-                  <span className="font-code text-[11px] text-[var(--app-text-muted)]">
-                    {t.pull.volume} {m.sizeGb}
-                  </span>
-                  <span className="text-[10px] text-[var(--app-text-muted)]">
-                    {t.pull.pullCount} {m.pullCount}
-                  </span>
-                </div>
-                <button
-                  onClick={() => handleQuickPullModel(`${m.name}:${m.activeSize}`)}
-                  className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-white transition-all font-semibold active:scale-95 text-[12px] cursor-pointer shadow-sm"
-                  style={{ backgroundColor: 'var(--primary-accent)' }}
+            {/* 模型卡片栅格 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {filteredCurated.map((m) => (
+                <div
+                  key={m.id}
+                  className="flex flex-col justify-between bg-[var(--app-surface)] rounded-3xl p-6 hover:-translate-y-1 transition-all duration-200 shadow-md group border border-[var(--app-border)]"
                 >
-                  <span className="material-symbols-outlined text-[16px]">download</span>
-                  <span>
-                    {t.pull.pullBtnPrefix} {m.activeSize.toUpperCase()}
-                  </span>
-                </button>
-              </div>
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-start justify-between">
+                      <div
+                        className={`w-10 h-10 rounded-2xl ${m.iconBg} ${m.iconColor} flex items-center justify-center border border-[var(--app-border)]`}
+                      >
+                        <span className="material-symbols-outlined text-[24px]">{m.icon}</span>
+                      </div>
+                      <span
+                        className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold border ${
+                          m.hardwareFitColor === 'green'
+                            ? 'bg-[#27c93f]/15 text-[#27c93f] border-[#27c93f]/30'
+                            : 'bg-[#ba4385]/20 text-[#ffafd3] border-[#ba4385]/30'
+                        }`}
+                      >
+                        {language === 'zh' ? m.hardwareFit : (m.hardwareFitEn ?? m.hardwareFit)}
+                      </span>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-headline text-[18px] text-[var(--app-text)] font-bold transition-colors">
+                          {m.name}
+                        </h4>
+                        <span className="text-[var(--app-text-muted)] text-xs font-code">
+                          {m.version}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-[var(--app-text-muted)] line-clamp-2 mt-1 leading-relaxed">
+                        {language === 'zh' ? m.description : (m.descriptionEn ?? m.description)}
+                      </p>
+                    </div>
+
+                    {/* 尺寸选择胶囊 */}
+                    <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                      {m.sizes.map((s) => {
+                        const isSelected = m.activeSize === s;
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => handleSizeChange(m.id, s)}
+                            className={`px-2.5 py-0.5 rounded-full text-[11px] font-code transition-colors cursor-pointer ${
+                              isSelected
+                                ? 'text-white font-bold shadow-sm'
+                                : 'bg-[var(--app-surface-high)] text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
+                            }`}
+                            style={isSelected ? { backgroundColor: 'var(--primary-accent)' } : {}}
+                          >
+                            {s}
+                          </button>
+                        );
+                      })}
+                      {m.tagNote && (
+                        <span className="text-[11px] text-[var(--app-text-muted)] font-code pl-1">
+                          {language === 'zh' ? m.tagNote : (m.tagNoteEn ?? m.tagNote)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 卡片底栏 */}
+                  <div className="flex items-center justify-between pt-4 mt-4 bg-[var(--app-surface-high)] -mx-6 -mb-6 p-4 rounded-b-3xl border-t border-[var(--app-border)]">
+                    <div className="flex flex-col">
+                      <span className="font-code text-[11px] text-[var(--app-text-muted)]">
+                        {t.pull.volume} {m.sizeGb}
+                      </span>
+                      <span className="text-[10px] text-[var(--app-text-muted)]">
+                        {t.pull.pullCount} {m.pullCount}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => handleQuickPullModel(`${m.name}:${m.activeSize}`)}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-full text-white transition-all font-semibold active:scale-95 text-[12px] cursor-pointer shadow-sm"
+                      style={{ backgroundColor: 'var(--primary-accent)' }}
+                    >
+                      <span className="material-symbols-outlined text-[16px]">download</span>
+                      <span>
+                        {t.pull.pullBtnPrefix} {m.activeSize.toUpperCase()}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </section>
 
       {/* 4. 本地 GGUF 导入面板 (Local Model File Hub) */}
