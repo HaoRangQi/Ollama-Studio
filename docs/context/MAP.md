@@ -324,7 +324,7 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 
 - **本次核验环境**（2026-10-28，仅记录，不作为版本要求）：Node.js `v24.22.0`，npm `11.19.1`，Ollama `0.40.7`。
 - `package.json` 没有 `engines` 字段；最低 Node 版本待核实。
-- 已存在 `node_modules/`、`package-lock.json`、`dist/`、`server.js`、`build/`；Git 分支 `main`，远端 `origin` 为 GitHub（HaoRangQi/Ollama-Studio），已推送 `f8b66d0`。
+- 已存在 `node_modules/`、`package-lock.json`、`dist/`、`server.js`、`build/`；Git 分支 `main`，远端 `origin` 为 GitHub（HaoRangQi/Ollama-Studio），已推送并跟踪 `origin/main`。
 - 开发：`npm run dev` → `127.0.0.1:3000`；`npm run dev:lan` → `0.0.0.0:3000`。
 - 生产：`npm run build && npm start` → 默认 `127.0.0.1:3000`，Express 静态托管 + `/ollama` 代理。
 - 菜单栏：`npm run build:menu` → `build/Ollama Studio Menu.app` 与 DMG；App 内嵌 Node 与 `server.js`，监听 `127.0.0.1:3210`；ad-hoc 签名、未公证（`RUNBOOK.md` 19）。
