@@ -451,7 +451,9 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                         )}
                       </div>
                       <p className="text-[12px] text-[var(--app-text-muted)] mt-1.5 line-clamp-1 leading-relaxed">
-                        {model.description}
+                        {language === 'zh'
+                          ? model.description
+                          : (model.descriptionEn ?? model.description)}
                       </p>
                     </div>
                   </div>
@@ -503,7 +505,11 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                     <span className="material-symbols-outlined text-[16px] text-[#ffafd3]">
                       schedule
                     </span>
-                    <span>{model.lastUsed ?? t.models.allSleep}</span>
+                    <span>
+                      {language === 'zh'
+                        ? (model.lastUsed ?? t.models.allSleep)
+                        : (model.lastUsedEn ?? model.lastUsed ?? t.models.allSleep)}
+                    </span>
                   </div>
                   <div className="flex items-center gap-2">
                     {isRunning ? (

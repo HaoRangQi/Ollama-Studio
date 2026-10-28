@@ -21,7 +21,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onNavigate,
   onQuickPull
 }) => {
-  const { t } = useAppTheme();
+  const { t, language } = useAppTheme();
   const [query, setQuery] = useState('');
 
   useEffect(() => {
@@ -142,7 +142,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
                           )}
                         </div>
                         <span className="text-[12px] text-[var(--app-text-muted)] line-clamp-1">
-                          {m.description}
+                          {language === 'zh' ? m.description : (m.descriptionEn ?? m.description)}
                         </span>
                       </div>
                     </div>

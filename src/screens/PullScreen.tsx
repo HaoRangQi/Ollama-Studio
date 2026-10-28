@@ -73,7 +73,19 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   const filteredCurated = curatedList.filter((m) => {
     if (activeCategory !== 'all' && m.category !== activeCategory) return false;
     if (!normalizedQuery) return true;
-    return [m.name, m.description, m.author, m.version, m.category, m.tagNote ?? '', ...m.sizes]
+    return [
+      m.name,
+      m.description,
+      m.descriptionEn ?? '',
+      m.author,
+      m.version,
+      m.category,
+      m.tagNote ?? '',
+      m.tagNoteEn ?? '',
+      m.hardwareFit,
+      m.hardwareFitEn ?? '',
+      ...m.sizes
+    ]
       .join(' ')
       .toLowerCase()
       .includes(normalizedQuery);
@@ -977,7 +989,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                         : 'bg-[#ba4385]/20 text-[#ffafd3] border-[#ba4385]/30'
                     }`}
                   >
-                    {m.hardwareFit}
+                    {language === 'zh' ? m.hardwareFit : (m.hardwareFitEn ?? m.hardwareFit)}
                   </span>
                 </div>
 
@@ -991,7 +1003,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                     </span>
                   </div>
                   <p className="text-[12px] text-[var(--app-text-muted)] line-clamp-2 mt-1 leading-relaxed">
-                    {m.description}
+                    {language === 'zh' ? m.description : (m.descriptionEn ?? m.description)}
                   </p>
                 </div>
 
@@ -1016,7 +1028,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                   })}
                   {m.tagNote && (
                     <span className="text-[11px] text-[var(--app-text-muted)] font-code pl-1">
-                      {m.tagNote}
+                      {language === 'zh' ? m.tagNote : (m.tagNoteEn ?? m.tagNote)}
                     </span>
                   )}
                 </div>

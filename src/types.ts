@@ -10,6 +10,7 @@ export interface OllamaModel {
   category: 'llm' | 'vision' | 'code' | 'embedding';
   categoryLabel: string;
   description: string;
+  descriptionEn?: string;
   quantization: string;
   size: string;
   sizeGb: number;
@@ -20,6 +21,7 @@ export interface OllamaModel {
   gpuLayers?: string;
   kvCache?: string;
   lastUsed?: string;
+  lastUsedEn?: string;
   note?: string;
   capabilities?: string[];
   icon: string;
@@ -45,8 +47,10 @@ export interface CuratedHubModel {
   version: string;
   author: string;
   description: string;
+  descriptionEn?: string;
   category: 'reason' | 'general' | 'code' | 'vision';
   hardwareFit: string;
+  hardwareFitEn?: string;
   hardwareFitColor: 'green' | 'yellow' | 'purple';
   sizes: string[];
   activeSize: string;
@@ -56,6 +60,7 @@ export interface CuratedHubModel {
   iconBg: string;
   iconColor: string;
   tagNote?: string;
+  tagNoteEn?: string;
 }
 
 export interface DownloadTask {

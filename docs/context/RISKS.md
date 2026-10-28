@@ -17,7 +17,7 @@
 | R-007 | 依赖与配置冗余、能力声明误导 | 已移除 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 不再声明 Gemini；包名改为 `ollama-studio` | 供应链面减小 | 新增依赖前确认实际引用 | 已解决 |
 | R-008 | 开发服务器绑定 `0.0.0.0` | `dev` 改为 `vite --port=3000 --host=127.0.0.1`；新增显式 `dev:lan` | 默认只本机可访问 | `dev:lan` 仅可信网络临时使用；生产默认 loopback | 已解决 |
 | R-009 | GGUF 导入依赖本机 Ollama CLI | `importGgufStream` 在上传非空后预检 `ollama --version`，缺失返回 503；开发/生产均已用真实 GGUF 验证 | 远端 Ollama 部署受限 | 保留 503 明确错误；后续评估 Ollama API blob 上传或桌面壳 | 部分缓解（本机可用） |
-| R-010 | 国际化不完整 | 新增聊天/模型/拉取/实验室/遥测文案已按语言分支或 translations；仍有少量状态字符串由后端返回英文（如 pull 层状态） | 英文模式下可能中英混杂 | 新增文案走 `translations.ts` 或 language 分支；后端状态原样展示 | 大部分缓解 |
+| R-010 | 国际化不完整 | 聊天、模型、拉取、实验室、遥测、命令面板、弹窗与演示模型/精选模型的描述均已按语言选择；拉取层状态保留 Ollama 返回的英文原文 | 英文模式下仅少数后端状态为英文 | 新增文案走 `translations.ts` 或 language 分支；后端状态原样展示 | 已解决（后端原文除外） |
 | R-011 | 无许可证 | 已添加 Apache-2.0 `LICENSE`，`package.json` 声明 | 复用/分发状态明确 | 按 D-122 执行；第三方资产许可需单独确认 | 已解决 |
 | R-012 | 外部字体/图标依赖网络 | 字体与 Material Symbols 已通过 npm 自托管，`index.html` 不再加载 Google Fonts | 离线可用；Material Symbols 全量 woff2 约 4 MB | 后续可做图标子集化 | 已解决（体积增大） |
 | R-013 | TypeScript 未启用 `strict`，且无 ESLint | `strict` 已开启；ESLint 10 + typescript-eslint + react-hooks 已配置；Prettier 已格式化 | 类型/风格问题减少 | 保持 `typecheck` + `lint` 在 CI 中执行 | 已解决 |
