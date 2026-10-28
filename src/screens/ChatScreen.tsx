@@ -28,6 +28,7 @@ import { readStorageJson, removeStorageKey, writeStorageJson } from '../lib/stor
 
 const CHAT_INPUT_HEIGHT_KEY = 'ollama_chat_input_height_v1';
 const MIN_INPUT_HEIGHT = 44;
+const DEFAULT_INPUT_HEIGHT = 96;
 const AUTO_INPUT_MAX_HEIGHT = 200;
 
 const FALLBACK_SETTINGS: ModelSettings = {
@@ -237,7 +238,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
     const element = textareaRef.current;
     if (!element) return;
     element.style.height = 'auto';
-    element.style.height = `${Math.min(element.scrollHeight, AUTO_INPUT_MAX_HEIGHT)}px`;
+    element.style.height = `${Math.min(
+      Math.max(element.scrollHeight, DEFAULT_INPUT_HEIGHT),
+      AUTO_INPUT_MAX_HEIGHT
+    )}px`;
   }, [inputHeight]);
 
   const updateSettings = (patch: Partial<ModelSettings>) => {
@@ -1214,7 +1218,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                     setInputText(e.target.value);
                     if (inputHeight === null) {
                       e.target.style.height = 'auto';
-                      e.target.style.height = `${Math.min(e.target.scrollHeight, AUTO_INPUT_MAX_HEIGHT)}px`;
+                      e.target.style.height = `${Math.min(
+                        Math.max(e.target.scrollHeight, DEFAULT_INPUT_HEIGHT),
+                        AUTO_INPUT_MAX_HEIGHT
+                      )}px`;
                     }
                   }}
                   onKeyDown={(e) => {
@@ -1227,7 +1234,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
                   aria-label={t.chat.inputPlaceholder}
                   placeholder={t.chat.inputPlaceholder}
                   style={inputHeight === null ? undefined : { height: `${inputHeight}px` }}
-                  className="w-full bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] text-[14px] resize-none max-h-[55vh] leading-relaxed overflow-y-auto"
+                  className={`w-full bg-transparent border-none outline-none focus-visible:outline-none focus-ring-none text-[var(--app-text)] placeholder:text-[var(--app-text-muted)] text-[14px] resize-none max-h-[55vh] leading-relaxed overflow-y-auto overflow-x-hidden ${
+                    inputHeight === null ? 'min-h-[96px]' : ''
+                  }`}
                 />
               </div>
 
