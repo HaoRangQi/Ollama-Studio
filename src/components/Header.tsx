@@ -152,7 +152,7 @@ export const Header: React.FC<HeaderProps> = ({
         <button
           onClick={toggleLanguage}
           className="px-2.5 py-1 rounded-full bg-[var(--app-surface-high)] hover:bg-[var(--app-surface-highest)] text-[11px] font-bold border border-[var(--app-border)] transition-all cursor-pointer text-[var(--app-text)]"
-          title={language === 'zh' ? 'Switch to English' : '切换为中文'}
+          title={language === 'zh' ? 'Switch to English' : 'Switch to Chinese'}
         >
           {language === 'zh' ? '中 / EN' : 'EN / 中'}
         </button>

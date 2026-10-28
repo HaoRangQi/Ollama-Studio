@@ -83,6 +83,21 @@ describe('mapOllamaModel', () => {
     expect(model.lastUsed).toContain('保留至');
   });
 
+  it('localizes model labels for English', () => {
+    const running: OllamaRunning = {
+      name: tag.name,
+      model: tag.model,
+      size: tag.size,
+      digest: tag.digest,
+      expires_at: '2026-10-28T01:00:00Z',
+      size_vram: 5_000_000_000
+    };
+    const model = mapOllamaModel(tag, running, 'en');
+    expect(model.description).toContain('Local Ollama model');
+    expect(model.gpuLayers).toBe('Loaded');
+    expect(model.lastUsed).toContain('Loaded until');
+  });
+
   it('handles tags without a version suffix', () => {
     const model = mapOllamaModel({ ...tag, name: 'llama3', model: 'llama3' });
     expect(model.name).toBe('llama3');

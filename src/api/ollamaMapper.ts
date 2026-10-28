@@ -56,7 +56,11 @@ export function formatContext(tag: OllamaTag): string {
   return String(length);
 }
 
-export function mapOllamaModel(tag: OllamaTag, running?: OllamaRunning): OllamaModel {
+export function mapOllamaModel(
+  tag: OllamaTag,
+  running?: OllamaRunning,
+  language: 'zh' | 'en' = 'zh'
+): OllamaModel {
   const fullTag = tag.name || tag.model;
   const colon = fullTag.lastIndexOf(':');
   const name = colon > 0 ? fullTag.slice(0, colon) : fullTag;
@@ -65,6 +69,10 @@ export function mapOllamaModel(tag: OllamaTag, running?: OllamaRunning): OllamaM
   const style = CATEGORY_STYLES[category];
   const details = tag.details;
   const capabilities = tag.capabilities?.length ? ` · ${tag.capabilities.join(' / ')}` : '';
+  const labels =
+    language === 'en'
+      ? { description: 'Local Ollama model', loaded: 'Loaded', until: 'Loaded until' }
+      : { description: '本地 Ollama 模型', loaded: '已加载', until: '保留至' };
 
   return {
     id: fullTag,
@@ -73,7 +81,7 @@ export function mapOllamaModel(tag: OllamaTag, running?: OllamaRunning): OllamaM
     fullTag,
     category,
     categoryLabel: style.categoryLabel,
-    description: `本地 Ollama 模型${details?.family ? ` · ${details.family}` : ''}${
+    description: `${labels.description}${details?.family ? ` · ${details.family}` : ''}${
       details?.parameter_size ? ` · ${details.parameter_size}` : ''
     }${capabilities}`,
     quantization: details?.quantization_level ?? '—',
@@ -84,10 +92,10 @@ export function mapOllamaModel(tag: OllamaTag, running?: OllamaRunning): OllamaM
     status: running ? 'running' : 'idle',
     vramUsage: running ? formatBytes(running.size_vram) : '—',
     sizeVramBytes: running?.size_vram ?? 0,
-    gpuLayers: running ? '已加载' : '—',
+    gpuLayers: running ? labels.loaded : '—',
     kvCache: '—',
     lastUsed: running?.expires_at
-      ? `保留至 ${new Date(running.expires_at).toLocaleTimeString()}`
+      ? `${labels.until} ${new Date(running.expires_at).toLocaleTimeString()}`
       : '—',
     note: details?.parameter_size,
     capabilities: tag.capabilities,
@@ -109,12 +117,16 @@ export function mapOllamaModel(tag: OllamaTag, running?: OllamaRunning): OllamaM
   };
 }
 
-export function mapOllamaModels(tags: OllamaTag[], running: OllamaRunning[]): OllamaModel[] {
+export function mapOllamaModels(
+  tags: OllamaTag[],
+  running: OllamaRunning[],
+  language: 'zh' | 'en' = 'zh'
+): OllamaModel[] {
   const runningByName = new Map<string, OllamaRunning>();
   for (const item of running) {
     runningByName.set(item.name, item);
     runningByName.set(item.model, item);
   }
 
-  return tags.map((tag) => mapOllamaModel(tag, runningByName.get(tag.name)));
+  return tags.map((tag) => mapOllamaModel(tag, runningByName.get(tag.name), language));
 }

@@ -691,7 +691,10 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                 {/* 卡片底部动作条 */}
                 <div className="pt-3 flex items-center justify-between bg-[var(--app-surface)] px-4 py-2.5 rounded-2xl border border-[var(--app-border)]">
                   <div className="flex items-center gap-2 text-[var(--app-text-muted)] text-[11px] min-w-0">
-                    <span className="material-symbols-outlined text-[16px] text-[#ffafd3] shrink-0">
+                    <span
+                      className="material-symbols-outlined text-[16px] shrink-0"
+                      style={{ color: 'var(--primary-accent)' }}
+                    >
                       schedule
                     </span>
                     <span className="truncate">
@@ -709,7 +712,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                             e.stopPropagation();
                             void handleToggleVram(model);
                           }}
-                          className="px-4 py-1.5 rounded-full bg-[#ba4385]/20 text-[#ffafd3] hover:bg-[#ba4385]/40 disabled:opacity-50 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
+                          className="px-4 py-1.5 rounded-full bg-[var(--app-danger-bg)] text-[var(--app-danger-text)] hover:bg-[var(--app-danger-bg-hover)] disabled:opacity-50 text-[11px] font-bold transition-colors flex items-center gap-1 cursor-pointer whitespace-nowrap shrink-0"
                         >
                           <span className="material-symbols-outlined text-[16px]">eject</span>
                           <span>{t.models.releaseVram}</span>

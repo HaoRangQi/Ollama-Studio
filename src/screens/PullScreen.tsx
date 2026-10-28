@@ -732,7 +732,9 @@ export const PullScreen: React.FC<PullScreenProps> = ({
 
             <div className="flex flex-col gap-1.5">
               <div className="flex justify-between items-center text-xs">
-                <span className="text-[var(--app-text)] font-medium">8B (Q4_K_M) ⭐ 推荐</span>
+                <span className="text-[var(--app-text)] font-medium">
+                  {language === 'zh' ? '8B (Q4_K_M) ⭐ 推荐' : '8B (Q4_K_M) ⭐ Recommended'}
+                </span>
                 <span className="font-code font-bold" style={{ color: 'var(--primary-accent)' }}>
                   5.2 GB · {t.pull.sweetBalance}
                 </span>
@@ -811,7 +813,11 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 [
                   { key: 'modelscope', label: 'ModelScope', icon: 'cloud_download' },
                   { key: 'huggingface', label: 'Hugging Face', icon: 'deployed_code' },
-                  { key: 'ollama', label: 'Ollama 官方', icon: 'travel_explore' }
+                  {
+                    key: 'ollama',
+                    label: language === 'zh' ? 'Ollama 官方' : 'Ollama Registry',
+                    icon: 'travel_explore'
+                  }
                 ] as const
               ).map(({ key, label, icon }) => (
                 <button

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getConnection } from '../api/ollama';
 import { mapOllamaModels } from '../api/ollamaMapper';
+import { useAppTheme } from '../context/ThemeContext';
 import { OllamaModel } from '../types';
 
 export type OllamaStatus = 'connecting' | 'online' | 'offline';
@@ -27,6 +28,7 @@ const DEFAULT_POLL_INTERVAL_MS = 5000;
  * The caller decides whether to fall back to demo data when status is offline.
  */
 export function useOllama(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseOllamaResult {
+  const { language } = useAppTheme();
   const [status, setStatus] = useState<OllamaStatus>('connecting');
   const [version, setVersion] = useState<string | null>(null);
   const [models, setModels] = useState<OllamaModel[]>([]);
@@ -34,37 +36,40 @@ export function useOllama(pollIntervalMs = DEFAULT_POLL_INTERVAL_MS): UseOllamaR
   const [error, setError] = useState<string | null>(null);
   const refreshInFlightRef = useRef<Promise<OllamaModel[]> | null>(null);
 
-  const refresh = useCallback(async (options?: RefreshOptions): Promise<OllamaModel[]> => {
-    if (!options?.silent) {
-      setStatus((current) => (current === 'online' ? current : 'connecting'));
-    }
-    // 轮询与手动刷新可能重叠：共享同一个请求，避免堆叠。
-    if (refreshInFlightRef.current) return refreshInFlightRef.current;
-
-    const run = (async () => {
-      try {
-        const connection = await getConnection();
-        const mapped = mapOllamaModels(connection.tags, connection.running);
-        setVersion(connection.version);
-        setModels(mapped);
-        setRunningCount(connection.running.length);
-        setStatus('online');
-        setError(null);
-        return mapped;
-      } catch (err) {
-        setStatus('offline');
-        setError(err instanceof Error ? err.message : String(err));
-        return [];
+  const refresh = useCallback(
+    async (options?: RefreshOptions): Promise<OllamaModel[]> => {
+      if (!options?.silent) {
+        setStatus((current) => (current === 'online' ? current : 'connecting'));
       }
-    })();
+      // 轮询与手动刷新可能重叠：共享同一个请求，避免堆叠。
+      if (refreshInFlightRef.current) return refreshInFlightRef.current;
 
-    refreshInFlightRef.current = run;
-    try {
-      return await run;
-    } finally {
-      refreshInFlightRef.current = null;
-    }
-  }, []);
+      const run = (async () => {
+        try {
+          const connection = await getConnection();
+          const mapped = mapOllamaModels(connection.tags, connection.running, language);
+          setVersion(connection.version);
+          setModels(mapped);
+          setRunningCount(connection.running.length);
+          setStatus('online');
+          setError(null);
+          return mapped;
+        } catch (err) {
+          setStatus('offline');
+          setError(err instanceof Error ? err.message : String(err));
+          return [];
+        }
+      })();
+
+      refreshInFlightRef.current = run;
+      try {
+        return await run;
+      } finally {
+        refreshInFlightRef.current = null;
+      }
+    },
+    [language]
+  );
 
   useEffect(() => {
     void refresh();
