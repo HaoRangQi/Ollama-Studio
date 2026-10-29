@@ -55,10 +55,11 @@
 | R-044 | 每 5 秒轮询带来的额外请求与双实例开销 | `useOllama` 默认每 5 秒请求 `/api/version`、`/api/tags`、`/api/ps`；并发刷新共享 Promise；`App` 与 `TelemetryScreen` 各有一个 hook 实例，遥测页打开时两套轮询并行（实测间隔约 5 秒，交错后约 2.5 秒一次）；静默轮询不切 `connecting` | 本地 Ollama 负载很小；若将来连接远程/慢速 Ollama 或模型列表很大，可能增加延迟与网络开销；页面隐藏时仍会轮询（浏览器会节流） | 已提供 `useOllama(0)` 关闭开关；只读接口；如需要可改为按页面可见性暂停或共享单一 hook 实例 | 已知（低），暂不优化 |
 | R-045 | 失败重试依赖任务里保存的来源信息 | `DownloadTask.source` 支持 ModelScope 的 `namespace/name/file/quant/modelName` 与 Hugging Face 的 `repo/file/quant/modelName`（D-141）；旧版本 localStorage 任务没有 source，重试回退用 `targetPath` 作为文件名，文件位于子目录时可能 404；没有 `kind` 的旧任务按 `.gguf` 后缀推断来源，若 targetPath 被改过可能误判；pull 任务按模型标签重跑，无法修正用户输错的标签 | 刷新后旧失败任务可能无法直接重试成功；错误命令原样重试仍会失败；误判来源会再次失败 | 失败卡显示“将重跑”的具体命令；pull 任务可“编辑命令”；远程 GGUF 任务使用持久化 source。CDP 已验证 pull / ModelScope / 旧任务推断与 HF 请求体，**未对真实模型源执行重试下载** | 已缓解，真实源待验证 |
 | R-046 | GGUF 导出依赖 manifest 布局与磁盘空间 | `server/exportGguf.ts` 同时查 `manifests/` 与 `manifests-v2/`，默认 registry 尝试 `registry.ollama.ai` 与 `ollama.com`；真实 0.8B 导出 529,297,312 字节，SHA256 与 manifest 一致；fixture 覆盖 model+projector、重名、越界目录、缺失 blob；**27B（21.8 GB）与跨文件系统未测** | 旧/新 Ollama manifest 布局变化会 404；跨卷完整复制可能耗时并占空间；导出文件只是权重，不含 template/license/params；用户可能误以为已注册回 Ollama | 导出目录白名单 + `realpath`；重名自动序号；复制后校验大小，失败删除半成品；APFS clone；错误返回 404/422/403/507。下一步用 27B 多模态模型导出到外接卷并校验 mmproj（R-046） | 部分验证 |
-| R-047 | daemon 自动控制可能中断服务或触发权限问题 | `GET /api/daemon` 本机识别 `ollama-app` 与 PID；`POST /api/daemon/control` 默认 403；命令由受控字段生成，未执行真实重启/停止；Ollama.app 走 AppleScript，macOS 可能弹 Automation 权限；systemd 命令含 sudo，未自动执行；Windows 未实现 | 重启/停止会中断推理与下载；权限失败会留下“已发送”但服务未恢复的误解；错误 manager 判断可能发错命令 | 默认仅复制命令；自动执行需 `ALLOW_DAEMON_CONTROL=1` + loopback + `confirm:true` + `canExecute`；systemd/普通进程不自动执行；执行后刷新状态并显示错误。真实重启需用户明确同意后测试（R-047） | 未验证自动执行 |
+| R-047 | daemon 自动控制可能中断服务或触发权限问题 | 2026-10-29 本机实测通过：`open -a Ollama` 成功拉起 serve，`kill <appPid>` 停止后 app 主进程与 serve 一并退出；AppleScript `tell application "Ollama" to quit` 实测弹 macOS Automation 权限对话框并以 `-128` 失败，已改为 `kill <appPid>`；launchd label `com.ollama.ollama` 实测指向 Squirrel 更新器而非 serve 本体，已改为优先按"Ollama.app 已安装"判定；`process` 分支的 `ollama serve` 兜底启动与 launchd 分支未实测；systemd 含 sudo 不自动执行；Windows 未实现 | 启动/停止会中断推理与下载；`process` 启动后进程无人托管，本应用退出或重启机器都不回收；错误 manager 判断可能发错命令 | 自动执行需 `ALLOW_DAEMON_CONTROL=1` + loopback + `confirm:true` + `executable[action]`；systemd/unknown 不自动执行；start/stop 幂等短路，restart 在未运行时归一为 start；Header 按钮在开关关闭时仍可点并给出设置指引 | 部分缓解：Ollama.app 形态已实测，launchd/process/systemd 分支未实测 |
 | R-048 | 系统指标口径与平台差异 | `/api/metrics` 真实返回磁盘、内存、CPU 与 `ioreg` GPU；GPU 仅 macOS，`ioreg` 字段可能随系统变化；`os.freemem()` 是“空闲”而非 inactive/cached 可用量；ANE 无公开 API，固定不可用；Linux/Windows 与命令失败分支未实测 | 用户可能把“空闲内存”当作“可用内存”，或在非 macOS 看到不可用而误以为功能坏了；`ioreg` 改版可能使 GPU 永远不可用 | 返回 `reason` 并在 UI 显示；内存文案用“空闲”；GPU 不可用时保留 Ollama 自己报告的 VRAM；ANE 明确“无公开指标”。下一步在 Linux/Windows 与 `ioreg` 失败场景验证（R-048） | 部分验证 |
 | R-049 | Hugging Face 服务端直下依赖 Node 网络、20 GB 上限与 Ollama CLI | `server/huggingface.ts` 用 Node `fetch` 跟随 HF 302 到 CDN，单文件上限 20 GB，无断点续传；下载完成后执行本机 `ollama create`；只选一个 GGUF，分片与 `mmproj`/`projector` 不自动处理；菜单栏 App 的代理变量取决于启动方式（本次运行实例 `ps eww` 可见 `HTTP_PROXY/HTTPS_PROXY`），纯 HTTP 代理且 Node 未读取环境变量时可能直连失败 | 下载失败、只能手动导入；多模态模型可能缺少 projector；暂停/重试会重新下载；HF API/CDN 不可达时失败 | 任务卡显示错误并可重试；真实小文件下载（1,185,376 字节）+ 假 CLI 验证完整阶段与临时目录清理；CDP 验证搜索结果和 `hf.co/...` 输入均发送 `kind:"huggingface"`；真实大模型下载、真实 `ollama create` 与纯 HTTP 代理环境未验证 | 部分验证 |
 | R-050 | macOS 菜单栏 App 未公证且依赖固定端口 3210 | Swift `NSStatusItem` 封装内嵌 Node、`server.js` 与 `dist/`；ad-hoc 签名、未公证，无登录项/自动更新；固定监听 `127.0.0.1:3210`；内置 `server/package.json` 声明 `{"type":"module"}`；本次从 `build/` 构建并启动，未安装到 `/Applications`，Finder 启动环境与终端不同 | Gatekeeper 首次启动可能拦截；3210 被占用时服务无法启动；Finder 启动可能不继承终端代理变量；不重新打包会继续运行旧前端；无自动更新 | DMG 与 `RUNBOOK.md` 19 记录构建/启动方法；`build.sh` 检测运行中的 App 并拒绝覆盖；Web/生产服务器仍可独立使用；日志写入 `~/Library/Logs/Ollama Studio Menu/`；当前包已验证监听 3210 与 HF 参数校验；2026-10-29 起通过 GitHub Release 分发 v0.1.0 DMG（ad-hoc 签名），下载副本首次启动需在 Finder 右键打开 | 部分验证 |
+| R-051 | 模型来源记录是下载时快照，可能过期或指向被删仓库 | `src/lib/modelOrigin.ts` 把来源写进 localStorage 键 `ollama_model_origin_v1`（上限 200 条，按插入顺序淘汰），只记录 ModelScope 的 `namespace`/`name` 与 Hugging Face 的 `repo`；模型删除后记录不清理，同名模型从另一渠道重新下载会覆盖；手动 `ollama pull` 的模型没有记录 | 用户点"查看渠道页面"可能遇到 404/仓库改名/文件已删除；记录过期后无法自动发现新地址；localStorage 被清空或跨浏览器不同步 | 菜单项未命中时显示 disabled 并说明未记录来源，不伪装成可用链接；URL 由服务端已知的 `repo`/`namespace`/`name` 拼装，不含用户输入，无法构造越权链接；上限淘汰避免无限增长。下一步：确认是否需要在模型删除时同步清理记录 | 已缓解 |
 
 ## 建议优先级
 
@@ -67,11 +68,12 @@
 3. **R-028**：用 `minicpm-v-4.7-1b-heretic:q4_k_m` 在真实 UI 验证加载/释放与 `/api/ps`，测试后卸载。
 4. **R-024 / R-049**：应用内 HF 直下已用小文件 + 假 CLI 验证；下一步在真实环境下载一个真实小模型并执行真实 `ollama create`，正常网络复测原生 `hf.co` pull 作为对照。
 5. **R-046**：用 27B 多模态模型导出到外接卷，校验 model + mmproj 与磁盘空间；测试后删除导出文件。
-6. **R-047**：获得用户明确同意且无下载/推理时，设置 `ALLOW_DAEMON_CONTROL=1` 测试一次重启，记录 Automation 权限与恢复结果。
+6. **R-047**：Ollama.app 形态的启动/停止/重启已于 2026-10-29 实测通过；剩余待测：命令行形式安装（`process` 分支的 `ollama serve` 兜底启动）、launchd 独立托管形态、Linux systemd。
 7. **R-048**：在 Linux/Windows 与 `ioreg` 失败场景验证指标回退文案。
 8. **R-029 / R-019 / R-025**：配置远端后观察 CI；确认是否需要更强的代理鉴权/TLS。
 9. **R-015 / R-021 / D-131**：评估 Playwright + axe，或继续人工验收。
 10. **R-017 / R-026 / R-027 / R-030 / R-032**：缓存权限、图标子集化、TS 升级、附件存储与视频编码作为维护项。
 11. **R-050**：安装菜单栏 App 到 `/Applications`、验证 Finder 启动与真实模型下载；需要分发时再评估 Developer ID 签名与公证。
+12. **R-051**：确认模型删除时是否同步清理来源记录；来源跳转链路已在 CDP 实测（本地模型命中并指向正确 HF 仓库页），未验证仓库改名/删除后的 404 表现。
 
 > 以上是建议，不是已确认决策；执行前在 `DECISIONS.md` 中确认对应事项。

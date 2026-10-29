@@ -2,7 +2,7 @@
 
 > 目录、版本、配置与部署关系。定位修改对象时读；版本以 `package.json` / `package-lock.json` 为准。
 >
-> 最后核验：2026-10-29；范围：仓库根目录、`src/`、`server/`、`server.ts`、`macos/menu-bar/`、构建/类型/测试/CI 配置、脚本、已安装依赖、真实拉取/删除/克隆/创建、ModelScope / Hugging Face 搜索与下载、后台下载任务、缓存扫描/清理（fixture）、GGUF 导出（fixture + 真实 0.8B）、系统指标与 daemon 只读检测、令牌鉴权、持久化、Chat 导航视觉与 headless DOM 冒烟。已执行安装、`typecheck`、`lint`、`format:check`、`test`、`build`、菜单栏 App 构建/启动、代理与鉴权验证；未执行 daemon 自动重启/停止。
+> 最后核验：2026-10-29；范围：仓库根目录、`src/`、`server/`、`server.ts`、`macos/menu-bar/`、构建/类型/测试/CI 配置、脚本、已安装依赖、真实拉取/删除/克隆/创建、ModelScope / Hugging Face 搜索与下载、后台下载任务、缓存扫描/清理（fixture）、GGUF 导出（fixture + 真实 0.8B）、系统指标与 daemon 只读检测、令牌鉴权、持久化、Chat 导航视觉与 headless DOM 冒烟。已执行安装、`typecheck`、`lint`、`format:check`、`test`、`build`、菜单栏 App 构建/启动、代理与鉴权验证；daemon 自动启动/停止/重启已对 Ollama.app 形态实测通过，普通进程与独立 launchd 形态未实测。
 
 ## 目录结构
 
@@ -27,7 +27,7 @@ ollama-studio/
 ├── server/cache.ts            # Ollama 模型目录与临时目录扫描、明细、清理与文件管理器定位
 ├── server/exportGguf.ts       # manifest → GGUF 导出（model/projector、目录校验、重名、APFS clone）
 ├── server/metrics.ts          # 磁盘/内存/CPU 指标，macOS ioreg GPU 解析，ANE 不可用说明
-├── server/daemon.ts           # Ollama.app/launchd/Homebrew/systemd/进程检测与可选控制命令
+├── server/daemon.ts           # Ollama.app/launchd/Homebrew/systemd/进程检测与可选启动/重启/停止命令
 ├── .github/workflows/ci.yml   # typecheck/lint/format/test/build
 ├── .env.example
 ├── .gitignore
@@ -77,8 +77,10 @@ ollama-studio/
     │   ├── daemonConfig.ts     # 环境变量 → ollama serve 启动命令
     │   ├── markdown.ts         # fenced code block 解析
     │   ├── attachments.ts      # 图片压缩、视频抽帧、base64 转换
+    │   ├── modelOrigin.ts      # 下载来源登记与渠道页面 URL
     │   └── *.test.ts
     ├── hooks/useOllama.ts      # connecting | online | offline；5 秒静默轮询与并发去重
+    ├── hooks/useDaemonControl.ts # /api/daemon 轮询 + 启动/重启/停止（仅遥测页服务控制面板调用）
     ├── hooks/useDismissable.ts # 点击外部 / Esc 关闭浮层
     ├── components/
     │   ├── Sidebar.tsx         # 桌面侧栏（lg+）
@@ -185,6 +187,7 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 - ModelScope（默认）：`/api/modelscope/search?q=...` → 服务端追加 `gguf`、并发拉取文件列表并推导量化；下载由 `server/downloads.ts` 调 `pullFromModelScope`。
 - Hugging Face：搜索走 `/api/hf/api/models?search=...&filter=gguf&sort=downloads&expand[]=siblings` → JSON；`src/api/catalog.ts` 提取 id/downloads/likes/tags、`files` 与量化（排除分片和 mmproj）。下载由 `server/downloads.ts` 调 `server/huggingface.ts`：服务端请求 `https://huggingface.co/<repo>/resolve/<revision>/<file>` 并跟随 302 到 CDN，下载后执行 `ollama create`；直接输入 `hf.co/<repo>:<quant>` 且缺少文件路径时，读取 HF API 文件列表按量化解析（D-141）。
 - Ollama 官方：`/api/catalog/search?q=...` → 转发 `https://ollama.com/search` HTML；`DOMParser` 提取 `a[href^="/library/"]`、`h2`、`p`。
+- 模型来源：下载成功后 `src/App.tsx` 按 `job.kind` 调 `src/lib/modelOrigin.ts` 的 `recordModelOrigin`，写入 `ollama_model_origin_v1`；`ModelsScreen` 卡片菜单用 `lookupModelOrigin` 命中则渲染“查看渠道页面”链接（`originUrl`：HF → `https://huggingface.co/<repo>`，ModelScope → `https://modelscope.cn/models/<namespace>/<name>`），未命中为 disabled（D-144）。
 - 搜索代理都是只读；失败时 UI 显示官网兜底链接。
 
 ### App 级状态
@@ -200,10 +203,10 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 ### 页面内状态
 
 - `ModelsScreen`：分类、搜索、布局、参数（持久化默认值）、加载/释放显存、删除/克隆；空模型时显示拉取入口。
-- `PullScreen`：CLI 输入、精选列表、分类、ModelScope/HF/Ollama 搜索、下载任务卡、GGUF 拖拽/选择。
+- `PullScreen`：CLI 输入、精选列表、分类、ModelScope/HF/Ollama 搜索、下载任务卡、GGUF 拖拽/选择。搜索词、渠道与 CLI 输入写入 localStorage（`ollama_catalog_query_v1`、`ollama_catalog_source_v1`、`ollama_pull_input_v1`），切换标签页或刷新后保留；搜索结果本身不持久化。
 - `ChatScreen`：多会话、消息流、生成中标记、参数面板、JSON/人设、思考折叠、代码块复制、图片/视频附件（视频抽帧、缩略图、移除、拖放）。
 - `ModelfileLabScreen`：基础模型、参数、System Prompt、真实 `/api/create` 构建；无模型时显示空状态。
-- `TelemetryScreen`：实时连接状态、模型/显存统计、事件日志、磁盘/内存/CPU/GPU 指标、全部卸载运行模型、daemon 界面配置持久化、缓存扫描与清理确认弹窗（逐文件明细、文件管理器定位）、服务检测与可复制重启/停止命令；ANE 无公开指标。
+- `TelemetryScreen`：实时连接状态、模型/显存统计、事件日志、磁盘/内存/CPU/GPU 指标、全部卸载运行模型、daemon 界面配置持久化、缓存扫描与清理确认弹窗（逐文件明细、文件管理器定位）、服务检测与可复制启动/重启/停止命令；ANE 无公开指标。
 
 ### 数据来源汇总
 
@@ -233,7 +236,7 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 
 ### `package.json`
 
-- 包名 `ollama-studio`，版本 `0.1.0`，`private: true`，`license: Apache-2.0`，`type: module`。
+- 包名 `ollama-studio`，版本 `0.2.0`（唯一来源：`package.json`；`build.sh` 据此生成 DMG 名并注入 `Info.plist`），`private: true`，`license: Apache-2.0`，`type: module`。
 - 脚本：
   - `dev`：`vite --port=3000 --host=127.0.0.1`
   - `dev:lan`：`vite --port=3000 --host=0.0.0.0`

@@ -329,6 +329,23 @@
 - **理由**：不引入 Electron/Tauri，不改变现有 Web 形态；Swift 菜单栏壳体积小、常驻状态栏，浏览器继续承担主界面，下载、聊天等服务端能力可直接复用。
 - **范围/风险**：仅 macOS；固定端口 3210；ad-hoc 签名、未公证、无登录项/自动更新；内置 `server/package.json` 必须声明 `{"type":"module"}`；未验证安装到 `/Applications`、Finder 启动代理继承与真实模型下载（R-050）。
 
+### D-143 服务控制补齐 start，入口常驻 Header，Ollama.app 用 kill 停止
+
+- **状态**：已确认（2026-10-29）。
+- **内容**：`POST /api/daemon/control` 的 `action` 从 `restart|stop` 扩展为 `start|restart|stop`；`DaemonInfo` 新增 `startCommand` 与 `executable`（按 action 的可执行矩阵），`canExecute` 降级为兼容字段。`resolveDaemonManager` 在 macOS上把"已安装 Ollama.app"纳入判定，serve 未运行时也判 `ollama-app`。`ollama-app` 的 stop/restart 由 AppleScript 改为 `kill <appPid>`。`start`/`stop` 幂等短路；`restart` 在服务未运行时归一为 `start`。启停逻辑抽到 `src/hooks/useDaemonControl.ts`，入口统一放在遥测页"服务控制"面板（含启动/重启/停止按钮与启动命令复制），顶栏只保留连接状态与刷新。
+- **内容（2026-10-29 修订）**：用户要求把关停/重启从头菜单移到遥测页。理由：顶栏是全局常驻区，误触会直接中断服务与下载；而"服务控制"面板本身已含 manager 说明、命令复制、`controlEnabled` 开关状态与 `process` 托管提示，信息上下文更完整。修订后 Header 不再渲染任何启停按钮（三档视口 390/768/1440 实测均无），遥测页的启动/重启/停止按钮改为**总是渲染**——`controlEnabled` 为 false 时不再整组消失，而是可点、hover 给出"需设置 `ALLOW_DAEMON_CONTROL=1`"提示、点击后 toast 报错（CDP 实测）。`useDaemonControl` 中从未被调用的 `canRun` 一并删除，判定只剩 `disabledReason` 一处。
+- **依据/来源**：`server/daemon.ts`、`server/daemon.test.ts`、`src/api/daemon.ts`、`src/hooks/useDaemonControl.ts`、`src/components/Header.tsx`、`src/screens/TelemetryScreen.tsx`、`RUNBOOK.md` 18；用户要求"一键唤起和一键关停"，并选择"负责启动，没装不管"。
+- **理由**：原来只有 stop/restart，Ollama 未启动时界面给不出可用入口；判定逻辑两处各写一套 `controlEnabled && canExecute` 必然漂移，抽成 hook 后判定只有一处。`kill <appPid>` 取代 AppleScript 是因为后者实测弹 macOS Automation 权限对话框并以 `-128` 失败。2026-10-29 修订把入口从头菜单收到遥测页：顶栏误触会直接中断服务，而面板里已有 manager 说明、命令复制与开关状态提示，上下文更完整。
+- **范围/风险**：`ALLOW_DAEMON_CONTROL` 默认关闭的策略不变（D-137），未设时按钮仍可点、hover 给提示、点击后报错，而不是隐藏。`process` 分支的 `ollama serve >/dev/null 2>&1 &` 兜底启动未实测（本机是 Ollama.app 形态）；launchd 分支同样未实测。`process` 启动后进程由 Ollama 自管，本应用退出或重启机器都不回收，UI 已注明。菜单栏 App 未提供 `ALLOW_DAEMON_CONTROL` 入口，那里的自动控制仍等于关闭（R-047）。遥测页"服务控制"面板默认折叠，需手动展开。
+
+### D-144 下载时登记模型来源，卡片菜单跳转渠道页面；量化标签不再截断
+
+- **状态**：已确认（2026-10-29）。
+- **内容**：新增 `src/lib/modelOrigin.ts` 与 localStorage 键 `ollama_model_origin_v1`，记录 `{ [模型全 tag]: { repo? | namespace?+name?, file, quant, modelName } }`，上限 200 条、按插入顺序淘汰、内容损坏按未登记处理。登记时机选在下载成功之后（`src/App.tsx` 按 `job.kind` 分流写入），不在搜索时写入：搜索结果里同一个模型可能被反复展开，来源应以"最终下载了哪个渠道"为准。模型卡片“⋮”菜单新增“查看渠道页面”，命中渲染 `<a>` 指向 HF 仓库页或 ModelScope 模型页（`target="_blank"` + `rel="noreferrer noopener"`），未命中渲染 disabled 按钮并说明未记录来源。同时 `extractQuants` 去掉 `slice(0, 12)`，数据层返回全部可识别量化，折叠交给 UI。
+- **依据/来源**：`src/lib/modelOrigin.ts`、`src/lib/modelOrigin.test.ts`、`src/App.tsx`、`src/screens/ModelsScreen.tsx`、`src/api/catalog.ts`、`src/api/catalog.test.ts`、`RUNBOOK.md` 12/20；用户要求"查询的时候卡片就有记录，这个时候卡片是可以跳转去对应页面的，下载的时候记下来"，并反馈"下载的时候看到的标签没有里面描述写的多"。
+- **理由**：手动 `ollama pull` 进来的模型没有下载来源，只能显示 disabled；同名的模型从另一渠道重新下载时覆盖为最新来源。来源是下载时快照，不随远端变化更新。量化截断在数据层砍掉尾部量化，UI 的“+N”因此永远展不全，属于把展示职责放错了层。
+- **范围/风险**：localStorage 有体积上限（通常 5 MB），200 条来源记录远低于此；模型删除后记录不清理，靠上限淘汰。渠道页面 URL 由服务端已知的 `repo`/`namespace`/`name` 拼装，不包含用户输入的文件路径，无法构造越权链接。`extractGgufFiles` 仍保留 `slice(0, 40)`（文件级上限），去重后量化数通常远小于 40。
+
 ## 待决策（尚未决定）
 
 以下事项**不是已选型**，不要据此声称已决定。确认后把对应条目移入“已确认”，写明理由、范围和来源。

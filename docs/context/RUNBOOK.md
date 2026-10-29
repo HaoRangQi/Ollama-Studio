@@ -53,7 +53,7 @@
 ### 4. 单元测试
 
 - 命令：`npm test`（监听：`npm run test:watch`；覆盖率：`npm run coverage`）
-- 结果：**已执行（2026-10-29）通过**：15 个测试文件、133 个测试。
+- 结果：**已执行（2026-10-29）通过**：17 个测试文件、164 个测试。
 - 覆盖：NDJSON 分片/错误/中止、`pullModel`、`loadModel`/`unloadModel`（generate/embed/keep_alive）、模型映射、会话存储与 v1→v2 迁移、模型参数归一化、下载任务中断与失败任务 source 持久化、GGUF 名称与空上传、附件类型判定与 base64 转换、ModelScope URL/量化映射、Hugging Face URL/文件解析/下载管线（mock `ollama create`）、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF manifest 解析/model/projector 导出/重名与目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 解析与 daemon 命令构建、`ollama serve` 命令生成。
 - 未覆盖：真实浏览器、真实 Ollama 流、真实模型加载/卸载、GGUF 成功导入（需 CLI）、真实视觉模型推理与视频解码兼容性。
 
@@ -160,6 +160,7 @@
 - 参数校验：`namespace=../etc` → `{"status":"error","error":"namespace 含非法字符。"}`；`file=README.md` → `仅支持 .gguf 文件。`。
 - 中断清理：下载 5 秒后断开连接，`/tmp/ollama-studio-ms-*` 无残留。
 - 生产服务器同样挂载 `/api/modelscope/search` 与 `/api/modelscope/pull`，且受 `PROXY_TOKEN` 保护；**生产路径未单独复测**。
+- 量化标签完整性（2026-10-29 修复）：`extractQuants` 曾用 `slice(0, 12)` 截断，导致模型页声明 15 个量化时卡片只展示前 12 个（`Q5_K_S`/`Q6_K`/`Q8_0` 被砍），“+N”永远展不全。现已去掉截断，数据层返回全部可识别量化，折叠由 UI 负责（预览 8 个 + “+N”）。注意 `extractGgufFiles` 仍有 `slice(0, 40)`（文件级上限），但量化去重后通常远小于 40。**已执行（2026-10-29，CDP 实测）通过**：`MiniCPM-V-4.7-1B-heretic` 声明 15 个量化，卡片显示 8 个 + “+7”，展开后 15 个与 HF 页面文件列表一致。
 
 ### 13. 后台下载任务（`/api/downloads`）
 
@@ -219,17 +220,23 @@
 
 ### 18. 服务检测、控制与启动命令（`/api/daemon`）
 
-- 检测：`curl -s http://127.0.0.1:5303/api/daemon` → `manager`（`ollama-app` / `launchd` / `brew` / `systemd` / `process` / `unknown`）、`running`、`pid`、`restartCommand`、`stopCommand`、`canExecute`、`controlEnabled`。
-- 控制：`curl -s -X POST http://127.0.0.1:5303/api/daemon/control -H 'content-type: application/json' -d '{"action":"restart","confirm":true}'`。默认返回 403；只有服务启动时设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且 `canExecute` 为真才执行。Ollama.app 使用 `osascript` 退出 + `open -a Ollama`；launchd 使用 `launchctl kickstart -k`；Homebrew 使用 `brew services restart ollama`；systemd 只生成 `sudo systemctl ...`，不自动执行。
-- 结果：**已执行（2026-10-28，只读检测）通过**。本机识别 `ollama-app`、PID 6928 与重启/停止命令；未设置开关时 `POST` 返回 403。CDP 确认服务控制面板显示管理方式、命令与“自动执行默认关闭”。**未执行真实重启/停止**，macOS Automation 权限、下载/推理中断与 systemd/Windows 分支未验证。
+- 检测：`curl -s http://127.0.0.1:5303/api/daemon` → `manager`（`ollama-app` / `launchd` / `brew` / `systemd` / `process` / `unknown`）、`running`、`pid`、`startCommand`、`restartCommand`、`stopCommand`、`executable`（按 action 的可执行矩阵）、`canExecute`（兼容字段）、`controlEnabled`。
+- 控制：`curl -s -X POST http://127.0.0.1:5303/api/daemon/control -H 'content-type: application/json' -d '{"action":"start","confirm":true}'`，`action` 取 `start` / `restart` / `stop`。默认返回 403；只有服务启动时设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且 `executable[action]` 为真才执行。Ollama.app：启动 `open -a Ollama`，停止 `kill <appPid>`；launchd 用 `launchctl kickstart -k`；Homebrew 用 `brew services start/restart/stop ollama`；systemd 只生成 `sudo systemctl ...`，`executable` 恒为 false；`process` 只给 `ollama serve >/dev/null 2>&1 &`（启动后可执行，停止/重启不可）；`unknown` 无任何命令。
+- `executable` 矩阵：`ollama-app` 运行时三项全 true，未运行时仅 `start`；`process` 仅 `start`；`systemd`、`unknown` 三项全 false。
+- 幂等与归一化：`start` 时已在运行、`stop` 时已停止 → 200 `{ already: true }`，不发命令。`restart` 在服务未运行且 `start` 可执行时归一为 `start`，响应中 `requested` 保留原始值。
+- 结果：**已执行（2026-10-29，本机实测）通过**。完整走通 start → stop → start 与 restart：`open -a Ollama` 成功拉起 serve（PID 12731/16258/19453/24314 多轮），`kill <appPid>` 停止后 serve 与 app 主进程一并退出；stop 幂等返回 `already`；停止后 restart 归一为 start 成功拉起。CDP 验证遥测页"服务控制"面板（默认折叠，需点标题展开）：运行时显示"停止服务/执行重启"，未运行时显示"启动服务"，点击后状态与按钮同步更新；`controlEnabled: false` 时按钮仍可点、hover 提示设置方法、点击后 toast 显示"服务控制失败：自动控制未启用。设置 ALLOW_DAEMON_CONTROL=1 并重启本应用。"。
+- UI 入口（2026-10-29 修订）：启停按钮只在遥测页"服务控制"面板，**顶栏不再保留**（390/768/1440 三档视口 CDP 实测 Header 只剩连接状态 pill 与刷新按钮）。面板里同时有 manager 说明、启动/重启/停止命令复制与 `controlEnabled` 状态，上下文比顶栏完整；顶栏误触会直接中断服务与下载。面板内启动/重启/停止按钮总是渲染，`controlEnabled` 为 false 时不再整组消失。见 `DECISIONS.md` D-143。
+- 已知限制：`ollama serve` 兜底启动（`process` 分支）**未实测**——需要命令行形式安装 Ollama 且无 Ollama.app/launchd/brew 托管。launchd 分支**未实测**（本机为 Ollama.app 形态）。macOS Automation 权限：AppleScript 的 `tell application "Ollama" to quit` 实测弹权限对话框并以 `-128`（用户已取消）失败，因此 `ollama-app` 的 stop 改用 `kill <appPid>`；若用户在系统设置里拒绝过权限，`kill` 不受影响。
 - 环境变量：遥测页的 `OLLAMA_HOST` / `OLLAMA_MODELS` / `OLLAMA_NUM_PARALLEL` / `OLLAMA_KEEP_ALIVE` / `OLLAMA_FLASH_ATTENTION` 只写入浏览器 `localStorage`（`ollama_daemon_config_v1`），并生成可复制的 `ollama serve` 命令；不修改系统环境，需用户重启 Ollama 后生效。
-- 安全：命令由服务端根据检测到的 manager/label/uid 生成，不接受用户传入的 shell 片段；`launchd` label 会校验；控制接口同时受可选 `PROXY_TOKEN` 保护。
+- 安全：命令由服务端根据检测到的 manager/label/uid/appPid 生成，不接受用户传入的 shell 片段；`launchd` label 会校验；控制接口同时受可选 `PROXY_TOKEN` 保护。
+- `process` 分支启动命令的 `&` 与 `>/dev/null 2>&1` 缺一不可：`execFile` 用 pipe 接管子进程 stdout，只加 `&` 会让后台进程继承管道，请求阻塞到 timeout（实测 `sleep 5` 5015ms、仅 `&` 6004ms、带重定向 8ms）。
 
 ### 19. 菜单栏 App 打包与启动
 
 - 命令：`npm run build:menu`（`macos/menu-bar/build.sh`）。
 - 前置：macOS 与 Xcode Command Line Tools（`swift` / `swiftc` / `iconutil` / `hdiutil` / `codesign`）；先退出正在运行的 `Ollama Studio Menu`，否则脚本报错退出。
-- 产物：`build/Ollama Studio Menu.app`（约 127 MB）与 `build/Ollama Studio Menu-0.1.0.dmg`（约 47 MB）。
+- 产物：`build/Ollama Studio Menu.app`（约 127 MB）与 `build/Ollama Studio Menu-<version>.dmg`（约 47 MB）。
+- 版本号唯一来源是 `package.json`：`build.sh` 读它生成 DMG 文件名，并通过 `sed` 把 `__APP_VERSION__` 注入 `Info.plist` 的 `CFBundleShortVersionString` / `CFBundleVersion`（源 plist 不写死版本）。2026-10-29 治理前版本号硬编码在 5 处（`package.json`、`build.sh`、`Info.plist`、两份 README），发版需手工同步。
 - 内置：`Contents/Resources/runtime/node`、`server/server.js`、`server/dist/` 与 `server/package.json`（`{"type":"module"}`）。`package.json` 必须随包分发：它声明 ESM，并让 Node 不再向上遍历父目录查找模块类型；缺失时从受保护目录启动会卡在 package.json 查找，安装到 `/Applications` 后则可能按 CommonJS 解析而启动失败。
 - 启动：`open "build/Ollama Studio Menu.app"`；服务监听 `127.0.0.1:3210`，菜单栏出现图标，默认打开浏览器。
 - 验证：**已执行（2026-10-29）通过**。重新打包后启动，Node 子进程正常监听 `127.0.0.1:3210`；`POST /api/downloads` 的非法 HF 仓库返回 400 `Hugging Face 仓库格式应为 owner/name。`，`file:"../model.gguf"` 返回 400 `文件路径非法。`，确认内置服务已是 HF 服务端直下版本。
@@ -237,6 +244,15 @@
 - 2026-10-29 09:25 重新打包（渠道切换保留输入修复后）：App 启动后 `OllamaStudioMenu` PID 64633、内置 Node PID 64664 监听 `127.0.0.1:3210`，`/healthz` 200；headless Chrome 在打包页面输入 “MiniCPM5-2B” 后切到 Hugging Face，输入值保留、占位文案更新、旧结果清空。
 - 2026-10-29 11:03 重新打包（界面与离线提示更新后）：`npm run build:menu` 退出码 0，产物 `build/Ollama Studio Menu.app` 127 MB、DMG 46 MB；App 重启后 `OllamaStudioMenu` PID 39820 监听 `127.0.0.1:3210`，`/healthz` 200；通过 System Events 定位状态栏项目（1416,3）并截屏确认打包后的外观已生效。
 - 未验证：通过 App 发起真实 HF 下载或真实 `ollama create`；安装到 `/Applications`、登录项、自动更新、Developer ID 签名与公证。
+- 2026-10-29 20:24 重新打包（模型来源跳转 + 量化标签修复后）：`npm run build:menu` 退出码 0，产物 `build/Ollama Studio Menu.app` 127 MB、DMG 46 MB；旧 App 退出并释放 `127.0.0.1:3210` 后，新 App 已替换安装到 `/Applications/Ollama Studio Menu.app` 并启动，`GET /` 返回 200 且页面引用新 bundle `assets/index-uqZ7ePF8.js`。
+
+### 20. 模型来源登记与渠道页面跳转
+
+- 存储键：`ollama_model_origin_v1`（`src/lib/modelOrigin.ts`），结构 `{ [模型全 tag]: { repo? , namespace?/name? , file, quant, modelName } }`，上限 200 条，超出按插入顺序淘汰；内容损坏或字段类型不符时按未登记处理。
+- 登记时机：`src/App.tsx` 在下载任务成功（`job.status === 'succeeded'`）后，按 `job.kind` 写入：ModelScope 记 `{namespace, name, file, quant, modelName}`，Hugging Face 记 `{repo, file, quant, modelName}`；`quant` 取用户本次选中的量化（`downloadQuantRef`，避免闭包读到旧值）。
+- 跳转：模型卡片“更多操作”菜单里的“查看渠道页面”条目，命中时渲染 `<a>` 指向 `https://huggingface.co/<repo>` 或 `https://modelscope.cn/models/<namespace>/<name>`（`target="_blank"` + `rel="noreferrer noopener"`），标题展示 `渠道名 · URL`；未登记的模型渲染 `disabled` 按钮并提示未记录来源。
+- 结果：**已执行（2026-10-29，CDP 实测）通过**。为本地模型 `handy-computer/qwen3-asr-1.7b-gguf:q8_0` 写入 HF 来源记录后打开卡片菜单，条目为可点击链接 `查看渠道页面 · Hugging Face`，`href` 为 `https://huggingface.co/handy-computer/qwen3-asr-1.7b-gguf`，未禁用。
+- 注意：来源是下载时快照，模型删除后记录仍在；同一个模型名重新从另一渠道下载会覆盖为最新来源。用户手动 `ollama pull` 的模型没有记录，条目呈 disabled。
 
 ## Ollama 连通性检查
 
@@ -272,6 +288,7 @@
 - 2026-10-29：推送 Chat 图标复刻提交 `daa9d11`（`a6baa0a..daa9d11`）；GitHub Actions 运行 `40745267318` 全步骤成功。
 - 2026-10-29：推送 `f41033d..0f76bae`（外观更新、离线提示、渠道输入、文档四个提交）；GitHub Actions 运行 `40810571295` 全步骤成功。
 - 2026-10-29：发布首个 GitHub Release `v0.1.0`（tag 指向 `0f76bae`），附件 `Ollama.Studio.Menu-0.1.0.dmg` 48,175,616 字节，SHA256 `e405e7f272c63e1cb7dd835f1737a443cc2dd44e12c8309788c9e3a9d0abefc6`；Releases 仅保留该版本（无草稿、无预发布）。发布手动执行，无自动发布流水线。未在 `/Applications` 安装该 DMG，也未通过 App 发起真实模型下载。
+- 2026-10-29：发布 `v0.2.0`，附件 `Ollama.Studio.Menu-0.2.0.dmg` 48,175,616 字节，SHA256 `d0edc737008b961556b7255a2347b5740a80980442aa143bde4f6464261e6f62`。DMG 名由 `package.json` 版本生成，包内 `CFBundleShortVersionString` / `CFBundleVersion` 同为 0.2.0（已用 `plutil` 核对）。该 DMG 已安装到 `/Applications/Ollama Studio Menu.app` 并启动，`GET /` 返回 200。发布手动执行，无自动发布流水线。
 - 许可证：Apache-2.0（`LICENSE`）。
 
 ## 文档变更检查清单

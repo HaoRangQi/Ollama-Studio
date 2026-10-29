@@ -4,7 +4,7 @@
 >
 > 更新日期：2026-10-29
 > 核验对象：仓库根目录、`src/`、`server/`、`server.ts`、`vite.config.ts`、`package.json`、`tsconfig.json`、`macos/menu-bar/`、测试与 CI 配置、`docs/context/`
-> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线；并接入 ModelScope 渠道、服务端后台下载任务、浮层外部点击关闭与 Ollama 缓存扫描/清理。2026-10-29 修复缓存清理忽略 `manifests-v2` symlink 的误删事故（D-140、R-042），把 Hugging Face 下载改为服务端直下 GGUF + `ollama create`（D-141、R-049），新增 macOS 菜单栏封装（D-142、R-050），并按首版复刻 Chat 导航图标（显式组合 `chat` + `_` + `spa` + `rk`）。2026-10-29 重写 README 安装/开发章节，修复切换模型库渠道清空输入，离线提示标题加大加粗标红，并更新菜单栏 App 外观与打包产物，发布首个 GitHub Release `v0.1.0`。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载；事故后真实 `~/.ollama/models` 仅只读扫描，未再执行清理。
+> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线；并接入 ModelScope 渠道、服务端后台下载任务、浮层外部点击关闭与 Ollama 缓存扫描/清理。2026-10-29 修复缓存清理忽略 `manifests-v2` symlink 的误删事故（D-140、R-042），把 Hugging Face 下载改为服务端直下 GGUF + `ollama create`（D-141、R-049），新增 macOS 菜单栏封装（D-142、R-050），并按首版复刻 Chat 导航图标（显式组合 `chat` + `_` + `spa` + `rk`）。2026-10-29 重写 README 安装/开发章节，修复切换模型库渠道清空输入，离线提示标题加大加粗标红，并更新菜单栏 App 外观与打包产物，发布首个 GitHub Release `v0.1.0`。2026-10-29 补 Ollama 一键启动并把启停入口从头菜单收到遥测页（D-143 修订）、模型卡片跳回下载来源的渠道页面与量化标签取消截断（D-144）、模型搜索词跨标签页保留、版本号收敛到 `package.json` 单一来源，发布 `v0.2.0`。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载；事故后真实 `~/.ollama/models` 仅只读扫描，未再执行清理。
 
 ## 当前目标
 
@@ -16,7 +16,7 @@
 
 ### 工程基础
 
-- [x] 添加 Vitest（Node 环境）与 133 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断与失败 source 持久化、GGUF 名称与空上传、附件类型/base64 转换、ModelScope URL/量化映射、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF 导出 manifest/model/projector/重名/目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 与 daemon 命令构建、`ollama serve` 命令生成。
+- [x] 添加 Vitest（Node 环境）与 164 个测试：NDJSON 分片/错误/中止、`streamChat`/`pullModel`、`loadModel`/`unloadModel`、映射、会话迁移/增删改、模型参数校验、下载任务中断与失败 source 持久化、GGUF 名称与空上传、附件类型/base64 转换、ModelScope URL/量化映射、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF 导出 manifest/model/projector/重名/目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 与 daemon 命令构建、`ollama serve` 命令生成。
 - [x] 添加 ESLint 10 flat config、Prettier 3，`npm run lint`、`format:check` 通过；开启 TypeScript `strict`。
 - [x] 添加 `.github/workflows/ci.yml`：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`；2026-10-29 首次远端运行 `40739185722` 通过。
 - [x] 移除未使用依赖 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 移除 Gemini 能力声明；包名改为 `ollama-studio`，版本 `0.1.0`。
@@ -58,6 +58,7 @@
 - [x] 拉取页渠道切换保留输入（2026-10-29）：切换 ModelScope / Hugging Face / Ollama 官方时只清空旧渠道结果，不再清空 `catalogQuery`；点击当前渠道直接返回，不重置。headless Chrome 输入 “MiniCPM5-2B” 后切换，值保留、占位文案更新、旧结果清空。
 - [x] 离线提示强化（2026-10-29）：`ConnectionBanner` 在离线态把标题由 13px semibold 改为 16px bold，并使用 `--app-danger-text`（深色 `#ffb4ab`、浅色 `#b3261e`）；“正在连接”和“已连接但无模型”两种状态保持原样。用 `OLLAMA_HOST=http://127.0.0.1:9` 启动生产服务 + headless Chrome 截图验证，文字明显大于副标题且为红色。
 - [x] 首个 GitHub Release `v0.1.0`（2026-10-29）：tag 指向 `0f76bae`，附 macOS DMG（48,175,616 字节，SHA256 `e405e7f2…abefc6`）；Releases 仅保留该版本。发布为手动执行，无自动流水线；DMG 未在 `/Applications` 安装验证。
+- [x] GitHub Release `v0.2.0`（2026-10-29）：tag 指向本次发布提交，附 macOS DMG `Ollama Studio Menu-0.2.0.dmg`（48,175,616 字节，SHA256 `d0edc737…61e6f62`）；该 DMG 已安装到 `/Applications/Ollama Studio Menu.app` 并启动验证（`CFBundleShortVersionString` 0.2.0，`GET /` 200）。发布仍为手动执行，无自动流水线。
 - [x] 下载改为服务端后台任务（2026-10-28）：新增 `server/downloads.ts` 与 `/api/downloads`（`POST` 创建/复用、`GET` 列表或单个、`DELETE` 取消），下载由服务端持有，浏览器只轮询进度。刷新页面后前端用 `listDownloadJobs()` 接回仍在运行的任务并自动回到拉取页；Ollama 分层 `total/completed` 聚合移到服务端，客户端不再自己算。`DownloadTask` 增加 `kind`，撤销/暂停后“继续”按来源分流——ModelScope 任务用服务端保留的 `target` 重新发起，不会再错误地走 `ollama pull <namespace>/<name>`（此前会报 `pull model manifest: file does not exist`）。旧的 `src/api/modelscope.ts` 流式客户端已删除。
 - [x] 浮层外部点击关闭（2026-10-28）：新增 `src/hooks/useDismissable.ts`（点击外部 + Esc，回调存 ref 避免重复绑定），接入聊天页的模型选择、采样参数、会话列表与顶栏的通知中心、个人面板；此前这些浮层只能靠再次点击触发按钮或面板内关闭按钮收起。模型卡 `⋮` 菜单原本用 `fixed inset-0` 遮罩，行为不变。
 - [x] Ollama 缓存管理（2026-10-28，2026-10-29 修复）：新增 `server/cache.ts` 与 `/api/cache`（`GET` 扫描、`POST /api/cache/cleanup` 清理），遥测页“缓存清理”卡片替换原只读占位。扫描 `OLLAMA_MODELS`（默认 `~/.ollama/models`）的 `blobs/`、`manifests/` 与 `manifests-v2/`，把完整 blob 分为被 manifest/metadata 引用/未引用，另计 `*-partial`、`*-partial-N` 分块与应用临时目录 `ollama-studio-*`；清理前重新扫描，只处理勾选类别，orphan 同盘移入 `.ollama-studio-trash` 而非直接删除（D-140）。安全规则：manifest 解析失败、v2 symlink 悬空或越界时禁止清理未引用 blob（409）；有后台下载进行中时禁止清理未完成下载（409）；10 分钟内修改过的文件跳过。2026-10-29 修复前，旧版忽略 `manifests-v2` symlink，导致两个模型被误删（R-042）。确认弹窗支持展开三类逐文件明细（名称、类型、大小、修改时间、完整路径，按体积排序，每类最多 500 条），并提供 `POST /api/cache/reveal` 在系统文件管理器中定位文件/目录；该接口只允许模型目录内路径或 `ollama-studio-*` 临时目录（`realpath` 校验，越界 403）。
@@ -81,7 +82,11 @@
 - [x] 下载失败重试实测（2026-10-28，开发服务器 3000 + CDP `Fetch` mock，未访问真实模型源）：① 注入 pull 失败任务（`unsloth/Qwen3.5-0.8B-GGUF`，错误 `pull model manifest: file does not exist`），任务卡显示“将重跑：ollama pull unsloth/Qwen3.5-0.8B-GGUF”和“编辑命令”；点击编辑后输入框值变为该命令并获得焦点。点击重试后 POST body 为 `{kind:"pull",model:"unsloth/Qwen3.5-0.8B-GGUF"}`，轮询两轮后转为完成。② 注入 ModelScope 失败任务并刷新页面，点击重试的 body 含 `namespace/name/file/model`，其中 `file` 来自持久化的 `source`，任务转为完成。③ 注入缺少 `kind/source`、`targetPath` 为 `Q4_K_M/model.gguf` 的旧任务：卡片显示 `ModelScope · Q4_K_M/model.gguf`、不显示编辑按钮，重试 body 为 `kind:"modelscope"` 且 `file` 使用 `targetPath`，任务转为完成。④ 实时 pull 失败（running → error）时卡片显示原始错误 + `Ollama registry 中没有该路径` 提示与“重试”按钮。**未对真实 Ollama 重试该 HF 仓库**。
 - [x] GGUF 导出实测（2026-10-28）：fixture 经 `POST /api/export` 导出 model + projector 两层（12 + 14 字节），内容正确、重名生成 `-2`；`/etc` 返回 403、`../etc` 返回 400。真实 `diodel/qwen3.5-0.8b-q4_k_m-gguf:latest` 导出 529,297,312 字节，文件头为 `GGUF`，SHA256 `fb89581c…` 与 manifest digest 一致，耗时约 1.19 秒（APFS clone）。CDP mock 验证模型页导出按钮发送 `{model:"diodel/..."}` 并显示“已导出 2 个文件…（含 mmproj）”。**未导出 21.8 GB 的 27B 模型**。
 - [x] 系统指标与服务检测实测（2026-10-28）：`GET /api/metrics` 返回真实磁盘容量（约 494 GB 总量 / 107 GB 可用）、内存、CPU load 与 `ioreg` GPU（Apple M1 Pro，实测 62% / 69%）；`GET /api/daemon` 识别 `manager: ollama-app`、PID 6928 与可复制命令；`POST /api/daemon/control` 在未设置 `ALLOW_DAEMON_CONTROL` 时返回 403。CDP 确认遥测页显示 GPU、磁盘已用、启动命令、全部卸载与服务控制面板，且 `ALLOW_DAEMON_CONTROL` 关闭时提示正确。
-- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（133 个测试）、`npm run build` 全部通过（2026-10-29）。
+- [x] 一键唤起/关停实测（2026-10-29，开发服务器 3000 + `ALLOW_DAEMON_CONTROL=1` + CDP，真实 Ollama 0.40.7）：① `POST /api/daemon/control {"action":"start"}` → `open -a Ollama` 成功拉起 serve（多轮 PID 12731/16258/19453/24314）；② `{"action":"stop"}` → `kill <appPid>` 执行后 app 主进程与 serve 一并退出；③ 已启动时再 `start` 返回 `{already:true}` 不发命令，已停止时再 `stop` 同样短路（修复了此前 `launchctl`/AppleScript 无效报错）；④ 服务停止后 `restart` 归一为 `start` 并成功拉起，响应 `action:"start"` 保留 `requested:"restart"`；⑤ CDP 在遥测页"服务控制"面板点击"停止服务"后 `running:false`、按钮自动变为"启动服务"，再点后 `running:true` 且按钮变回"停止服务"（2026-10-29 修订：入口从头菜单移到遥测页，Header 不再渲染启停按钮，390/768/1440 三档视口实测）；⑥ 未设开关时按钮仍可点、hover 提示设置方法、点击后 toast 显示"服务控制失败：自动控制未启用。设置 ALLOW_DAEMON_CONTROL=1 并重启本应用。"（修订后按钮改为总是渲染，不再整组消失）。AppleScript `tell application "Ollama" to quit` 实测弹 macOS Automation 权限并以 `-128` 失败，因此 `ollama-app` 的 stop 改为 `kill <appPid>`；单独 `pkill -x ollama` 会被 app 主进程立刻重新拉起（12747 → 14105），必须结束主进程。`process` 分支的 `ollama serve` 兜底启动与 launchd 独立托管形态**未实测**。见 `DECISIONS.md` D-143、`RUNBOOK.md` 18。
+- [x] 模型搜索跨页保留实测（2026-10-29，菜单栏 App 3210 + CDP）：`PullScreen` 的搜索词、渠道与 CLI 命令输入改为写入 localStorage（`ollama_catalog_query_v1` / `ollama_catalog_source_v1` / `ollama_pull_input_v1`），`ModelsScreen` 的筛选词写入 `ollama_models_search_v1`。CDP 实测：输入 `qwen vision` 后切到 Chat 再切回，搜索词保留；切到 Hugging Face 渠道后搜索词仍保留且渠道已持久化；整页刷新后切回 Pull，搜索词、渠道与命令框均保留。Models 页同样通过：输入 `qwen3` → 切走切回保留 → 点清空按钮后输入框与 localStorage 同步清空。根因是 `App.tsx` 对两个页面条件渲染，切走即卸载、`useState` 全丢；此前只修过"切渠道保留输入"（`2215c23`），没覆盖切标签页与刷新。搜索结果本身不持久化——回填整个结果数组会带来体积与过期问题，保留输入让用户按回车重搜更合适。
+- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（164 个测试）、`npm run build` 全部通过（2026-10-29）。
+- [x] 模型来源跳转与量化标签修复（2026-10-29）：① 模型卡片“⋮”菜单新增“查看渠道页面”，下载成功时把来源写进 `ollama_model_origin_v1`（`src/lib/modelOrigin.ts`，上限 200 条，ModelScope 记 `namespace/name`、Hugging Face 记 `repo`），命中时渲染 `<a>` 指向 `https://huggingface.co/<repo>` 或 `https://modelscope.cn/models/<namespace>/<name>`，未登记的模型（含手动 `ollama pull`）显示 disabled 并提示未记录来源；CDP 实测本地模型条目 `查看渠道页面 · Hugging Face`、`href` 正确。② `extractQuants` 去掉 `slice(0, 12)`：模型页声明 15 个量化时原先只展示 12 个（`Q5_K_S`/`Q6_K`/`Q8_0` 被砍），“+N”永远展不全；CDP 实测修复后声明 15 个、卡片 8 个 + “+7”、展开后 15 个与 HF 页面文件列表一致。`quant` 经 `downloadQuantRef` 传递，避免闭包读到旧值。见 `RUNBOOK.md` 12/20、`DECISIONS.md` D-144。
+- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（164 个测试）、`npm run build` 全部通过（2026-10-29）；菜单栏 App 已重新打包并替换安装到 `/Applications/Ollama Studio Menu.app`，服务引用新 bundle `assets/index-uqZ7ePF8.js`。
 - [x] 构建体积：前端 JS 约 519.4 kB（gzip 141.1 kB），CSS 约 79.8 kB（gzip 17.1 kB），`server.js` 约 63.2 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
 - [x] 生产服务器 3101：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、首屏 headless Chrome 通过。
 - [x] 开发服务器 3001：首屏、代理、`/api/import` 400 校验、headless Chrome 通过。
@@ -100,7 +105,7 @@
 - [ ] 真实 UI 中的模型加载/释放（`keep_alive`）与 `/api/ps` 状态变化；当前只有请求级单测。
 - [ ] “全部卸载”未点击真实运行模型；仅验证按钮渲染与请求路径（`keep_alive: 0`）。
 - [ ] 20 GB 级模型导出与跨文件系统完整复制未实测；当前真实导出为 529 MB，同卷 APFS clone。
-- [ ] daemon 自动重启/停止未执行；macOS Automation 权限弹窗、systemd/Windows 分支与执行失败提示未实测。默认 `ALLOW_DAEMON_CONTROL` 关闭。
+- [ ] daemon 自动控制在 Ollama.app 形态已实测（启动/停止/重启，2026-10-29）；剩余未实测：命令行形式安装（`process` 分支的 `ollama serve` 兜底启动）、launchd 独立托管形态、Linux systemd 与 Windows。默认 `ALLOW_DAEMON_CONTROL` 关闭。
 - [ ] 通过新 HF 直下路径执行真实大模型下载与真实 `ollama create`（小文件链路已用假 CLI 验证，未改动真实模型列表）；本机 DNS 仍把 CDN 解析为 `198.18.x.x`。
 - [x] GitHub Actions 首次远端运行：2026-10-29 推送 `f8b66d0`，运行 `40739185722` 在 `ubuntu-latest` + Node 24 上通过 typecheck、lint、format:check、test 与 build。
 - [ ] Tauri 迁移触发条件（D-114，仍待决策）。
@@ -127,7 +132,7 @@
 1. 人工验收：逐页检查 Models / Pull / Chat / Modelfile / Telemetry，重点看窄屏、键盘、主题/语言、多会话、代码块复制、空模型。
 2. 先处理缓存事故：确认是否从已核对的 Hugging Face 源下载两个 GGUF（约 1.2 GB）、清理悬空 `manifests-v2` symlink 并用 `ollama create` 恢复；再用可用小模型在真实 UI 验证“加载到显存/释放显存”与“全部卸载”。
 3. 用 27B 多模态模型验证导出 `model + projector` 到外接卷，核对 `*-mmproj.gguf`、磁盘空间与 SHA256；测试后删除导出文件。
-4. 在用户明确同意且无下载/推理时，设置 `ALLOW_DAEMON_CONTROL=1` 测试一次重启，记录 macOS Automation 权限与恢复结果；失败则保留命令复制路径。
+4. daemon 控制在 Ollama.app 形态已实测；剩余待测：命令行形式安装（`process` 分支的 `ollama serve` 兜底启动）与 launchd 独立托管形态。需要用户明确同意且无下载/推理时执行。
 5. 用新 HF 直下路径下载并注册一个真实小模型（需要用户确认后执行），核对 `/api/tags` 与 `ollama show`；Ollama 原生 `hf.co` pull 只在正常网络下作为对照复测。
 6. 缓存事故处理完成且 manifest 无悬空后，再评估是否从遥测页清理真实缓存；清理前记录 `GET /api/cache`，orphan 只会移入 `.ollama-studio-trash`，清理后复核 `/api/tags`、`ollama ps` 与回收站内容。
 7. 观察 GitHub Actions 首次运行；再决定 D-114（Tauri）与 D-131（Playwright/axe）。

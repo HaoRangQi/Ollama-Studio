@@ -24,16 +24,17 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 改缓存扫描与清理（未引用 blob、未完成下载、临时目录、逐文件明细、文件管理器定位） | `server/cache.ts`；`server/cache.test.ts`；`src/api/cache.ts`；`src/screens/TelemetryScreen.tsx` 的缓存卡片与确认弹窗；`server.ts` / `vite.config.ts` 的 `/api/cache` |
 | 改 GGUF 导出（manifest 解析、model/projector 复制、重名、目录校验） | `server/exportGguf.ts`；`server/exportGguf.test.ts`；`src/api/export.ts`；`src/screens/ModelsScreen.tsx` 的导出按钮与菜单；`src/App.tsx` 的 `handleExportModel`；`server.ts` / `vite.config.ts` 的 `/api/export` |
 | 改磁盘/内存/CPU/GPU 指标 | `server/metrics.ts`；`server/metrics.test.ts`；`src/api/metrics.ts`；`src/screens/TelemetryScreen.tsx` 的指标轮询与卡片；`server.ts` / `vite.config.ts` 的 `/api/metrics` |
-| 改 daemon 检测/重启/停止/启动命令 | `server/daemon.ts`；`server/daemon.test.ts`；`src/api/daemon.ts`；`src/lib/daemonConfig.ts` 与测试；`src/screens/TelemetryScreen.tsx` 的服务控制面板；`server.ts` / `vite.config.ts` 的 `/api/daemon`；`ALLOW_DAEMON_CONTROL` |
+| 改 daemon 检测/启动/重启/停止命令 | `server/daemon.ts`；`server/daemon.test.ts`；`src/api/daemon.ts`；`src/hooks/useDaemonControl.ts`；`src/lib/daemonConfig.ts` 与测试；`src/screens/TelemetryScreen.tsx` 的服务控制面板（唯一入口）；`src/screens/TelemetryScreen.tsx` 的服务控制面板；`server.ts` / `vite.config.ts` 的 `/api/daemon`；`ALLOW_DAEMON_CONTROL` |
 | 改连接状态、自动轮询、刷新、真实模型加载 | `src/hooks/useOllama.ts`（默认 5 秒静默轮询）；`src/App.tsx` |
 | 改真实拉取、进度、暂停/取消、失败重试、任务持久化 | `src/api/downloads.ts`；`server/downloads.ts`；`src/App.tsx` 的 `startPullDownload` / `handleRetryDownload` 与轮询 effect；`src/lib/downloadTask.ts`；`src/types.ts` 的 `ModelScopeDownloadSource` / `HuggingFaceDownloadSource`；`src/screens/PullScreen.tsx` |
 | 改删除、克隆 | `src/api/ollama.ts` 的 `deleteModel` / `copyModel`；`src/App.tsx`；`src/screens/ModelsScreen.tsx` |
+| 改模型来源登记、渠道页面跳转、卡片量化标签 | `src/lib/modelOrigin.ts`；`src/lib/modelOrigin.test.ts`；`src/App.tsx` 的下载成功回调；`src/screens/ModelsScreen.tsx` 的“查看渠道页面”菜单项；`src/api/catalog.ts` 的 `extractQuants`；`src/api/catalog.test.ts` |
 | 改 Modelfile 创建 | `src/api/ollama.ts` 的 `createModel`；`src/screens/ModelfileLabScreen.tsx`；`src/App.tsx` |
 | 改多会话、会话持久化与 v1 迁移 | `src/lib/chatSessions.ts`；`src/screens/ChatScreen.tsx` |
 | 改模型采样参数默认值、keep_alive | `src/lib/modelSettings.ts`；`src/screens/ModelsScreen.tsx`；`src/screens/ChatScreen.tsx` |
 | 改代码块解析/复制 | `src/lib/markdown.ts`；`src/screens/ChatScreen.tsx` |
 | 改图片/视频附件、抽帧、附件拒绝规则 | `src/lib/attachments.ts`；`src/screens/ChatScreen.tsx`；类型 `ChatAttachment` 在 `src/types.ts` |
-| 改遥测/日志/配置持久化/缓存清理/系统指标/服务控制 | `src/screens/TelemetryScreen.tsx`；`src/hooks/useOllama.ts`；`src/api/cache.ts`；`src/api/metrics.ts`；`src/api/daemon.ts`；`src/lib/daemonConfig.ts`；`ollama_daemon_config_v1` |
+| 改遥测/日志/配置持久化/缓存清理/系统指标/服务控制 | `src/screens/TelemetryScreen.tsx`；`src/hooks/useOllama.ts`；`src/hooks/useDaemonControl.ts`；`src/api/cache.ts`；`src/api/metrics.ts`；`src/api/daemon.ts`；`src/lib/daemonConfig.ts`；`ollama_daemon_config_v1` |
 | 改离线/连接中/空模型提示 | `src/components/ConnectionBanner.tsx`；`src/screens/ModelsScreen.tsx`；`src/screens/ChatScreen.tsx` |
 | 改聊天流式输出、停止、思考、参数面板 | `src/screens/ChatScreen.tsx`；`src/api/ollama.ts` 的 `streamChat` |
 | 改开发代理、开发绑定、令牌注入 | `vite.config.ts`；`package.json` 的 `dev` / `dev:lan` |
