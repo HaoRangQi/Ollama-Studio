@@ -8,13 +8,17 @@ export interface DaemonInfo {
   manager: DaemonManager;
   label?: string;
   pid?: number;
+  startCommand?: string;
   restartCommand?: string;
   stopCommand?: string;
-  canExecute: boolean;
+  /** 各 action 是否有可执行的命令。 */
+  executable: Record<DaemonAction, boolean>;
   controlEnabled: boolean;
+  /** 兼容字段：任一 action 可执行即为 true。新代码请用 `executable`。 */
+  canExecute: boolean;
 }
 
-export type DaemonAction = 'restart' | 'stop';
+export type DaemonAction = 'start' | 'restart' | 'stop';
 
 async function readError(response: Response, fallback: string): Promise<string> {
   try {

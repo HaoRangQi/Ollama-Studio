@@ -47,6 +47,8 @@ export const Header: React.FC<HeaderProps> = ({
         ? '未连接'
         : 'Offline';
 
+  // 一键唤起 / 关停只放在遥测页（服务控制面板），顶栏只保留连接状态与刷新。
+
   return (
     <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[var(--app-bg)]/85 backdrop-blur-xl z-40 flex items-center justify-between px-3 sm:px-6 border-b border-[var(--app-border)] shadow-[0_1px_8px_rgba(0,0,0,0.06)] select-none transition-colors">
       {/* Search Input Bar with Command Palette Trigger */}
@@ -107,6 +109,8 @@ export const Header: React.FC<HeaderProps> = ({
             </span>
           </button>
         </div>
+
+        {/* 一键唤起 / 关停入口在遥测页"服务控制"面板，顶栏不再重复。 */}
       </div>
 
       {/* Right Toolbar */}

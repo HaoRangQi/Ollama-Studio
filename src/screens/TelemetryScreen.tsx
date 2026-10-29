@@ -8,8 +8,8 @@ import { cleanupCache, fetchCacheReport, revealCachePath } from '../api/cache';
 import type { CacheItem, CacheReport, CleanupResult, CleanupTarget } from '../api/cache';
 import { fetchSystemMetrics } from '../api/metrics';
 import type { SystemMetrics } from '../api/metrics';
-import { controlDaemon, fetchDaemonInfo } from '../api/daemon';
-import type { DaemonAction, DaemonInfo, DaemonManager } from '../api/daemon';
+import { useDaemonControl } from '../hooks/useDaemonControl';
+import type { DaemonManager } from '../api/daemon';
 import { buildServeCommand } from '../lib/daemonConfig';
 import { useAppTheme } from '../context/ThemeContext';
 
@@ -130,11 +130,12 @@ export const TelemetryScreen: React.FC = () => {
   const [revealBusyPath, setRevealBusyPath] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<SystemMetrics | null>(null);
   const [metricsError, setMetricsError] = useState<string | null>(null);
-  const [daemonInfo, setDaemonInfo] = useState<DaemonInfo | null>(null);
-  const [daemonError, setDaemonError] = useState<string | null>(null);
   const [servicePanelOpen, setServicePanelOpen] = useState(false);
-  const [isControllingDaemon, setIsControllingDaemon] = useState(false);
   const [isUnloadingAll, setIsUnloadingAll] = useState(false);
+  // 与 Header 共用同一套启停逻辑，避免两处判定漂移。
+  const daemon = useDaemonControl();
+  const daemonInfo = daemon.info;
+  const daemonError = daemon.error;
 
   const logConsoleRef = useRef<HTMLDivElement>(null);
   const lastLiveFingerprintRef = useRef('');
@@ -197,18 +198,7 @@ export const TelemetryScreen: React.FC = () => {
     return () => window.clearInterval(timer);
   }, [loadMetrics]);
 
-  const refreshDaemonInfo = useCallback(async () => {
-    try {
-      setDaemonInfo(await fetchDaemonInfo());
-      setDaemonError(null);
-    } catch (error) {
-      setDaemonError(error instanceof Error ? error.message : String(error));
-    }
-  }, []);
-
-  useEffect(() => {
-    void refreshDaemonInfo();
-  }, [refreshDaemonInfo]);
+  const refreshDaemonInfo = daemon.refresh;
 
   // 被服务端锁定的项（下载进行中 / manifest 解析失败）不计入本次清理
   const selectedTargets = (Object.keys(cleanupTargets) as CleanupTarget[]).filter((key) => {
@@ -402,16 +392,19 @@ export const TelemetryScreen: React.FC = () => {
     );
   };
 
-  const handleControlDaemon = async (action: DaemonAction) => {
-    if (!daemonInfo?.controlEnabled || !daemonInfo.canExecute || isControllingDaemon) return;
+  const handleControlDaemon = async (action: 'start' | 'restart' | 'stop') => {
     const label =
-      action === 'restart'
+      action === 'start'
         ? language === 'zh'
-          ? '重启'
-          : 'restart'
-        : language === 'zh'
-          ? '停止'
-          : 'stop';
+          ? '启动'
+          : 'start'
+        : action === 'restart'
+          ? language === 'zh'
+            ? '重启'
+            : 'restart'
+          : language === 'zh'
+            ? '停止'
+            : 'stop';
     const confirmed = window.confirm(
       language === 'zh'
         ? `将${label} Ollama 服务，运行中的模型和下载会中断。继续？`
@@ -419,24 +412,19 @@ export const TelemetryScreen: React.FC = () => {
     );
     if (!confirmed) return;
 
-    setIsControllingDaemon(true);
-    try {
-      await controlDaemon(action);
+    const failure = await daemon.control(action);
+    if (failure) {
+      showToast(
+        language === 'zh' ? `服务控制失败：${failure}` : `Service control failed: ${failure}`
+      );
+    } else {
       showToast(
         language === 'zh'
           ? `已发送${label}命令，正在等待状态更新…`
           : `${label} command sent; waiting for status…`
       );
-      await new Promise((resolve) => window.setTimeout(resolve, action === 'restart' ? 1500 : 800));
-      await Promise.all([ollama.refresh(), refreshDaemonInfo(), loadMetrics()]);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      showToast(
-        language === 'zh' ? `服务控制失败：${message}` : `Service control failed: ${message}`
-      );
-    } finally {
-      setIsControllingDaemon(false);
     }
+    await Promise.all([ollama.refresh(), refreshDaemonInfo(), loadMetrics()]);
   };
 
   const handleSaveEnv = () => {
@@ -765,6 +753,16 @@ export const TelemetryScreen: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 mt-3">
             <button
               onClick={() =>
+                handleCopyCommand(daemonInfo?.startCommand, language === 'zh' ? '启动' : 'start')
+              }
+              disabled={!daemonInfo?.startCommand}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-surface-highest)] text-[var(--app-text)] text-[12px] font-medium border border-[var(--app-border)] hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              <span className="material-symbols-outlined text-[16px]">content_copy</span>
+              {language === 'zh' ? '复制启动命令' : 'Copy start'}
+            </button>
+            <button
+              onClick={() =>
                 handleCopyCommand(
                   daemonInfo?.restartCommand,
                   language === 'zh' ? '重启' : 'restart'
@@ -786,33 +784,56 @@ export const TelemetryScreen: React.FC = () => {
               <span className="material-symbols-outlined text-[16px]">content_copy</span>
               {language === 'zh' ? '复制停止命令' : 'Copy stop'}
             </button>
-            {daemonInfo?.controlEnabled && daemonInfo.canExecute && (
-              <>
+            {/* 启停按钮总是渲染：自动执行未开启时点了会得到明确错误，而不是凭空消失。 */}
+            {(['start', 'restart', 'stop'] as const).map((action) => {
+              const spinning = daemon.busy === action;
+              const reason = daemon.disabledReason(action);
+              const label =
+                action === 'start'
+                  ? language === 'zh'
+                    ? '启动服务'
+                    : 'Start now'
+                  : action === 'restart'
+                    ? language === 'zh'
+                      ? '执行重启'
+                      : 'Restart now'
+                    : language === 'zh'
+                      ? '停止服务'
+                      : 'Stop now';
+              return (
                 <button
-                  onClick={() => void handleControlDaemon('restart')}
-                  disabled={isControllingDaemon}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-full text-white text-[12px] font-semibold disabled:opacity-50 disabled:cursor-wait cursor-pointer"
-                  style={{ backgroundColor: 'var(--primary-accent)' }}
+                  key={action}
+                  onClick={() => void handleControlDaemon(action)}
+                  disabled={daemon.busy !== null}
+                  title={reason ?? label}
+                  className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[12px] font-semibold disabled:opacity-50 disabled:cursor-wait ${
+                    reason ? 'cursor-help' : 'cursor-pointer hover:opacity-90'
+                  } ${
+                    action === 'stop'
+                      ? 'bg-[var(--app-danger-bg)] text-[var(--app-danger-text)] border border-[var(--app-danger-border)]'
+                      : 'text-white'
+                  }`}
+                  style={
+                    action === 'stop' ? undefined : { backgroundColor: 'var(--primary-accent)' }
+                  }
                 >
                   <span
                     className={`material-symbols-outlined text-[16px] ${
-                      isControllingDaemon ? 'animate-spin' : ''
+                      spinning ? 'animate-spin' : ''
                     }`}
                   >
-                    {isControllingDaemon ? 'progress_activity' : 'restart_alt'}
+                    {spinning
+                      ? 'progress_activity'
+                      : action === 'start'
+                        ? 'play_arrow'
+                        : action === 'restart'
+                          ? 'restart_alt'
+                          : 'power_settings_new'}
                   </span>
-                  {language === 'zh' ? '执行重启' : 'Restart now'}
+                  {label}
                 </button>
-                <button
-                  onClick={() => void handleControlDaemon('stop')}
-                  disabled={isControllingDaemon}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[var(--app-danger-bg)] text-[var(--app-danger-text)] text-[12px] font-semibold border border-[var(--app-danger-border)] hover:bg-[var(--app-danger-bg-hover)] disabled:opacity-50 disabled:cursor-wait cursor-pointer"
-                >
-                  <span className="material-symbols-outlined text-[16px]">power_settings_new</span>
-                  {language === 'zh' ? '停止服务' : 'Stop now'}
-                </button>
-              </>
-            )}
+              );
+            })}
           </div>
 
           {daemonInfo && !daemonInfo.controlEnabled && (
@@ -827,6 +848,13 @@ export const TelemetryScreen: React.FC = () => {
               {language === 'zh'
                 ? '当前管理方式不支持自动执行，请复制命令手动运行。'
                 : 'This manager does not support automatic control; copy the command and run it manually.'}
+            </p>
+          )}
+          {daemonInfo?.manager === 'process' && (
+            <p className="text-[11px] text-[#ffbd2e] mt-2 leading-relaxed">
+              {language === 'zh'
+                ? '命令行形式安装：启动后进程由 Ollama 自行管理，本应用退出或重启机器都不会回收它；停止请用系统方式。'
+                : 'CLI install: after starting, the process is owned by Ollama itself — quitting this app or rebooting will not stop it. Use your system to stop it.'}
             </p>
           )}
           {daemonError && (
