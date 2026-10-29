@@ -189,8 +189,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     });
   };
 
-  const resetCatalogSearch = () => {
-    setCatalogQuery('');
+  const resetCatalogResults = () => {
     setCatalogResults([]);
     setCatalogError(null);
     setCatalogSearched(false);
@@ -199,9 +198,16 @@ export const PullScreen: React.FC<PullScreenProps> = ({
     setSelectedQuants({});
   };
 
+  const resetCatalogSearch = () => {
+    setCatalogQuery('');
+    resetCatalogResults();
+  };
+
   const handleCatalogSourceChange = (source: CatalogSource) => {
+    if (source === catalogSource) return;
     setCatalogSource(source);
-    resetCatalogSearch();
+    // 切换渠道只清空旧渠道的结果，保留输入内容，方便直接再搜。
+    resetCatalogResults();
   };
 
   const handleCatalogSearch = async () => {
