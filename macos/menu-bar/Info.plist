@@ -18,10 +18,11 @@
     <string>Ollama Studio Menu</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <!-- 版本号由 build.sh 从 package.json 注入，源文件不写死 -->
     <key>CFBundleShortVersionString</key>
-    <string>0.1.0</string>
+    <string>__APP_VERSION__</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>__APP_VERSION__</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSMultipleInstancesProhibited</key>

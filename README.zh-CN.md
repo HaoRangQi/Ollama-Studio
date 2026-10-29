@@ -28,19 +28,19 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 
 图例：✅ 已验证/可用 · ⚠️ 已实现但未完成运行时验收，或部分可用 · ❌ 不可用。
 
-| 能力                       |    macOS     |   Linux    |   Windows   |
-| -------------------------- | :----------: | :--------: | :---------: |
-| 界面、聊天、拉取、模型管理 |      ✅      |     ⚠️     |     ⚠️      |
-| GGUF 导入/导出             |      ✅      |     ⚠️     |     ⚠️      |
-| 缓存扫描/清理              |      ✅      |     ⚠️     |     ⚠️      |
-| 磁盘/内存/CPU 指标         |      ✅      |     ⚠️     |     ⚠️      |
-| GPU 指标                   |  ✅ `ioreg`  |     ❌     |     ❌      |
-| 守护进程检测/复制命令      |      ✅      | ⚠️ systemd |     ❌      |
-| 自动重启/停止              |      ⚠️      |     ❌     |     ❌      |
-| 环境变量启动命令           |      ✅      |  ✅ POSIX  | ❌ 仅 POSIX |
-| 菜单栏 App / DMG           | ✅ 构建+启动 |     ❌     |     ❌      |
+| 能力                       |          macOS          |   Linux    |   Windows   |
+| -------------------------- | :---------------------: | :--------: | :---------: |
+| 界面、聊天、拉取、模型管理 |           ✅            |     ⚠️     |     ⚠️      |
+| GGUF 导入/导出             |           ✅            |     ⚠️     |     ⚠️      |
+| 缓存扫描/清理              |           ✅            |     ⚠️     |     ⚠️      |
+| 磁盘/内存/CPU 指标         |           ✅            |     ⚠️     |     ⚠️      |
+| GPU 指标                   |       ✅ `ioreg`        |     ❌     |     ❌      |
+| 守护进程检测/复制命令      |           ✅            | ⚠️ systemd |     ❌      |
+| 自动启动/重启/停止         | ✅ 已实测（Ollama.app） | ⚠️ 仅检测  |     ❌      |
+| 环境变量启动命令           |           ✅            |  ✅ POSIX  | ❌ 仅 POSIX |
+| 菜单栏 App / DMG           |      ✅ 构建+启动       |     ❌     |     ❌      |
 
-> macOS 的 Ollama.app / launchd / Homebrew 支持自动 daemon 控制，默认关闭，且尚未对真实重启/停止做运行时验收；Linux systemd 仅只读检测。Windows 下 `npm run clean` 与 README 的 POSIX 示例还需适配。GitHub Actions 目前只在 `ubuntu-latest` 运行，覆盖构建与测试，不覆盖真实 Ollama 会话。可选的 macOS 菜单栏封装使用 ad-hoc 签名、未公证；已在仓库内构建并启动，但未安装到 `/Applications`，也未用真实模型下载验收。
+> macOS 的 Ollama.app / launchd / Homebrew 支持自动 daemon 控制，默认关闭；启动/停止/重启已于 2026-10-29 对真实 Ollama.app 守护进程实测通过，普通进程兜底（`ollama serve`）与独立 launchd 形态未实测。Linux systemd 仅只读检测，命令含 `sudo`，不会自动执行。Windows 下 `npm run clean` 与 README 的 POSIX 示例还需适配。GitHub Actions 目前只在 `ubuntu-latest` 运行，覆盖构建与测试，不覆盖真实 Ollama 会话。可选的 macOS 菜单栏封装使用 ad-hoc 签名、未公证；已在仓库内构建并启动，但未安装到 `/Applications`，也未用真实模型下载验收。
 
 ## 当前状态（核验于 2026-10-29）
 
@@ -49,15 +49,15 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 - 回复中的 fenced code block 会渲染为独立代码块并支持复制。
 - 模型参数按模型保存为**对话默认值**（`localStorage`），不会修改模型权重；显存“加载/释放”通过 `keep_alive` 调用真实 API。
 - 下载在**服务端后台**执行：拉取任务显示真实状态、速度、剩余时间与进度，可暂停/继续/取消；失败后会显示“将重跑”的具体命令，可点“重试”原样重跑，或点“编辑命令”把命令填回输入框修改（远程 GGUF 任务的仓库与文件信息会持久化，刷新后仍可重试）；刷新或关闭页面不会中断，重新打开后自动接回并展示进度。
-- 模型库关键字搜索支持 **ModelScope（默认）**、**Hugging Face** 与 **Ollama 官方**；量化标签由文件名推断。ModelScope 与 Hugging Face 均由本地服务下载选中的 GGUF 后执行 `ollama create`，下载进度与错误以 NDJSON 回传。Hugging Face 不再经过 Ollama 的 `hf.co` pull，因此代理/DNS 把 CDN 解析为非公网地址时不会再卡住应用内下载。
+- 模型库关键字搜索支持 **ModelScope（默认）**、**Hugging Face** 与 **Ollama 官方**；量化标签由文件名推断，数据层返回全部可识别量化不再截断，折叠由界面负责；下载成功后会记录来源，模型卡片菜单可跳回对应的 Hugging Face / ModelScope 原始页面。ModelScope 与 Hugging Face 均由本地服务下载选中的 GGUF 后执行 `ollama create`，下载进度与错误以 NDJSON 回传。Hugging Face 不再经过 Ollama 的 `hf.co` pull，因此代理/DNS 把 CDN 解析为非公网地址时不会再卡住应用内下载。
 - 遥测页提供**缓存清理**：扫描 Ollama 模型目录与本应用临时目录，分类显示未引用 blob、未完成下载（`*-partial` 及分块标记）与临时文件，勾选后处理；未引用 blob 不直接删除，而是先移入模型目录下的 `.ollama-studio-trash` 回收站，可手动移回 `blobs/` 恢复；未完成下载与应用临时目录会直接删除。被 manifest 或 Ollama metadata 引用的权重、10 分钟内仍在写入的文件以及有下载进行中的未完成文件不会被处理。manifest 无法解析或 `manifests-v2` 链接悬空时，未引用权重清理会被锁定。确认弹窗可展开每一类查看逐文件明细（名称、大小、修改时间、完整路径），并可在系统文件管理器中定位文件或目录（由本地服务执行，Web 版同样可用）。
 - 遥测页显示真实连接状态、版本、模型/显存统计与事件日志；侧栏“已加载显存/运行模型数”与遥测页每 5 秒自动轮询 `/api/ps`，外部加载/卸载模型后无需手动刷新。`GET /api/metrics` 读取模型目录所在文件系统的磁盘总量/已用/可用、内存、CPU load 与 macOS `ioreg` GPU 利用率；不可用时明确显示原因，ANE 没有公开利用率 API。运行中模型卡片可确认后“全部卸载”（`keep_alive: 0`）。
 - 模型页支持把已安装模型的当前量化导出为 GGUF：服务端读取 manifest，复制 `model` 层，并把 `projector` 层导出为 `*-mmproj.gguf`；默认写入 `~/Downloads/Ollama Studio`，重名自动追加序号。只导出权重，不包含 template/license/params。大文件优先使用 APFS copy-on-write clone。
-- 遥测页“服务控制”面板显示 Ollama 由 Ollama.app、launchd、Homebrew、systemd 还是普通进程管理，生成可复制的重启/停止命令；自动执行默认关闭，只有设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且二次确认后才执行。环境变量配置可生成 `ollama serve` 启动命令，但不会写入系统环境，需手动重启后生效。
+- 遥测页“服务控制”面板显示 Ollama 由 Ollama.app、launchd、Homebrew、systemd 还是普通进程管理，生成可复制的启动/重启/停止命令；启动/重启/停止按钮只在该面板内（面板默认折叠），顶栏仅保留连接状态与刷新按钮，避免误触直接中断服务。自动执行默认关闭，只有设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且二次确认后才执行；开关未开启时按钮仍可点击并说明需要设置什么。启动与停止是幂等的，Ollama 已停止时点“重启”等同于启动。环境变量配置可生成 `ollama serve` 启动命令，但不会写入系统环境，需手动重启后生效。
 - 代理默认绑定 `127.0.0.1`；可选 `PROXY_TOKEN` 保护 `/ollama/*`、`/api/import`、`/api/modelscope/*`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics` 与 `/api/daemon`。
 - 字体与 Material Symbols 已自托管，不再依赖 Google Fonts。
 - 可选的 **macOS 菜单栏 App** 复用同一套本地服务：启动内置 Node 运行时并监听 `127.0.0.1:3210`，在默认浏览器打开仪表盘，菜单栏提供“打开 Web / 打开日志 / 退出”。`npm run build:menu` 生成 `.app` 与 DMG；使用 ad-hoc 签名，仅 macOS，不支持登录项、自动更新与公证。
-- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（133 个测试）、GitHub Actions CI。
+- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（164 个测试）、GitHub Actions CI。
 - 已用 headless Chrome 对开发/生产首屏、真实模型列表、导出与遥测页做冒烟验证；**未做完整逐页人工视觉/a11y 验收**。
 - Hugging Face 由本地服务下载 GGUF 后再执行 `ollama create`；需要本机 `ollama` CLI，每个任务只下载一个 GGUF（上限 20 GB），不支持断点续传；分片 GGUF 与多模态 projector 不会自动合并。
 
@@ -65,15 +65,15 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 
 ## 功能一览
 
-| 模块             | 已实现                                                                                                                                                                                                                                                                        | 尚未实现 / 边界                                                                                                                                                           |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 模型库           | 真实模型列表、卡片/列表、分类、搜索、参数默认值持久化、真实删除/克隆、加载/释放显存、导出当前量化 GGUF（含多模态 projector）                                                                                                                                                  | 只导出当前已安装量化；template/license/params 不在 GGUF 内，需另存 Modelfile；默认导出目录固定为 `~/Downloads/Ollama Studio`                                              |
-| 发现拉取         | CLI 输入、量化选择、精选模型与独立搜索视图、ModelScope/HF/Ollama 搜索、搜索结果长条列表与分页、可调每页条数（6/12/24）、量化选中与行内下载、服务端后台下载（刷新不中断）、真实进度、ModelScope/Hugging Face 服务端下载 + `ollama create`、暂停/继续/取消、失败重试、GGUF 上传 | 量化由文件名推断；GGUF 导入与远程下载依赖本机 `ollama` CLI；远程下载无断点续传、单文件上限 20 GB，且不会合并分片 GGUF/projector；后台任务在服务端内存中，服务端重启会丢失 |
-| 即时对话         | 真实流式 `/api/chat`、停止、思考折叠、参数、JSON、人设、错误提示、多会话、代码块复制、可拖拽调整输入框高度、图片/视频附件（视频抽 3 帧）                                                                                                                                      | Ollama 仅接受 `images`，不支持 PDF/任意文件；真实多模态推理未做自动化验收                                                                                                 |
-| Modelfile 实验室 | 可视化生成 `FROM` / `PARAMETER` / `SYSTEM`、预设、真实 `/api/create`、测试对话                                                                                                                                                                                                | 参数编辑不会同步到已有模型                                                                                                                                                |
-| 监控与设置       | 真实连接/版本/模型/显存统计、事件日志、模型存储卡片、磁盘/内存/CPU/GPU 指标、全部卸载运行模型、配置持久化、缓存扫描与清理（未引用 blob / 未完成下载 / 临时目录，逐文件明细与文件管理器定位）、服务检测与可复制重启/停止命令                                                   | GPU 仅 macOS `ioreg`；ANE 无公开 API；服务自动执行默认关闭且未实测；环境变量只生成命令，不写系统环境                                                                      |
-| 全局             | ⌘K 命令面板、主题调色盘、中英切换、明暗模式、移动端底部导航                                                                                                                                                                                                                   | 仍需人工窄屏/a11y 验收                                                                                                                                                    |
-| 桌面封装         | macOS 菜单栏 App（Swift/AppKit），内置 Node 服务并生成 DMG；Web UI 仍是主要界面                                                                                                                                                                                               | 仅 macOS；ad-hoc 签名、未公证；固定端口 `3210`；不支持登录项与自动更新                                                                                                    |
+| 模块             | 已实现                                                                                                                                                                                                                                                                                                                      | 尚未实现 / 边界                                                                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 模型库           | 真实模型列表、卡片/列表、分类、搜索、参数默认值持久化、真实删除/克隆、加载/释放显存、导出当前量化 GGUF（含多模态 projector）、卡片菜单“查看渠道页面”跳回下载时记录的 Hugging Face / ModelScope 来源页                                                                                                                       | 只导出当前已安装量化；template/license/params 不在 GGUF 内，需另存 Modelfile；默认导出目录固定为 `~/Downloads/Ollama Studio`                                              |
+| 发现拉取         | CLI 输入、量化选择、精选模型与独立搜索视图、ModelScope/HF/Ollama 搜索、搜索结果长条列表与分页、可调每页条数（6/12/24）、完整量化标签（数据层不截断，折叠由界面负责）、量化选中与行内下载、服务端后台下载（刷新不中断）、真实进度、ModelScope/Hugging Face 服务端下载 + `ollama create`、暂停/继续/取消、失败重试、GGUF 上传 | 量化由文件名推断；GGUF 导入与远程下载依赖本机 `ollama` CLI；远程下载无断点续传、单文件上限 20 GB，且不会合并分片 GGUF/projector；后台任务在服务端内存中，服务端重启会丢失 |
+| 即时对话         | 真实流式 `/api/chat`、停止、思考折叠、参数、JSON、人设、错误提示、多会话、代码块复制、可拖拽调整输入框高度、图片/视频附件（视频抽 3 帧）                                                                                                                                                                                    | Ollama 仅接受 `images`，不支持 PDF/任意文件；真实多模态推理未做自动化验收                                                                                                 |
+| Modelfile 实验室 | 可视化生成 `FROM` / `PARAMETER` / `SYSTEM`、预设、真实 `/api/create`、测试对话                                                                                                                                                                                                                                              | 参数编辑不会同步到已有模型                                                                                                                                                |
+| 监控与设置       | 真实连接/版本/模型/显存统计、事件日志、模型存储卡片、磁盘/内存/CPU/GPU 指标、全部卸载运行模型、配置持久化、缓存扫描与清理（未引用 blob / 未完成下载 / 临时目录，逐文件明细与文件管理器定位）、服务检测与可复制启动/重启/停止命令，面板内一键启停（顶栏不重复）                                                              | GPU 仅 macOS `ioreg`；ANE 无公开 API；服务自动执行默认关闭，仅对 Ollama.app 形态实测；环境变量只生成命令，不写系统环境                                                    |
+| 全局             | ⌘K 命令面板、主题调色盘、中英切换、明暗模式、移动端底部导航                                                                                                                                                                                                                                                                 | 仍需人工窄屏/a11y 验收                                                                                                                                                    |
+| 桌面封装         | macOS 菜单栏 App（Swift/AppKit），内置 Node 服务并生成 DMG；Web UI 仍是主要界面                                                                                                                                                                                                                                             | 仅 macOS；ad-hoc 签名、未公证；固定端口 `3210`；不支持登录项与自动更新                                                                                                    |
 
 ## 技术栈
 
@@ -131,10 +131,10 @@ open "build/Ollama Studio Menu.app"
 安装到 `/Applications`：打开下载或本地构建的 DMG，把 `Ollama Studio Menu` 拖入 `/Applications`：
 
 ```bash
-open "build/Ollama Studio Menu-0.1.0.dmg"
+open "build/Ollama Studio Menu-<version>.dmg"   # 如 0.2.0
 ```
 
-构建产物为 `build/Ollama Studio Menu.app` 与 `build/Ollama Studio Menu-0.1.0.dmg`。App 会启动内置 Node 服务并监听 `127.0.0.1:3210`，在默认浏览器打开仪表盘，菜单栏提供“打开 Web / 打开日志 / 退出”。重新打包前需先退出正在运行的实例。
+构建产物为 `build/Ollama Studio Menu.app` 与 `build/Ollama Studio Menu-<version>.dmg`，版本号取自 `package.json`，文件名随之变化。App 会启动内置 Node 服务并监听 `127.0.0.1:3210`，在默认浏览器打开仪表盘，菜单栏提供“打开 Web / 打开日志 / 退出”。重新打包前需先退出正在运行的实例。
 
 应用使用 ad-hoc 签名、未公证。如果 macOS 阻止打开下载的副本，在 Finder 中右键 App 选择“打开”。目前不支持登录项、自动更新、Developer ID 签名与公证。构建产物已在仓库内启动验证；安装到 `/Applications` 与通过 App 发起真实模型下载尚未验证。原有 Web 构建与生产服务器不受影响。
 
@@ -244,7 +244,7 @@ npm run build
 
 ## 验证状态
 
-- `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（133 个测试）、`npm run build`：2026-10-29 全部通过。
+- `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（164 个测试）、`npm run build`：2026-10-29 全部通过。
 - GitHub Actions CI：首次远端运行（[40739185722](https://github.com/HaoRangQi/Ollama-Studio/actions/runs/40739185722)）在 `ubuntu-latest` + Node 24 上通过 typecheck、lint、format check、测试与构建。
 - 服务端后台下载与缓存清理：ModelScope 下载中两次刷新进度连续（63.1% → 80.1%）；缓存清理在 fixture 上将未引用 blob 移入回收站并保留被引用 blob；明细弹窗按体积列出文件并可定位到文件管理器；真实 `~/.ollama/models` 只读扫描到 6 个被引用 blob（约 21.8 GB），未执行 orphan 清理。
 - Hugging Face 服务端直下：真实下载 1,185,376 字节 GGUF（经 `huggingface.co` 302 到 CDN），流式写入临时目录并调用假 `ollama create`；`resolving → downloading → creating → success` 的 `completed/total` 一致，临时目录无残留。CDP 验证搜索结果下载按钮与粘贴 `hf.co/<repo>:<quant>` 均向 `/api/downloads` 发送 `kind:"huggingface"`，`/api/pull` 调用为 0。**未下载大模型，未向真实 Ollama 注册模型。**

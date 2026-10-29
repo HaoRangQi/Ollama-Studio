@@ -6,7 +6,9 @@ SCRIPT_DIR="$ROOT/macos/menu-bar"
 BUILD_DIR="$ROOT/build"
 APP_NAME="Ollama Studio Menu"
 APP="$BUILD_DIR/$APP_NAME.app"
-DMG="$BUILD_DIR/$APP_NAME-0.1.0.dmg"
+# 版本号唯一来源是 package.json；DMG 名、Info.plist 都从这里取，避免多处漂移。
+VERSION="$(node -p "require('$ROOT/package.json').version")"
+DMG="$BUILD_DIR/$APP_NAME-$VERSION.dmg"
 
 if pgrep -f "$APP/Contents/MacOS/OllamaStudioMenu" >/dev/null 2>&1; then
     echo "Quit Ollama Studio Menu before rebuilding." >&2
@@ -71,7 +73,8 @@ swiftc \
     -o "$APP/Contents/MacOS/OllamaStudioMenu" \
     -framework AppKit
 
-cp "$SCRIPT_DIR/Info.plist" "$APP/Contents/Info.plist"
+# Info.plist 里的版本号由 package.json 注入，源文件不写死版本。
+sed -e "s|__APP_VERSION__|$VERSION|g" "$SCRIPT_DIR/Info.plist" > "$APP/Contents/Info.plist"
 
 echo "==> Signing (ad-hoc)"
 codesign --force --deep --sign - "$APP"
