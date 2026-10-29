@@ -33,6 +33,7 @@ import {
   loadDownloadTask,
   saveDownloadTask
 } from './lib/downloadTask';
+import { recordModelOrigin } from './lib/modelOrigin';
 import { Sidebar } from './components/Sidebar';
 import { Header } from './components/Header';
 import { ConnectionBanner } from './components/ConnectionBanner';
@@ -131,6 +132,12 @@ function MainApp() {
   const huggingFaceTargetRef = useRef<HuggingFaceDownloadTarget | null>(null);
   const refreshModelsRef = useRef<(() => Promise<unknown>) | null>(null);
   const adoptedRef = useRef(false);
+  // 轮询 effect 只需要在任务状态变化时重订阅；quant 用 ref 读最新值，
+  // 避免把它加进依赖数组导致每次量化切换都重启轮询。
+  const downloadQuantRef = useRef('');
+  useEffect(() => {
+    downloadQuantRef.current = downloadTask.quant;
+  }, [downloadTask.quant]);
 
   // Modals
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
@@ -621,7 +628,27 @@ function MainApp() {
         };
       });
 
-      if (succeeded) void refreshModelsRef.current?.();
+      if (succeeded) {
+        // 登记来源：/api/tags 不提供仓库信息，模型卡片靠这个跳回渠道页。
+        if (job.kind === 'modelscope' && job.target && 'namespace' in job.target) {
+          recordModelOrigin(job.target.model ?? job.model, {
+            namespace: job.target.namespace,
+            name: job.target.name,
+            file: job.target.file ?? '',
+            quant: downloadQuantRef.current,
+            modelName: job.target.model ?? job.model
+          });
+        }
+        if (job.kind === 'huggingface' && job.target && 'repo' in job.target) {
+          recordModelOrigin(job.target.model ?? job.model, {
+            repo: job.target.repo,
+            file: job.target.file ?? '',
+            quant: job.target.quant ?? downloadQuantRef.current,
+            modelName: job.target.model ?? job.model
+          });
+        }
+        void refreshModelsRef.current?.();
+      }
     };
 
     void poll();
@@ -716,7 +743,7 @@ function MainApp() {
         void startHuggingFaceDownload({
           repo,
           file: downloadTask.targetPath,
-          quant: downloadTask.quant,
+          quant: downloadQuantRef.current,
           modelName: downloadTask.modelName
         });
         return;
@@ -741,7 +768,7 @@ function MainApp() {
           namespace,
           name,
           file: downloadTask.targetPath,
-          quant: downloadTask.quant,
+          quant: downloadQuantRef.current,
           modelName: downloadTask.modelName
         });
         return;

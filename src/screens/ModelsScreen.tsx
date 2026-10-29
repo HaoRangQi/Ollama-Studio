@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { OllamaModel, ModelCategory } from '../types';
 import { useAppTheme } from '../context/ThemeContext';
 import { OLLAMA_BASE } from '../api/ollama';
@@ -9,6 +9,11 @@ import {
   saveModelSettings,
   type ModelSettings
 } from '../lib/modelSettings';
+import { readStorageJson, writeStorageJson } from '../lib/storage';
+import { lookupModelOrigin, originLabel, originUrl } from '../lib/modelOrigin';
+
+/** 切标签页会卸载本组件，搜索词持久化后回来才不丢。 */
+const MODELS_SEARCH_KEY = 'ollama_models_search_v1';
 
 interface ModelsScreenProps {
   models: OllamaModel[];
@@ -45,7 +50,13 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
 }) => {
   const { t, language } = useAppTheme();
   const [activeCategory, setActiveCategory] = useState<ModelCategory>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() =>
+    readStorageJson<string>(MODELS_SEARCH_KEY, '')
+  );
+  const updateSearchQuery = useCallback((value: string) => {
+    setSearchQuery(value);
+    writeStorageJson(MODELS_SEARCH_KEY, value);
+  }, []);
   const [layoutMode, setLayoutMode] = useState<'grid' | 'list'>('list');
   const model = selectedModel ?? models[0] ?? null;
 
@@ -363,7 +374,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => updateSearchQuery(e.target.value)}
               placeholder={t.models.searchPlaceholder}
               className="w-full bg-[var(--app-surface-high)] text-[var(--app-text)] text-[13px] pl-10 pr-4 py-2 rounded-full outline-none focus-visible:outline-none focus-ring-none focus:bg-[var(--app-surface-highest)] focus:border-[var(--primary-accent)] border border-[var(--app-border)] transition-colors"
             />
@@ -375,7 +386,7 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
             </span>
             {searchQuery && (
               <button
-                onClick={() => setSearchQuery('')}
+                onClick={() => updateSearchQuery('')}
                 className="absolute right-3 top-2.5 text-[var(--app-text-muted)] hover:text-[var(--app-text)]"
               >
                 <span className="material-symbols-outlined text-[16px]">cancel</span>
@@ -635,6 +646,42 @@ export const ModelsScreen: React.FC<ModelsScreenProps> = ({
                                 </span>
                                 {language === 'zh' ? '导出 GGUF' : 'Export GGUF'}
                               </button>
+                              {/* 来源只在下载时登记过才有；未登记的模型点不了 */}
+                              {(() => {
+                                const origin = lookupModelOrigin(model.fullTag);
+                                if (!origin) {
+                                  return (
+                                    <button
+                                      disabled
+                                      title={t.models.menuViewOriginUnknown}
+                                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] text-[var(--app-text-muted)] opacity-50 cursor-not-allowed text-left whitespace-nowrap"
+                                    >
+                                      <span className="material-symbols-outlined text-[18px]">
+                                        open_in_new
+                                      </span>
+                                      {t.models.menuViewOrigin}
+                                    </button>
+                                  );
+                                }
+                                return (
+                                  <a
+                                    href={originUrl(origin)}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setOpenMenuId(null);
+                                    }}
+                                    title={`${originLabel(origin)} · ${originUrl(origin)}`}
+                                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] text-[var(--app-text)] hover:bg-[var(--app-surface)] transition-colors cursor-pointer text-left whitespace-nowrap"
+                                  >
+                                    <span className="material-symbols-outlined text-[18px]">
+                                      open_in_new
+                                    </span>
+                                    {`${t.models.menuViewOrigin} · ${originLabel(origin)}`}
+                                  </a>
+                                );
+                              })()}
                               <div className="h-px bg-[var(--app-border)] my-1" />
                               <button
                                 onClick={(e) => {
