@@ -79,6 +79,8 @@ export const translations = {
       menuClone: '克隆模型',
       menuDelete: '从磁盘删除',
       menuDeleteConfirm: '确认删除？',
+      menuViewOrigin: '查看渠道页面',
+      menuViewOriginUnknown: '该模型不是通过本应用下载的，没有渠道来源记录',
       searchPlaceholder: '筛选本地 tag 或哈希...',
       quant: '量化:',
       weightSize: '权重大小:',
@@ -374,6 +376,9 @@ export const translations = {
       menuClone: 'Clone model',
       menuDelete: 'Delete from disk',
       menuDeleteConfirm: 'Confirm delete?',
+      menuViewOrigin: 'View on source site',
+      menuViewOriginUnknown:
+        'This model was not downloaded with this app, so no source is recorded',
       searchPlaceholder: 'Filter local tag or sha256 hash...',
       quant: 'Quant:',
       weightSize: 'Size:',

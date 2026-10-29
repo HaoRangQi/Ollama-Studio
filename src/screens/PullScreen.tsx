@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { CuratedHubModel, DownloadTask } from '../types';
 import { INITIAL_CURATED_MODELS } from '../data/mockData';
 import {
@@ -27,6 +27,12 @@ const buildModelScopeCommand = (modelId: string, file: string) => {
 const CATALOG_PAGE_SIZE_OPTIONS = [6, 12, 24] as const;
 const DEFAULT_CATALOG_PAGE_SIZE = 6;
 const CATALOG_PAGE_SIZE_KEY = 'ollama_catalog_page_size_v1';
+// 切换标签页会卸载本组件，搜索词与渠道持久化后回来才不丢。
+const CATALOG_QUERY_KEY = 'ollama_catalog_query_v1';
+const CATALOG_SOURCE_KEY = 'ollama_catalog_source_v1';
+const PULL_INPUT_KEY = 'ollama_pull_input_v1';
+
+const CATALOG_SOURCES: readonly CatalogSource[] = ['modelscope', 'huggingface', 'ollama'];
 
 interface PullScreenProps {
   downloadTask: DownloadTask;
@@ -67,15 +73,29 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   onStartHuggingFaceDownload
 }) => {
   const { t, language } = useAppTheme();
-  const [pullInput, setPullInput] = useState('ollama pull deepseek-r1:14b');
+  const [pullInput, setPullInputState] = useState(() =>
+    readStorageJson<string>(PULL_INPUT_KEY, 'ollama pull deepseek-r1:14b')
+  );
+  // 命令输入框会被多处程序化回填，统一在这里落盘，避免每个调用点各写一遍。
+  const setPullInput = useCallback((value: string) => {
+    setPullInputState(value);
+    writeStorageJson(PULL_INPUT_KEY, value);
+  }, []);
   const [activeCategory, setActiveCategory] = useState<
     'all' | 'reason' | 'code' | 'vision' | 'general'
   >('all');
   const [curatedList, setCuratedList] = useState<CuratedHubModel[]>(INITIAL_CURATED_MODELS);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [catalogQuery, setCatalogQuery] = useState('');
+  const [catalogQuery, setCatalogQuery] = useState(() =>
+    readStorageJson<string>(CATALOG_QUERY_KEY, '')
+  );
   // ModelScope 作为默认渠道：国内网络下 Hugging Face 常被阻断。
-  const [catalogSource, setCatalogSource] = useState<CatalogSource>('modelscope');
+  const [catalogSource, setCatalogSource] = useState<CatalogSource>(() => {
+    const stored = readStorageJson<string>(CATALOG_SOURCE_KEY, 'modelscope');
+    return (CATALOG_SOURCES as readonly string[]).includes(stored)
+      ? (stored as CatalogSource)
+      : 'modelscope';
+  });
   const catalogSourceLabel =
     catalogSource === 'modelscope'
       ? 'ModelScope'
@@ -200,12 +220,14 @@ export const PullScreen: React.FC<PullScreenProps> = ({
 
   const resetCatalogSearch = () => {
     setCatalogQuery('');
+    writeStorageJson(CATALOG_QUERY_KEY, '');
     resetCatalogResults();
   };
 
   const handleCatalogSourceChange = (source: CatalogSource) => {
     if (source === catalogSource) return;
     setCatalogSource(source);
+    writeStorageJson(CATALOG_SOURCE_KEY, source);
     // 切换渠道只清空旧渠道的结果，保留输入内容，方便直接再搜。
     resetCatalogResults();
   };
@@ -893,6 +915,7 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                 onChange={(e) => {
                   const value = e.target.value;
                   setCatalogQuery(value);
+                  writeStorageJson(CATALOG_QUERY_KEY, value);
                   if (!value.trim()) {
                     setCatalogResults([]);
                     setCatalogError(null);
