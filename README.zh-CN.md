@@ -87,22 +87,56 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 
 版本以 `package.json` / `package-lock.json` 为准，完整映射见 [`docs/context/MAP.md`](docs/context/MAP.md)。
 
-## 快速开始
+## 安装与运行
 
-前置：Node.js、npm，以及本机运行的 Ollama（默认 `http://127.0.0.1:11434`）。GGUF 文件上传还需要运行服务的机器能执行 `ollama` CLI。在项目根目录执行：
+> 预构建的 macOS 菜单栏 App 发布在 [GitHub Releases](https://github.com/HaoRangQi/Ollama-Studio/releases/latest)；Web 应用仍从源码运行，请先克隆仓库。
+
+### 前置条件
+
+- **Ollama** 已安装并在 `http://127.0.0.1:11434` 运行（已用 0.40.7 验证）。下载：<https://ollama.com/download>。
+- 推荐 **Node.js 24**（CI 使用版本）；Vite 8 要求 Node `^20.19.0 || >=22.12.0`，npm 随 Node 安装。
+- **macOS** 是主要目标平台；Web 应用在 Linux / Windows 上为尽力支持，菜单栏 App 仅支持 macOS。
+- 只有构建菜单栏 App 需要 **Xcode Command Line Tools**（`swift`、`swiftc`、`iconutil`、`hdiutil`、`codesign`）。
+- 菜单栏 App 自带 Node 运行时，使用 App 不需要另装 Node，但仍需要 Ollama。
+- 不需要云端 API Key；ModelScope / Hugging Face 的搜索与下载由本地服务调用其公开 API。
+- GGUF 上传与 ModelScope / Hugging Face 远程下载还需要运行服务的机器能执行 `ollama` CLI。
+
+### 方式 A：从源码运行 Web 应用
 
 ```bash
-npm install
+git clone https://github.com/HaoRangQi/Ollama-Studio.git
+cd Ollama-Studio
+npm ci
 npm run dev
 ```
 
 打开 `http://127.0.0.1:3000`。开发服务器默认只监听本机。
 
-如果 `npm install` 因默认缓存权限报 `EPERM`，使用仓库内缓存：
+如果 `npm ci` 因默认 npm 缓存权限报 `EPERM`，使用仓库内缓存：
 
 ```bash
-npm install --cache .npm-cache --no-audit --no-fund
+npm ci --cache .npm-cache --no-audit --no-fund
 ```
+
+### 方式 B：macOS 菜单栏 App
+
+macOS 上可以用 Swift/AppKit 菜单栏封装复用同一套 Web UI，不需要 Electron 或 Tauri。可以直接下载 [Releases](https://github.com/HaoRangQi/Ollama-Studio/releases/latest) 中的最新 DMG，或从源码构建。在仓库根目录执行：
+
+```bash
+npm ci
+npm run build:menu
+open "build/Ollama Studio Menu.app"
+```
+
+安装到 `/Applications`：打开下载或本地构建的 DMG，把 `Ollama Studio Menu` 拖入 `/Applications`：
+
+```bash
+open "build/Ollama Studio Menu-0.1.0.dmg"
+```
+
+构建产物为 `build/Ollama Studio Menu.app` 与 `build/Ollama Studio Menu-0.1.0.dmg`。App 会启动内置 Node 服务并监听 `127.0.0.1:3210`，在默认浏览器打开仪表盘，菜单栏提供“打开 Web / 打开日志 / 退出”。重新打包前需先退出正在运行的实例。
+
+应用使用 ad-hoc 签名、未公证。如果 macOS 阻止打开下载的副本，在 Finder 中右键 App 选择“打开”。目前不支持登录项、自动更新、Developer ID 签名与公证。构建产物已在仓库内启动验证；安装到 `/Applications` 与通过 App 发起真实模型下载尚未验证。原有 Web 构建与生产服务器不受影响。
 
 ### 配置 Ollama 地址
 
@@ -139,20 +173,57 @@ npm start
 
 `npm run build` 同时构建 `dist/` 与 `server.js`；`npm start` 默认监听 `127.0.0.1:3000`，静态托管前端并把 `/ollama/*` 流式转发到 `OLLAMA_HOST`。
 
-### macOS 菜单栏 App（可选）
-
-macOS 上可以用 Swift/AppKit 菜单栏封装复用同一套 Web UI，不需要 Electron 或 Tauri：
-
-```bash
-npm run build:menu
-open "build/Ollama Studio Menu.app"
-```
-
-需要 Xcode Command Line Tools（`swift`、`swiftc`、`iconutil`、`hdiutil`、`codesign`）。构建产物为 `build/Ollama Studio Menu.app` 与 `build/Ollama Studio Menu-0.1.0.dmg`。App 会启动内置 Node 服务并监听 `127.0.0.1:3210`，在默认浏览器打开仪表盘，菜单栏提供“打开 Web / 打开日志 / 退出”。重新打包前需先退出正在运行的实例。应用使用 ad-hoc 签名、未公证，不支持登录项与自动更新；原有 Web 构建与生产服务器不受影响。
-
 ### 导出 GGUF
 
 模型页右侧操作区的“导出 GGUF”会把当前已安装量化写入默认目录 `~/Downloads/Ollama Studio`，重名时自动追加 `-2`、`-3`。多模态模型的 `projector` 层会单独写成 `*-mmproj.gguf`；template/license/params 不属于 GGUF，需要另行保存 Modelfile。导出由本地服务读取 `OLLAMA_MODELS`（默认 `~/.ollama/models`）完成，优先使用 APFS copy-on-write clone；跨文件系统时是完整复制，请预留空间。
+
+## 开发
+
+Web 应用可以独立于 macOS 封装开发：`npm run dev` 只需要 Node 与 Ollama，不需要 Xcode，也不需要菜单栏 App。
+
+### 初始化
+
+```bash
+git clone https://github.com/HaoRangQi/Ollama-Studio.git
+cd Ollama-Studio
+npm ci
+cp .env.example .env   # 可选；进程环境优先
+```
+
+### 日常检查
+
+```bash
+npm run dev
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+npm run build
+```
+
+`npm test` 使用 Vitest 与 mock/隔离 fixture，日常开发不需要加载真实模型。提交 PR 前运行完整检查。GitHub Actions 在 `ubuntu-latest` + Node 24 上按同样顺序执行：`npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`。菜单栏 App 不在 CI 中构建，需本地用 `npm run build:menu` 验证。
+
+### 目录结构
+
+| 路径                                                        | 职责                                                         |
+| ----------------------------------------------------------- | ------------------------------------------------------------ |
+| `src/screens/`                                              | 页面级 UI：模型库、聊天、拉取、Modelfile 实验室、遥测        |
+| `src/components/`、`src/api/`、`src/context/`、`src/hooks/` | 共享 UI、Ollama/代理客户端、主题/i18n、轮询                  |
+| `server.ts`、`server/`                                      | Express 服务、`/ollama` 代理、下载、缓存、导出、指标、daemon |
+| `macos/menu-bar/`                                           | Swift/AppKit 菜单栏 App 与 `build:menu` 脚本                 |
+| `docs/context/`                                             | 当前状态、目录映射、运行手册、决策、风险                     |
+| `AGENTS.md`、`PROJECT_INDEX.md`                             | 协作规则与“任务 → 文件”路由                                  |
+
+### 一分钟架构
+
+浏览器请求同源 `/ollama` 代理，服务端再转发到 `OLLAMA_HOST`。拉取、ModelScope / Hugging Face GGUF 下载、缓存扫描、GGUF 导出等长任务在服务端执行。可选的菜单栏 App 内置构建后的 `dist/` 与 Node 运行时，在 `127.0.0.1:3210` 提供同一套 UI。
+
+### 接下来读
+
+- `AGENTS.md` — 仓库规则、读写边界与验证要求。
+- `PROJECT_INDEX.md` — 要改某个功能时先看这里。
+- `docs/context/NOW.md` — 当前目标、阻塞与下一步。
+- `docs/context/RUNBOOK.md` — 命令、前置条件与执行状态。
 
 ### 可用脚本
 
@@ -171,8 +242,6 @@ open "build/Ollama Studio Menu.app"
 | `npm test` / `test:watch` / `coverage` | Vitest 测试 / 监听 / 覆盖率                 |
 | `npm run clean`                        | 删除 `dist/`、`server.js`、`coverage/`      |
 
-前置条件、产物、验证步骤和执行状态见 [`docs/context/RUNBOOK.md`](docs/context/RUNBOOK.md)。
-
 ## 验证状态
 
 - `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（133 个测试）、`npm run build`：2026-10-29 全部通过。
@@ -183,6 +252,7 @@ open "build/Ollama Studio Menu.app"
 - Chat 导航视觉：侧栏 Chat 图标改用合法字形显式组合的 `chat` + `_` + `spa` + `rk`，复刻首版 `chat_spark` 被字体拆分后的效果，不再依赖无效图标名；选中态使用与其他导航一致的纯色主色胶囊和外发光。headless Chrome 在 1600×1000 下验证选中/未选中态、单行标签与 223×44 px 按钮。README 截图仍显示过渡期的 `forum` 图标，未重新生成。
 - 侧栏状态轮询：CDP mock `/ollama/api/ps` 从 0 个运行模型切到 1 个（`size_vram=926000000`）再切回 0，侧栏在 6.5 秒内依次显示 `— / 0 活跃` → `926 MB / 1 活跃` → `— / 0 活跃`，无需手动刷新。
 - 失败重试：CDP mock `/api/downloads` 分别注入 pull 与 ModelScope 失败任务，点击“重试”后 POST body 与原始任务一致（ModelScope 的 `file` 从持久化 source 恢复），轮询转为完成；失败卡片显示“将重跑：`ollama pull <model>`”，点“编辑命令”会把命令填回输入框并聚焦；旧 ModelScope 任务缺少 `kind/source` 时按 `.gguf` 文件名推断，不会误走 `ollama pull`；`pull model manifest: file does not exist` 会追加 HF/ModelScope 操作提示。
+- 拉取页渠道切换：在 ModelScope 输入框输入“MiniCPM5-2B”后切到 Hugging Face，输入内容保留，占位文案切换为 Hugging Face，旧结果清空，选中态移动到 Hugging Face。
 - 生产服务器（3101）与开发服务器（3001）：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、`/api/import` 校验与 headless Chrome 首屏渲染通过。
 - 代理令牌：无令牌 401、Bearer 令牌 200、`/api/import` 无令牌 401，均已验证。
 - 图片/视频附件：CDP 选择 PNG + WebM，视频抽 3 帧；mock `/api/chat` 捕获到 4 个 `images` 和默认描述文本；未执行真实视觉推理。

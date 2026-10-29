@@ -112,6 +112,7 @@
   - `GET /ollama/api/tags` → 真实模型列表（`minicpm-v-4.7-1b-heretic:q4_k_m`、`huihui_ai/qwen3.8-abliterated:27b-q4_K_L`）。
   - `GET /` → 200 HTML；headless Chrome 渲染出真实模型卡片。
 - 资源处理：本次验证未加载模型；`/api/ps` 未产生测试负载。测试后进程已停止。
+- 2026-10-29 离线横幅验证：`OLLAMA_HOST=http://127.0.0.1:9 PORT=3111 node server.js`（指向不存在的端口），headless Chrome 在 1600×1000 截图确认横幅标题“Ollama 未连接 · 当前显示演示数据”为 16px 粗体红色，副标题与“重试连接”按钮不变；验证后停止 3111 进程。
 - 未覆盖：客户端中途断开、上游超时、非 NDJSON 错误体。
 
 ### 8. 代理令牌鉴权
@@ -233,6 +234,8 @@
 - 启动：`open "build/Ollama Studio Menu.app"`；服务监听 `127.0.0.1:3210`，菜单栏出现图标，默认打开浏览器。
 - 验证：**已执行（2026-10-29）通过**。重新打包后启动，Node 子进程正常监听 `127.0.0.1:3210`；`POST /api/downloads` 的非法 HF 仓库返回 400 `Hugging Face 仓库格式应为 owner/name。`，`file:"../model.gguf"` 返回 400 `文件路径非法。`，确认内置服务已是 HF 服务端直下版本。
 - 2026-10-29 02:24 重新打包（Chat 导航图标复刻后）：`npm run build:menu` 退出码 0；App 启动后 `OllamaStudioMenu` PID 72421、内置 Node PID 72449 监听 `127.0.0.1:3210`；`/healthz` 与 `/ollama/api/version` 均返回 200（Ollama 0.40.7）。headless Chrome 打开 `http://127.0.0.1:3210/` 并点击 Chat，确认 `.chat-mark` 组合字形、标签“即时对话 Chat”单行、按钮 223×44 px、选中背景 `rgb(121, 82, 236)`。产物 `build/Ollama Studio Menu.app` 127 MB、DMG 47 MB。
+- 2026-10-29 09:25 重新打包（渠道切换保留输入修复后）：App 启动后 `OllamaStudioMenu` PID 64633、内置 Node PID 64664 监听 `127.0.0.1:3210`，`/healthz` 200；headless Chrome 在打包页面输入 “MiniCPM5-2B” 后切到 Hugging Face，输入值保留、占位文案更新、旧结果清空。
+- 2026-10-29 11:05 重新打包（界面与离线提示更新后）：`npm run build:menu` 退出码 0，产物 `build/Ollama Studio Menu.app` 127 MB、DMG 46 MB；App 重启后 `OllamaStudioMenu` PID 39820 监听 `127.0.0.1:3210`，`/healthz` 200；通过 System Events 定位状态栏项目（1416,3）并截屏确认打包后的外观已生效。
 - 未验证：通过 App 发起真实 HF 下载或真实 `ollama create`；安装到 `/Applications`、登录项、自动更新、Developer ID 签名与公证。
 
 ## Ollama 连通性检查

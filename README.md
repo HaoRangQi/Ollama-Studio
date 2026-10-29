@@ -87,22 +87,56 @@ For detailed status, blockers, and next steps, see [`docs/context/NOW.md`](docs/
 
 Versions follow `package.json` / `package-lock.json`; see [`docs/context/MAP.md`](docs/context/MAP.md) for the full map.
 
-## Quick Start
+## Install and Run
 
-Prerequisites: Node.js, npm, and a locally running Ollama (default `http://127.0.0.1:11434`). GGUF upload also requires the `ollama` CLI on the machine running the server. From the project root:
+> A prebuilt macOS menu bar app is available from [GitHub Releases](https://github.com/HaoRangQi/Ollama-Studio/releases/latest). The web app still runs from source; clone the repository first.
+
+### Requirements
+
+- **Ollama** installed and running at `http://127.0.0.1:11434` (verified with 0.40.7). Download: <https://ollama.com/download>.
+- **Node.js 24** recommended (the CI version); Vite 8 requires Node `^20.19.0 || >=22.12.0`. npm is included.
+- **macOS** is the primary target. The web app is best-effort on Linux and Windows; the menu bar app is macOS-only.
+- **Xcode Command Line Tools** are required only for the menu bar build (`swift`, `swiftc`, `iconutil`, `hdiutil`, `codesign`).
+- The menu bar app bundles its own Node runtime, so its users do not need Node. They still need Ollama.
+- No cloud API key is required; ModelScope/Hugging Face search and downloads use their public APIs through the local server.
+- GGUF upload and remote ModelScope/Hugging Face downloads also require the `ollama` CLI on the machine running the server.
+
+### Option A: Web App from Source
 
 ```bash
-npm install
+git clone https://github.com/HaoRangQi/Ollama-Studio.git
+cd Ollama-Studio
+npm ci
 npm run dev
 ```
 
 Open `http://127.0.0.1:3000`. The development server listens on localhost only.
 
-If `npm install` fails with `EPERM` due to the default cache permissions, use the repository cache:
+If `npm ci` fails with `EPERM` because of the default npm cache permissions, use the repository cache:
 
 ```bash
-npm install --cache .npm-cache --no-audit --no-fund
+npm ci --cache .npm-cache --no-audit --no-fund
 ```
+
+### Option B: macOS Menu Bar App
+
+On macOS, an optional Swift/AppKit menu bar wrapper hosts the same web UI without Electron or Tauri. Download the latest DMG from [Releases](https://github.com/HaoRangQi/Ollama-Studio/releases/latest), or build it from source. From the repository root:
+
+```bash
+npm ci
+npm run build:menu
+open "build/Ollama Studio Menu.app"
+```
+
+To install it, open the downloaded or locally built DMG and drag `Ollama Studio Menu` to `/Applications`:
+
+```bash
+open "build/Ollama Studio Menu-0.1.0.dmg"
+```
+
+The build produces `build/Ollama Studio Menu.app` and `build/Ollama Studio Menu-0.1.0.dmg`. The app starts the bundled Node server on `127.0.0.1:3210`, opens the dashboard in the default browser, and provides Open Web / Open Log / Quit in the menu bar. Quit a running instance before rebuilding.
+
+The app is ad-hoc signed and not notarized. If macOS blocks a downloaded copy, right-click the app in Finder and choose **Open**. There is no login-item, auto-update, Developer ID signing, or notarization yet. The build has been launched from the repository; installation to `/Applications` and a real model download through the app are still unverified. The regular web build and production server are unaffected.
 
 ### Configure the Ollama Endpoint
 
@@ -139,20 +173,57 @@ npm start
 
 `npm run build` builds both `dist/` and `server.js`; `npm start` listens on `127.0.0.1:3000` by default, serves the frontend statically, and streams `/ollama/*` to `OLLAMA_HOST`.
 
-### macOS Menu Bar App (Optional)
-
-On macOS, an optional Swift/AppKit menu bar wrapper hosts the same web UI without Electron or Tauri:
-
-```bash
-npm run build:menu
-open "build/Ollama Studio Menu.app"
-```
-
-This requires Xcode Command Line Tools (`swift`, `swiftc`, `iconutil`, `hdiutil`, `codesign`). The build produces `build/Ollama Studio Menu.app` and `build/Ollama Studio Menu-0.1.0.dmg`. The app starts the bundled Node server on `127.0.0.1:3210`, opens the dashboard in the default browser, and provides Open Web / Open Log / Quit in the menu bar. Quit a running instance before rebuilding. The bundle is ad-hoc signed, not notarized, and has no login-item or auto-update support; the regular web build and production server remain unchanged.
-
 ### Export GGUF
 
 "Export GGUF" in the model page action area writes the installed quantization to `~/Downloads/Ollama Studio`, appending `-2`, `-3` on name collisions. Multimodal `projector` layers are written separately as `*-mmproj.gguf`; template/license/params are not part of GGUF and need a separate Modelfile. The local server reads `OLLAMA_MODELS` (default `~/.ollama/models`) and prefers APFS copy-on-write clones; cross-filesystem copies are full copies, so reserve enough space.
+
+## Development
+
+The web app can be developed independently of the macOS wrapper: `npm run dev` needs Node and Ollama, not Xcode or the menu bar app.
+
+### Setup
+
+```bash
+git clone https://github.com/HaoRangQi/Ollama-Studio.git
+cd Ollama-Studio
+npm ci
+cp .env.example .env   # optional; process environment wins
+```
+
+### Daily Checks
+
+```bash
+npm run dev
+npm run typecheck
+npm run lint
+npm run format:check
+npm test
+npm run build
+```
+
+`npm test` uses Vitest with mocks and isolated fixtures; routine development does not load a real model. Run the full set before opening a pull request. GitHub Actions runs the same commands on `ubuntu-latest` with Node 24 in this order: `npm ci` → `typecheck` → `lint` → `format:check` → `test` → `build`. The macOS menu bar app is not built in CI; verify it locally with `npm run build:menu`.
+
+### Project Layout
+
+| Path | Responsibility |
+| --- | --- |
+| `src/screens/` | Page-level UI: models, chat, pull, Modelfile lab, telemetry |
+| `src/components/`, `src/api/`, `src/context/`, `src/hooks/` | Shared UI, Ollama/proxy clients, theme/i18n, polling |
+| `server.ts`, `server/` | Express server, `/ollama` proxy, downloads, cache, export, metrics, daemon |
+| `macos/menu-bar/` | Swift/AppKit menu bar app and `build:menu` script |
+| `docs/context/` | Current state, map, runbook, decisions, risks |
+| `AGENTS.md`, `PROJECT_INDEX.md` | Collaboration rules and task-to-file routing |
+
+### Architecture in One Minute
+
+The browser talks to the same-origin `/ollama` proxy; the server forwards to `OLLAMA_HOST`. Long-running work (pulls, ModelScope/Hugging Face GGUF downloads, cache scans, GGUF export) runs server-side. The optional menu bar app embeds the built `dist/` and a Node runtime and serves the same UI on `127.0.0.1:3210`.
+
+### Read Next
+
+- `AGENTS.md` — repository rules, read/write boundaries, and verification requirements.
+- `PROJECT_INDEX.md` — where to change a feature.
+- `docs/context/NOW.md` — current goals, blockers, and next steps.
+- `docs/context/RUNBOOK.md` — commands, prerequisites, and execution status.
 
 ### Available Scripts
 
@@ -171,8 +242,6 @@ This requires Xcode Command Line Tools (`swift`, `swiftc`, `iconutil`, `hdiutil`
 | `npm test` / `test:watch` / `coverage` | Vitest tests / watch / coverage |
 | `npm run clean` | Remove `dist/`, `server.js`, and `coverage/` |
 
-For prerequisites, build artifacts, verification steps, and execution status, see [`docs/context/RUNBOOK.md`](docs/context/RUNBOOK.md).
-
 ## Verification Status
 
 - `npm run typecheck`, `npm run lint`, `npm run format:check`, `npm test` (133 tests), and `npm run build`: all passed on 2026-10-29.
@@ -183,6 +252,7 @@ For prerequisites, build artifacts, verification steps, and execution status, se
 - Chat navigation visual: the sidebar Chat mark uses the original four-part `chat` + `_` + `spa` + `rk` composition, explicitly assembled from valid glyphs instead of the invalid `chat_spark` name, with the shared flat accent pill and glow. Headless Chrome at 1600×1000 verified the active and inactive states, the one-line label, and a 223×44 px button. README screenshots still show the interim `forum` icon and were not regenerated.
 - Sidebar status polling: CDP mocked `/ollama/api/ps` changing from 0 running models to 1 (`size_vram=926000000`) and back to 0; the sidebar showed `— / 0 active` → `926 MB / 1 active` → `— / 0 active` within 6.5 seconds, without a manual refresh.
 - Failure retry: CDP mock `/api/downloads` injected pull and ModelScope failures; clicking "Retry" sent a POST body identical to the original task (ModelScope `file` was restored from the persisted source) and polling moved to completed; the failure card showed "Will rerun: `ollama pull <model>`"; "Edit command" filled and focused the input; legacy ModelScope tasks missing `kind/source` were inferred from the `.gguf` filename and did not incorrectly use `ollama pull`; `pull model manifest: file does not exist` added HF/ModelScope guidance.
+- Pull channel switch: typed "MiniCPM5-2B" in the ModelScope query and switched to Hugging Face; the input value was preserved, the placeholder changed to Hugging Face, previous results were cleared, and the active pill moved to Hugging Face.
 - Production server (3101) and development server (3001): `/healthz`, `/ollama/api/version`, `/ollama/api/tags`, `/api/import` validation, and headless Chrome first-screen rendering all passed.
 - Proxy token: unauthenticated requests returned 401, Bearer token returned 200, and `/api/import` without a token returned 401; all verified.
 - Image/video attachments: CDP selected a PNG + WebM, sampled 3 video frames; the mock `/api/chat` received 4 `images` entries and the default description; real visual inference was not run.

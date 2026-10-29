@@ -49,7 +49,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 改 lint/format/strict | `eslint.config.js`；`.prettierrc.json`；`tsconfig.json` |
 | 改 CI | `.github/workflows/ci.yml` |
 | 改字体/图标 | `src/main.tsx`；`src/index.css`；`package.json` 的字体依赖 |
-| 安装依赖、开发、构建、生产运行 | `docs/context/RUNBOOK.md` |
+| 安装依赖、开发、构建、生产运行 | `README.md` 的“Install and Run”与“Development”；命令与执行状态见 `docs/context/RUNBOOK.md` |
 | 查依赖版本、脚本、环境 | `package.json`；`package-lock.json`；`vite.config.ts`；`tsconfig.json`；关系说明见 `docs/context/MAP.md` |
 | 查为什么这样选 | `docs/context/DECISIONS.md` |
 | 查已知坑和未验证项 | `docs/context/RISKS.md` |
