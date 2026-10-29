@@ -47,7 +47,8 @@ export function extractGgufFiles(siblings: HuggingFaceModel['siblings']): string
   return Array.from(files).slice(0, 40);
 }
 
-function extractQuants(files: string[]): string[] {
+/** 返回全部可识别量化，不截断：卡片已有预览 8 个 + “+N” 展开的折叠逻辑。 */
+export function extractQuants(files: string[]): string[] {
   const quants = new Set<string>();
   for (const file of files) {
     const match = file.match(QUANT_GGUF);
@@ -55,7 +56,7 @@ function extractQuants(files: string[]): string[] {
       quants.add(match[1].toUpperCase());
     }
   }
-  return Array.from(quants).slice(0, 12);
+  return Array.from(quants);
 }
 
 /**
