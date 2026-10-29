@@ -26,6 +26,7 @@ export const ConnectionBanner: React.FC<ConnectionBannerProps> = ({
 
   const connecting = status === 'connecting';
   const empty = status === 'online' && modelCount === 0;
+  const offline = !connecting && !empty;
   const title = connecting
     ? zh
       ? '正在连接 Ollama…'
@@ -51,7 +52,15 @@ export const ConnectionBanner: React.FC<ConnectionBannerProps> = ({
         {connecting ? 'progress_activity' : empty ? 'inbox' : 'cloud_off'}
       </span>
       <div className="flex flex-col min-w-0 flex-1">
-        <span className="text-[13px] font-semibold text-[var(--app-text)]">{title}</span>
+        <span
+          className={
+            offline
+              ? 'text-[16px] font-bold text-[var(--app-danger-text)]'
+              : 'text-[13px] font-semibold text-[var(--app-text)]'
+          }
+        >
+          {title}
+        </span>
         <span className="text-[11px] text-[var(--app-text-muted)] mt-0.5 break-words">
           {connecting
             ? zh
