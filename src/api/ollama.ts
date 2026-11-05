@@ -1,22 +1,11 @@
 const RAW_BASE = (import.meta.env as Record<string, string | undefined> | undefined)
   ?.VITE_OLLAMA_BASE_URL;
-const RAW_PROXY_TOKEN = (import.meta.env as Record<string, string | undefined> | undefined)
-  ?.VITE_PROXY_TOKEN;
 
 /**
  * All requests go through the local proxy by default (`/ollama`).
  * Set VITE_OLLAMA_BASE_URL only when the browser can reach Ollama directly.
  */
 export const OLLAMA_BASE = (RAW_BASE && RAW_BASE.trim()) || '/ollama';
-
-/**
- * Optional shared secret for the proxy. When PROXY_TOKEN is configured on the
- * server, the same value must be provided as VITE_PROXY_TOKEN at build time.
- */
-export function proxyAuthHeaders(): Record<string, string> {
-  const token = RAW_PROXY_TOKEN?.trim();
-  return token ? { authorization: `Bearer ${token}` } : {};
-}
 
 export interface OllamaTagDetails {
   parent_model?: string;
@@ -147,7 +136,6 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
       ...init,
       headers: {
         accept: 'application/json',
-        ...proxyAuthHeaders(),
         ...(init?.headers ?? {})
       }
     });
@@ -326,8 +314,7 @@ export async function importGguf(file: File, modelName?: string): Promise<Import
     response = await fetch(`/api/import?${params.toString()}`, {
       method: 'POST',
       headers: {
-        'content-type': 'application/octet-stream',
-        ...proxyAuthHeaders()
+        'content-type': 'application/octet-stream'
       },
       body: file
     });
@@ -373,8 +360,7 @@ export async function streamChat(
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/x-ndjson',
-        ...proxyAuthHeaders()
+        accept: 'application/x-ndjson'
       },
       body: JSON.stringify({ ...request, stream: true }),
       signal
@@ -408,8 +394,7 @@ export async function pullModel(
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/x-ndjson',
-        ...proxyAuthHeaders()
+        accept: 'application/x-ndjson'
       },
       body: JSON.stringify({ name, stream: true }),
       signal

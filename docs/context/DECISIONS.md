@@ -92,7 +92,7 @@
 ### D-105 生产形态为 Express 静态托管 + 流式代理
 
 - **状态**：已确认（2026-10-27 实现）。
-- **内容**：`server.ts` 托管 `dist/`，把 `/ollama/*` 转发到 `OLLAMA_HOST`，保留 NDJSON 流；`npm run build` 同时执行 `build:web` 与 `build:server`，`npm start` 运行 `server.js`。默认 `HOST=127.0.0.1`、`PORT=3000`。
+- **内容**：`server.ts` 托管 `dist/`，把 `/ollama/*` 转发到 `OLLAMA_HOST`，保留 NDJSON 流；`npm run build` 同时执行 `build:web` 与 `build:server`，`npm start` 运行 `server.js`。默认 `HOST=127.0.0.1`、`PORT=3000`（2026-11-03 起默认端口改为 39471，见 D-146）。
 - **依据/来源**：`server.ts`、`package.json`、`RUNBOOK.md`。
 - **理由**：不引入额外反向代理即可本地运行生产构建；流式响应不被缓冲。
 - **范围**：单机本地运行；未做鉴权、TLS、容器化或公网部署。
@@ -203,7 +203,7 @@
 
 ### D-126 代理鉴权采用可选共享令牌，默认仅监听 localhost
 
-- **状态**：已确认（2026-10-28，替代 D-115 的待决策项）。
+- **状态**：已被 D-145 替代（2026-10-29）；默认仅监听 localhost 的原则保留。
 - **内容**：生产服务器默认 `HOST=127.0.0.1`；设置 `PROXY_TOKEN` 后，`/ollama/*` 与本地管理 API（`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`）要求 `Authorization: Bearer <token>` 或 `X-Proxy-Token`。前端在构建时通过 `VITE_PROXY_TOKEN` 发送同一令牌。非 loopback 且未设置令牌时，启动日志输出安全警告。
 - **依据/来源**：`server.ts`、`vite.config.ts`、`src/api/ollama.ts` 的 `proxyAuthHeaders`、`.env.example`；2026-10-28 生产服务器 401/200 验证。
 - **理由**：默认本机使用零配置；需要局域网访问时可加一层共享密钥。
@@ -212,7 +212,7 @@
 ### D-127 开发服务器默认绑定 127.0.0.1
 
 - **状态**：已确认（2026-10-28）。
-- **内容**：`npm run dev` 使用 `vite --port=3000 --host=127.0.0.1`；需要局域网访问时显式运行 `npm run dev:lan`（`0.0.0.0`），并遵守安全提示。
+- **内容**：`npm run dev` 使用 `vite --port=3000 --host=127.0.0.1`（2026-11-03 起端口为 39471，见 D-146）；需要局域网访问时显式运行 `npm run dev:lan`（`0.0.0.0`），并遵守安全提示。
 - **依据/来源**：`package.json`、`vite.config.ts`、`RUNBOOK.md`；2026-10-28 在 3001 窄绑定验证通过。
 - **理由**：避免开发服务器在无鉴权情况下暴露给同网段。
 - **范围/风险**：`dev:lan` 仍是明文 HTTP，仅应在可信网络临时使用。
@@ -345,6 +345,22 @@
 - **依据/来源**：`src/lib/modelOrigin.ts`、`src/lib/modelOrigin.test.ts`、`src/App.tsx`、`src/screens/ModelsScreen.tsx`、`src/api/catalog.ts`、`src/api/catalog.test.ts`、`RUNBOOK.md` 12/20；用户要求"查询的时候卡片就有记录，这个时候卡片是可以跳转去对应页面的，下载的时候记下来"，并反馈"下载的时候看到的标签没有里面描述写的多"。
 - **理由**：手动 `ollama pull` 进来的模型没有下载来源，只能显示 disabled；同名的模型从另一渠道重新下载时覆盖为最新来源。来源是下载时快照，不随远端变化更新。量化截断在数据层砍掉尾部量化，UI 的“+N”因此永远展不全，属于把展示职责放错了层。
 - **范围/风险**：localStorage 有体积上限（通常 5 MB），200 条来源记录远低于此；模型删除后记录不清理，靠上限淘汰。渠道页面 URL 由服务端已知的 `repo`/`namespace`/`name` 拼装，不包含用户输入的文件路径，无法构造越权链接。`extractGgufFiles` 仍保留 `slice(0, 40)`（文件级上限），去重后量化数通常远小于 40。
+
+### D-145 安全审计 P0：会话 Cookie 鉴权 + Host/CSRF 强制校验
+
+- **状态**：已确认（2026-10-29，替代 D-126 的令牌分发方式；D-126 的默认 loopback 原则保留）。
+- **内容**：`PROXY_TOKEN` 只用于 `/login` 换取 HttpOnly、SameSite=Strict 会话 Cookie；前端不再读取 `VITE_PROXY_TOKEN`，bundle 中不包含令牌。脚本保留 `Authorization: Bearer` 或 `X-Proxy-Token`。`/ollama/*` 与全部 `/api/*` 都要求会话（`/api/auth/*`、`/healthz` 除外）。服务端校验 Host（loopback、IP 字面量、本机主机名、`ALLOWED_HOSTS`）、Origin/Sec-Fetch-Site 与写请求的 JSON Content-Type，并从 `/ollama` 上游剥离 Authorization、Cookie、Origin、Referer、X-Forwarded-*。非 loopback 无令牌或令牌少于 32 字符时拒绝启动（`ALLOW_INSECURE_BIND=1` 仅用于显式接受风险）。会话保存在内存中，重启失效。
+- **依据/来源**：`security-audit/README.md` 与 `appendix/remediation-checklist.md` 的 P0-1/2/5；`server/auth.ts`、`server/security.ts`、`server.ts`、`vite.config.ts`；192 个测试与生产服务器 15 项动态检查通过。
+- **理由**：原 `VITE_PROXY_TOKEN` 会进入无需认证即可下载的静态 bundle，令牌模式不构成访问控制；loopback 也不是浏览器安全边界，跨站请求与 DNS rebinding 都能触达本地 API。
+- **范围/风险**：Cookie 默认不带 `Secure`（本机 HTTP）；HTTPS 反向代理后需设置 `COOKIE_SECURE=1`。会话无持久化、多实例不共享。`ALLOWED_HOSTS` 仅应加入可信 LAN 域名；跨网段仍建议加 TLS 反向代理。
+
+### D-146 默认端口改为 39471
+
+- **状态**：已确认（2026-11-03）。
+- **内容**：开发脚本、Vite 配置、生产服务器与 `.env.example` 的默认端口从 3000 改为 39471；`PORT` 环境变量仍可覆盖。
+- **依据/来源**：`package.json`、`vite.config.ts`、`server.ts`、`.env.example`、`README.md` / `README.zh-CN.md`、`docs/context/MAP.md`；改动前确认 39471 未被监听。
+- **理由**：3000 是常见开发端口，容易与本地其他服务冲突；39471 是未占用的高位注册端口。
+- **范围/风险**：macOS 菜单栏封装仍使用 3210；历史验证记录中的 3000/3001 是当时实际使用的端口，保留不改。
 
 ## 待决策（尚未决定）
 

@@ -1,0 +1,25 @@
+# Evidence: auth-gate coverage and unauthenticated leaks
+
+Server started with PROXY_TOKEN=<TEST_TOKEN>.
+
+GET /api/cache (no token)                  401
+GET /api/daemon (no token)                 401
+GET /api/metrics (no token)                401
+GET /api/modelscope/search (no token)      401
+GET /api/catalog/search (no token)         200
+GET /api/hf/api/models (no token)          200
+GET /healthz (no token)                    200
+
+Unauthenticated /healthz body:
+{"ok":true,"ollamaHost":"http://127.0.0.1:45872","authRequired":true}
+
+GET /api/modelscope/search with Bearer token -> 
+HTTP 200
+
+Notes:
+- /api/catalog/search and /api/hf are deliberately read-only public proxies,
+  but they bypass PROXY_TOKEN and are reachable from other LAN hosts.
+- /healthz is unauthenticated and discloses the upstream URL.
+- /api/modelscope/search is protected by the server (401) but the browser
+  client does not send the token: src/api/catalog.ts:151-224 omits
+  proxyAuthHeaders(), so the default channel breaks when PROXY_TOKEN is set.

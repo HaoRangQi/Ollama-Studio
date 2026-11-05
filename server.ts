@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import express, { type RequestHandler } from 'express';
+import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GgufImportError, importGgufStream } from './server/importGguf';
@@ -9,68 +9,31 @@ import { handleExportRequest } from './server/exportGguf';
 import { handleMetricsRequest } from './server/metrics';
 import { handleDaemonControlRequest, handleDaemonRequest } from './server/daemon';
 import { handleModelScopePullRequest, handleModelScopeSearchRequest } from './server/modelscope';
+import { createAuth } from './server/auth';
+import { createCsrfGuard, createHostGuard, parseAllowedHosts } from './server/security';
 
 const app = express();
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const distDir = path.join(rootDir, 'dist');
 const ollamaHost = (process.env.OLLAMA_HOST || 'http://127.0.0.1:11434').replace(/\/+$/, '');
-const port = Number(process.env.PORT || 3000);
+const port = Number(process.env.PORT || 39471);
 const host = process.env.HOST || '127.0.0.1';
 const proxyToken = (process.env.PROXY_TOKEN || '').trim();
 const isLoopback = host === '127.0.0.1' || host === 'localhost' || host === '::1';
+const allowInsecureBind = process.env.ALLOW_INSECURE_BIND === '1';
+const auth = createAuth({
+  token: proxyToken,
+  secureCookies: process.env.COOKIE_SECURE === '1'
+});
 
-function readProxyToken(request: express.Request): string | undefined {
-  const authorization = request.headers.authorization;
-  if (authorization?.startsWith('Bearer ')) {
-    return authorization.slice('Bearer '.length).trim();
-  }
-  const header = request.headers['x-proxy-token'];
-  return Array.isArray(header) ? header[0] : header;
-}
+app.disable('x-powered-by');
 
-/**
- * Optional shared-secret gate. It is disabled unless PROXY_TOKEN is set;
- * the default localhost-only binding remains the primary protection.
- */
-const requireProxyToken: RequestHandler = (request, response, next) => {
-  if (!proxyToken) {
-    next();
-    return;
-  }
-  if (readProxyToken(request) === proxyToken) {
-    next();
-    return;
-  }
-  response.status(401).json({ error: '未授权：缺少或错误的代理令牌。' });
-};
-
-app.use(
-  [
-    '/ollama',
-    '/api/import',
-    '/api/modelscope',
-    '/api/downloads',
-    '/api/cache',
-    '/api/export',
-    '/api/metrics',
-    '/api/daemon'
-  ],
-  requireProxyToken
-);
-
-const HOP_BY_HOP = new Set([
-  'host',
-  'connection',
-  'content-length',
-  'accept-encoding',
-  'transfer-encoding',
-  'keep-alive',
-  'upgrade',
-  'proxy-authorization',
-  'proxy-authenticate',
-  'te',
-  'trailer'
-]);
+// Host / Origin / Content-Type 校验必须在静态资源和所有 API 之前。
+app.use(createHostGuard({ allowedHosts: parseAllowedHosts(process.env.ALLOWED_HOSTS) }));
+app.use(createCsrfGuard());
+app.use(auth.handleRoutes);
+app.use(auth.guardNavigation);
+app.use(['/ollama', '/api'], auth.requireSession);
 
 app.get('/healthz', (_request, response) => {
   response.json({ ok: true, ollamaHost, authRequired: Boolean(proxyToken) });
@@ -230,8 +193,10 @@ app.all('/ollama/*', async (request, response) => {
     const targetUrl = `${ollamaHost}${targetPath}`;
     const headers = new Headers();
 
+    // 只转发 Ollama 需要的请求头；认证 Cookie、令牌与来源头绝不透传到上游。
+    const forwardedHeaders = new Set(['content-type', 'accept', 'accept-language', 'user-agent']);
     for (const [key, value] of Object.entries(request.headers)) {
-      if (!value || HOP_BY_HOP.has(key.toLowerCase())) continue;
+      if (!value || !forwardedHeaders.has(key.toLowerCase())) continue;
       headers.set(key, Array.isArray(value) ? value.join(', ') : value);
     }
 
@@ -294,16 +259,28 @@ app.get('*', (_request, response) => {
   response.sendFile(path.join(distDir, 'index.html'));
 });
 
+if (!isLoopback && !proxyToken && !allowInsecureBind) {
+  console.error('[security] 拒绝启动：HOST 不是回环地址且未设置 PROXY_TOKEN。');
+  console.error('           请设置 PROXY_TOKEN，或显式设置 ALLOW_INSECURE_BIND=1 后重试。');
+  process.exit(1);
+}
+
+if (proxyToken && proxyToken.length < 32) {
+  const message = '[security] PROXY_TOKEN 少于 32 个字符，建议使用 `openssl rand -hex 32` 生成。';
+  if (!isLoopback) {
+    console.error(message);
+    console.error('           非回环绑定要求更强的令牌，已拒绝启动。');
+    process.exit(1);
+  }
+  console.warn(message);
+}
+
 const server = app.listen(port, host, () => {
   console.log(`Ollama Studio server: http://${host}:${port}`);
   console.log(`Ollama upstream: ${ollamaHost}`);
-  console.log(`Proxy auth: ${proxyToken ? 'enabled (PROXY_TOKEN)' : 'disabled'}`);
-  if (!isLoopback && !proxyToken) {
-    console.warn(
-      '[security] HOST is not loopback and PROXY_TOKEN is unset. ' +
-        'Anyone who can reach this port can call /ollama/* and /api/import.'
-    );
-  }
+  console.log(
+    `Auth: ${proxyToken ? 'enabled (session cookie + Bearer token)' : 'disabled (loopback only)'}`
+  );
 });
 
 const shutdown = () => {

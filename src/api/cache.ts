@@ -1,5 +1,3 @@
-import { proxyAuthHeaders } from './ollama';
-
 export type CleanupTarget = 'orphan' | 'partial' | 'temp';
 
 export interface CacheItem {
@@ -36,6 +34,8 @@ export interface CacheReport {
   };
   reclaimableBytes: number;
   scanComplete: boolean;
+  manifestFiles: number;
+  manifestRoots: number;
   activeDownloads: boolean;
   skippedRecent: number;
   scannedAt: number;
@@ -69,7 +69,7 @@ export async function fetchCacheReport(): Promise<CacheReport> {
   let response: Response;
   try {
     response = await fetch('/api/cache', {
-      headers: { accept: 'application/json', ...proxyAuthHeaders() }
+      headers: { accept: 'application/json' }
     });
   } catch (error) {
     throw new Error('无法连接本地服务，无法读取缓存信息。', { cause: error });
@@ -88,8 +88,7 @@ export async function cleanupCache(targets: CleanupTarget[]): Promise<CleanupRes
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/json',
-        ...proxyAuthHeaders()
+        accept: 'application/json'
       },
       body: JSON.stringify({ targets })
     });
@@ -110,8 +109,7 @@ export async function revealCachePath(path: string): Promise<void> {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/json',
-        ...proxyAuthHeaders()
+        accept: 'application/json'
       },
       body: JSON.stringify({ path })
     });

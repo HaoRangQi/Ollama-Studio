@@ -1,6 +1,16 @@
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdir, readdir, readFile, readlink, realpath, rename, rm, stat } from 'node:fs/promises';
+import {
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  readlink,
+  realpath,
+  rename,
+  rm,
+  stat
+} from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
@@ -28,6 +38,9 @@ const RECENT_MS = 10 * 60 * 1000;
 const TEMP_PREFIX = 'ollama-studio-';
 /** 未引用权重不直接删除，先移到模型目录内的回收站，保留恢复机会。 */
 const TRASH_DIR = '.ollama-studio-trash';
+/** 同一模型目录只允许一个清理进程；陈旧锁在 30 分钟后可被接管。 */
+const CLEAN_LOCK = '.ollama-studio-clean.lock';
+const CLEAN_LOCK_TTL_MS = 30 * 60 * 1000;
 /** 每类最多随报告返回的明细条数，避免超大目录撑爆响应。 */
 const MAX_ITEMS = 500;
 
@@ -72,7 +85,11 @@ export interface CacheReport {
   reclaimableBytes: number;
   /** manifest 全部解析成功时为 true；false 时禁止清理 orphan。 */
   scanComplete: boolean;
-  /** 有后台下载任务时为 true，此时禁止清理 partial。 */
+  /** 成功解析的 manifest 文件数；为 0 且存在完整 blob 时不能清理 orphan。 */
+  manifestFiles: number;
+  /** 存在的 manifest 根目录数（manifests/ 与 manifests-v2/）。 */
+  manifestRoots: number;
+  /** 有后台下载任务时为 true，此时禁止清理 partial、orphan 与 temp。 */
   activeDownloads: boolean;
   /** 因为“最近修改”被跳过的文件数（不计入可回收）。 */
   skippedRecent: number;
@@ -118,6 +135,8 @@ interface ManifestDocument {
 async function readManifestDigests(modelsDir: string): Promise<{
   digests: Set<string>;
   complete: boolean;
+  manifestFiles: number;
+  manifestRoots: number;
 }> {
   const blobsDir = path.join(modelsDir, 'blobs');
   let blobsReal = blobsDir;
@@ -131,6 +150,17 @@ async function readManifestDigests(modelsDir: string): Promise<{
   const seenManifestBlobs = new Set<string>();
   const seenManifestFiles = new Set<string>();
   let complete = true;
+  let manifestRoots = 0;
+
+  for (const root of ['manifests', 'manifests-v2']) {
+    try {
+      const info = await stat(path.join(modelsDir, root));
+      if (info.isDirectory()) manifestRoots += 1;
+    } catch {
+      // 根目录不存在是正常形态；两个都不存在时下面会锁定 orphan 清理。
+    }
+  }
+  if (manifestRoots === 0) complete = false;
 
   const addDigest = (value: unknown): string | null => {
     if (typeof value !== 'string') return null;
@@ -255,7 +285,7 @@ async function readManifestDigests(modelsDir: string): Promise<{
 
   await walk(path.join(modelsDir, 'manifests'));
   await walk(path.join(modelsDir, 'manifests-v2'));
-  return { digests, complete };
+  return { digests, complete, manifestFiles: seenManifestFiles.size, manifestRoots };
 }
 
 /**
@@ -281,6 +311,8 @@ async function readMetadataDigests(modelsDir: string): Promise<Set<string>> {
 async function collectProtectedDigests(modelsDir: string): Promise<{
   digests: Set<string>;
   complete: boolean;
+  manifestFiles: number;
+  manifestRoots: number;
 }> {
   const manifest = await readManifestDigests(modelsDir);
   const metadata = await readMetadataDigests(modelsDir);
@@ -351,28 +383,32 @@ async function scanTempDirs(): Promise<{ entries: TempEntry[]; skippedRecent: nu
     const full = path.join(root, entry.name);
     try {
       const info = await stat(full);
-      if (now - info.mtimeMs < RECENT_MS) {
-        skippedRecent += 1;
-        continue;
-      }
       let size = 0;
       let files = 0;
+      let newest = info.mtimeMs;
       const walk = async (directory: string): Promise<void> => {
         for (const child of await readdir(directory, { withFileTypes: true })) {
           const childPath = path.join(directory, child.name);
           if (child.isDirectory()) await walk(childPath);
           else if (child.isFile()) {
-            size += (await stat(childPath)).size;
+            const childInfo = await stat(childPath);
+            size += childInfo.size;
             files += 1;
+            if (childInfo.mtimeMs > newest) newest = childInfo.mtimeMs;
           }
         }
       };
       await walk(full);
+      // 目录 mtime 只在增删文件时更新；正在写入的子文件 mtime 才是活动信号。
+      if (now - newest < RECENT_MS) {
+        skippedRecent += 1;
+        continue;
+      }
       entriesFound.push({
         name: entry.name,
         path: full,
         bytes: size,
-        modifiedAt: info.mtimeMs,
+        modifiedAt: newest,
         entries: files
       });
     } catch {
@@ -385,11 +421,15 @@ async function scanTempDirs(): Promise<{ entries: TempEntry[]; skippedRecent: nu
 
 export async function scanCache(): Promise<CacheReport> {
   const modelsDir = resolveModelsDir();
-  const [{ digests, complete }, blobs, temp] = await Promise.all([
+  const [{ digests, complete, manifestFiles, manifestRoots }, blobs, temp] = await Promise.all([
     collectProtectedDigests(modelsDir),
     scanBlobs(modelsDir),
     scanTempDirs()
   ]);
+
+  // 有完整 blob 却一个 manifest 都没解析成功时，无法证明任何 blob 被引用。
+  const hasCompleteBlobs = blobs.some((blob) => blob.kind === 'blob');
+  const scanComplete = complete && (!hasCompleteBlobs || manifestFiles > 0);
 
   const now = Date.now();
   const referencedItems: CacheItem[] = [];
@@ -409,7 +449,16 @@ export async function scanCache(): Promise<CacheReport> {
 
     if (blob.kind === 'blob') {
       const digest = blob.name.slice('sha256-'.length);
-      (digests.has(digest) ? referencedItems : orphanItems).push(item);
+      if (digests.has(digest)) {
+        referencedItems.push(item);
+        continue;
+      }
+      // 刚写入的完整 blob 可能是正在进行的下载或刚完成的模型。
+      if (now - blob.modifiedAt < RECENT_MS) {
+        skippedRecent += 1;
+        continue;
+      }
+      orphanItems.push(item);
       continue;
     }
 
@@ -447,7 +496,9 @@ export async function scanCache(): Promise<CacheReport> {
       hidden: Math.max(0, tempItems.length - MAX_ITEMS)
     },
     reclaimableBytes: orphan.bytes + partial.bytes + chunks.bytes + tempBytes,
-    scanComplete: complete,
+    scanComplete,
+    manifestFiles,
+    manifestRoots,
     activeDownloads: hasRunningDownloads(),
     skippedRecent,
     scannedAt: now
@@ -470,8 +521,51 @@ function createQuarantineDir(modelsDir: string): Promise<string> {
   return mkdir(directory, { recursive: true }).then(() => directory);
 }
 
+/** 同一模型目录只允许一个清理进程，避免两个实例同时移动/删除。 */
+async function acquireCleanLock(modelsDir: string, retried = false): Promise<() => Promise<void>> {
+  const lockPath = path.join(modelsDir, CLEAN_LOCK);
+  try {
+    const handle = await open(lockPath, 'wx');
+    await handle.writeFile(JSON.stringify({ pid: process.pid, at: Date.now() }));
+    await handle.close();
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT') {
+      // 模型目录不存在：没有可清理内容，不需要锁。
+      return async () => {};
+    }
+    if (code !== 'EEXIST') throw error;
+    const info = await stat(lockPath).catch(() => null);
+    if (info && Date.now() - info.mtimeMs < CLEAN_LOCK_TTL_MS) {
+      throw new GgufImportError('另一个缓存清理任务正在进行，请稍后重试。', 409);
+    }
+    if (retried) {
+      throw new GgufImportError('无法获取缓存清理锁，请稍后重试。', 409);
+    }
+    await rm(lockPath, { force: true });
+    return acquireCleanLock(modelsDir, true);
+  }
+
+  return async () => {
+    await rm(lockPath, { force: true });
+  };
+}
+
 export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
   const targets = parseTargets(rawTargets);
+  const modelsDir = resolveModelsDir();
+  const release = await acquireCleanLock(modelsDir);
+  try {
+    return await cleanCacheLocked(targets, modelsDir);
+  } finally {
+    await release();
+  }
+}
+
+async function cleanCacheLocked(
+  targets: CleanupTarget[],
+  modelsDir: string
+): Promise<CleanupResult> {
   const report = await scanCache();
   const result: CleanupResult = {
     freedBytes: 0,
@@ -484,18 +578,34 @@ export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
 
   if (targets.includes('orphan')) {
     if (!report.scanComplete) {
-      throw new GgufImportError('manifest 解析失败，已禁止清理未引用文件。', 409);
+      throw new GgufImportError('manifest 缺失、为空或解析失败，已禁止清理未引用文件。', 409);
     }
+    if (report.activeDownloads || hasRunningDownloads()) {
+      throw new GgufImportError('仍有下载任务在进行，暂不清理未引用权重。', 409);
+    }
+
     // 重新计算一次引用关系，扫描与移动之间可能有新模型创建
-    const modelsDir = report.modelsDir;
-    const { digests, complete } = await collectProtectedDigests(modelsDir);
-    if (!complete) {
+    const verified = await collectProtectedDigests(modelsDir);
+    if (!verified.complete) {
       throw new GgufImportError('manifest 解析失败，已禁止清理未引用文件。', 409);
     }
     const blobs = await scanBlobs(modelsDir);
-    const orphanBlobs = blobs.filter(
-      (blob) => blob.kind === 'blob' && !digests.has(blob.name.slice('sha256-'.length))
-    );
+    const hasCompleteBlobs = blobs.some((blob) => blob.kind === 'blob');
+    if (hasCompleteBlobs && verified.manifestFiles === 0) {
+      throw new GgufImportError('没有解析到任何 manifest，已禁止清理未引用文件。', 409);
+    }
+
+    const now = Date.now();
+    const orphanBlobs: ScannedBlob[] = [];
+    for (const blob of blobs) {
+      if (blob.kind !== 'blob') continue;
+      if (verified.digests.has(blob.name.slice('sha256-'.length))) continue;
+      if (now - blob.modifiedAt < RECENT_MS) {
+        result.skippedRecent += 1;
+        continue;
+      }
+      orphanBlobs.push(blob);
+    }
 
     if (orphanBlobs.length > 0) {
       let quarantineDir: string;
@@ -511,6 +621,11 @@ export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
 
       if (quarantineDir) {
         for (const blob of orphanBlobs) {
+          // 移动大文件可能持续一段时间；期间出现新下载就立即停止。
+          if (hasRunningDownloads()) {
+            result.errors.push('检测到新的下载任务，已停止继续移动未引用权重。');
+            break;
+          }
           try {
             // 同盘 rename：不复制大文件，也保留文件内容与时间戳。
             await rename(
@@ -536,7 +651,7 @@ export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
       throw new GgufImportError('仍有下载任务在进行，暂不清理未完成的文件。', 409);
     }
     const now = Date.now();
-    const blobs = await scanBlobs(report.modelsDir);
+    const blobs = await scanBlobs(modelsDir);
     for (const blob of blobs) {
       if (blob.kind === 'blob') continue;
       if (now - blob.modifiedAt < RECENT_MS) {
@@ -544,7 +659,7 @@ export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
         continue;
       }
       try {
-        await rm(path.join(report.modelsDir, 'blobs', blob.name), { force: true });
+        await rm(path.join(modelsDir, 'blobs', blob.name), { force: true });
         result.removed.partial += 1;
         result.freedBytes += blob.bytes;
       } catch (error) {
@@ -556,8 +671,15 @@ export async function cleanCache(rawTargets: unknown): Promise<CleanupResult> {
   }
 
   if (targets.includes('temp')) {
+    if (report.activeDownloads || hasRunningDownloads()) {
+      throw new GgufImportError('仍有下载任务在进行，暂不清理临时目录。', 409);
+    }
     const temp = await scanTempDirs();
     for (const entry of temp.entries) {
+      if (hasRunningDownloads()) {
+        result.errors.push('检测到新的下载任务，已停止继续清理临时目录。');
+        break;
+      }
       try {
         await rm(entry.path, { recursive: true, force: true });
         result.removed.temp += 1;

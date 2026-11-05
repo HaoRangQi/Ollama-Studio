@@ -1,0 +1,17 @@
+# Evidence: /api/catalog/search returns third-party HTML on the app origin
+
+GET /api/catalog/search?q=llama -> HTTP 200 text/html; charset=utf-8 74973 bytes
+script tags: 6
+inline script blocks: 5
+Inline script excerpt:
+{ "@context": "https://schema.org", "@graph": [ { "@type": "Organization", "@id": "https://ollama.com/#organization", "name": "Ollama", "legalName": "Ollama Inc.", "url": "https://
+
+Reflected-query test with <script>alert(1)</script>:
+raw '<script>alert(1)</script>': 0
+escaped occurrences: 5
+
+No reflected XSS was found (the upstream escapes the query). However, the
+page is served as text/html on the local origin with no CSP, and its inline
+scripts execute if a user navigates to the endpoint directly. A compromised
+or malicious upstream response would run script with access to the app origin.
+The app itself fetches this endpoint with DOMParser, where scripts do not run.

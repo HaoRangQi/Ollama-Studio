@@ -1,5 +1,3 @@
-import { proxyAuthHeaders } from './ollama';
-
 export interface ExportFile {
   kind: 'model' | 'projector';
   name: string;
@@ -32,8 +30,7 @@ export async function exportModelGguf(model: string): Promise<ExportResult> {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/json',
-        ...proxyAuthHeaders()
+        accept: 'application/json'
       },
       body: JSON.stringify({ model })
     });

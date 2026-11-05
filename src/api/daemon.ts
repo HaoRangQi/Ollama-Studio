@@ -1,5 +1,3 @@
-import { proxyAuthHeaders } from './ollama';
-
 export type DaemonManager = 'ollama-app' | 'launchd' | 'brew' | 'systemd' | 'process' | 'unknown';
 
 export interface DaemonInfo {
@@ -35,7 +33,7 @@ export async function fetchDaemonInfo(): Promise<DaemonInfo> {
   let response: Response;
   try {
     response = await fetch('/api/daemon', {
-      headers: { accept: 'application/json', ...proxyAuthHeaders() }
+      headers: { accept: 'application/json' }
     });
   } catch (error) {
     throw new Error('无法连接本地服务，无法检测 Ollama 守护进程。', { cause: error });
@@ -57,8 +55,7 @@ export async function controlDaemon(action: DaemonAction): Promise<void> {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/json',
-        ...proxyAuthHeaders()
+        accept: 'application/json'
       },
       body: JSON.stringify({ action, confirm: true })
     });

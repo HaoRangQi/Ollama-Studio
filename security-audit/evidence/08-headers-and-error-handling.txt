@@ -1,0 +1,44 @@
+# Evidence: missing browser security headers and stack-trace disclosure
+
+## GET / response headers
+HTTP/1.1 200 OK
+X-Powered-By: Express
+Accept-Ranges: bytes
+Cache-Control: public, max-age=0
+Last-Modified: Thu, 29 Oct 2026 13:36:16 GMT
+ETag: W/"485-1a187e027b7"
+Content-Type: text/html; charset=UTF-8
+Content-Length: 1157
+Date: Thu, 29 Oct 2026 15:47:26 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+
+Expected but missing: Content-Security-Policy, X-Frame-Options,
+X-Content-Type-Options, Referrer-Policy, Permissions-Policy.
+X-Powered-By is present.
+
+## Malformed URL: Express default error page
+HTTP/1.1 400 Bad Request
+X-Powered-By: Express
+Content-Security-Policy: default-src 'none'
+X-Content-Type-Options: nosniff
+Content-Type: text/html; charset=utf-8
+Content-Length: 1280
+Date: Thu, 29 Oct 2026 15:47:26 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+Body excerpt:
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Error</title>
+</head>
+<body>
+<pre>URIError: Failed to decode param &#39;/%ZZ&#39;<br> &nbsp; &nbsp;at decodeURIComponent (&lt;anonymous&gt;)<br> &nbsp; &nbsp;at decode_param (<REPO>/node_modules/express/lib/router/layer.js:172:12)<br> &nbsp; &nbsp;at Layer.match (<REPO>/node_modules/express/lib/router/layer.js:123:27)<br> &nbsp; &nbsp;at matchLayer (<REPO>/node_modules/express/lib/router/index.js:585:18)<br> &nbsp; &nbsp;at next (<REPO>/node_modules/express/lib/router/i
+
+Cause: package.json:15 starts the server with plain "node server.js";
+NODE_ENV is not set to production and no custom error handler exists, so
+Express renders the stack trace and absolute build paths for URI errors.

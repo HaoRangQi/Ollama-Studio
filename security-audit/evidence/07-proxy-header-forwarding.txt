@@ -1,0 +1,22 @@
+# Evidence: /ollama forwards proxy credentials and browser headers upstream
+
+Request to the local proxy:
+  GET /ollama/api/version
+  Authorization: Bearer <TEST_TOKEN>
+  X-Proxy-Token: <TEST_TOKEN>
+  Cookie: session=leak-me
+  Origin: http://127.0.0.1:45873
+
+Headers observed by the audit upstream (127.0.0.1:45872):
+{
+  "host": "127.0.0.1:45872",
+  "authorization": "Bearer <TEST_TOKEN>",
+  "x-proxy-token": "<TEST_TOKEN>",
+  "cookie": "session=leak-me",
+  "origin": "http://127.0.0.1:45873"
+}
+
+Cause: server.ts:233-236 copies every inbound header except HOP_BY_HOP.
+Neither authorization nor cookie nor x-proxy-token is stripped before the
+upstream fetch. If OLLAMA_HOST points at a remote or untrusted service, the
+shared secret is disclosed to it and may be captured in its logs.

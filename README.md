@@ -20,7 +20,7 @@ A macOS-style model manager and chat interface for local Ollama models. Model br
 
 Ollama Studio brings the day-to-day work of running local models into one interface: browse and filter models, pull weights with quantization choices, chat with adjustable parameters, derive models with Modelfile, and inspect daemon and inference telemetry. The UI follows Material 3 Expressive with light/dark themes, five accent palettes, and Chinese/English localization.
 
-This is a **runnable web application**. It listens on localhost by default; LAN access must be enabled explicitly and configured with a shared token.
+This is a **runnable web application**. It listens on localhost by default; LAN access must be enabled explicitly and configured with an access token and session login.
 
 ## Platform Support
 
@@ -54,10 +54,10 @@ Legend: ✅ verified/available · ⚠️ implemented but not fully runtime-verif
 - Telemetry shows real connection status, version, model/VRAM statistics, and an event log. The sidebar "Loaded VRAM / running models" counters and the telemetry page poll `/api/ps` every 5 seconds, so external load/unload operations appear without a manual refresh. `GET /api/metrics` reads filesystem capacity/used/free for the model directory, memory, CPU load, and macOS `ioreg` GPU utilization; unavailable values are labeled explicitly, and ANE has no public utilization API. Running model cards offer a confirmed **Unload all** action (`keep_alive: 0`).
 - The model page exports the currently installed quantization as GGUF: the server reads the manifest, copies the `model` layer, and writes the `projector` layer as `*-mmproj.gguf`. The default directory is `~/Downloads/Ollama Studio`; duplicate names get numeric suffixes. Only weights are exported; template/license/params are not part of GGUF. Large files prefer APFS copy-on-write clones.
 - The telemetry **Service Control** panel detects whether Ollama is managed by Ollama.app, launchd, Homebrew, systemd, or a plain process, and generates copyable start/restart/stop commands. Start/restart/stop buttons live in that panel only (the panel is collapsed by default); the header keeps just the connection pill and a refresh button, so a stray click cannot interrupt the service. Automatic execution is off by default and only runs when `ALLOW_DAEMON_CONTROL=1` is set, the request comes from loopback, and the user confirms; the buttons stay clickable and explain the requirement when the switch is off. Starting and stopping are idempotent, and a restart while Ollama is stopped behaves as a start. Environment settings can generate an `ollama serve` startup command, but never write to the system environment; restart Ollama manually for changes to take effect.
-- The proxy binds to `127.0.0.1` by default. Optional `PROXY_TOKEN` protects `/ollama/*`, `/api/import`, `/api/modelscope/*`, `/api/downloads`, `/api/cache`, `/api/export`, `/api/metrics`, and `/api/daemon`.
+- The proxy binds to `127.0.0.1` by default. With `PROXY_TOKEN`, `/ollama/*` and every `/api/*` route require an HttpOnly session cookie obtained at `/login` (scripts may use a Bearer token); the token is no longer embedded in the frontend bundle. The server also validates `Host`, `Origin`, and the `Content-Type` of write requests to reject DNS rebinding and cross-site CSRF.
 - Fonts and Material Symbols are self-hosted; no Google Fonts dependency.
 - An optional **macOS menu bar app** wraps the same local server: it starts the bundled Node runtime on `127.0.0.1:3210`, opens the dashboard in the default browser, and offers Open Web / Open Log / Quit. `npm run build:menu` produces an `.app` and a DMG; it is ad-hoc signed, macOS-only, and has no login item, auto-update, or notarization.
-- Engineering: TypeScript `strict`, ESLint, Prettier, Vitest (164 tests), and GitHub Actions CI.
+- Engineering: TypeScript `strict`, ESLint, Prettier, Vitest (192 tests), and GitHub Actions CI.
 - Headless Chrome smoke tests cover the development/production first screen, real model list, export, and telemetry pages. A full page-by-page visual/a11y review has **not** been performed.
 - Hugging Face downloads are fetched by the local server and registered with `ollama create`; they require the `ollama` CLI, are limited to one GGUF file per task (20 GB max), and have no resume support. Sharded GGUF and multimodal projector files are not automatically combined.
 
@@ -110,7 +110,7 @@ npm ci
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000`. The development server listens on localhost only.
+Open `http://127.0.0.1:39471`. The development server listens on localhost only.
 
 If `npm ci` fails with `EPERM` because of the default npm cache permissions, use the repository cache:
 
@@ -144,25 +144,25 @@ Copy `.env.example` to `.env` and adjust as needed (both development and product
 
 ```bash
 OLLAMA_HOST=http://127.0.0.1:11434
-PORT=3000
+PORT=39471
 HOST=127.0.0.1
 ```
 
 The frontend uses the same-origin `/ollama` proxy by default; the browser does not need direct access to Ollama. Set `VITE_OLLAMA_BASE_URL` only when the browser can reach Ollama directly.
 
-### LAN Access and Shared Token
+### LAN Access and Login Token
 
 Localhost access is the default. To allow access from the same trusted network:
 
 ```bash
-# Production: set a shared token before binding to a non-loopback address
-PROXY_TOKEN=change-me HOST=0.0.0.0 npm start
-
-# The frontend build must use the same token
-VITE_PROXY_TOKEN=change-me npm run build
+# Generate a long random token (non-loopback binds require at least 32 chars)
+export PROXY_TOKEN="$(openssl rand -hex 32)"
+HOST=0.0.0.0 npm start
 ```
 
-`PROXY_TOKEN` protects `/ollama/*` and the local management APIs (`/api/import`, `/api/modelscope`, `/api/downloads`, `/api/cache`, `/api/export`, `/api/metrics`, `/api/daemon`); without it, the proxy is unauthenticated. `VITE_PROXY_TOKEN` is embedded in the frontend bundle: it is a shared secret, not user-level authentication. Add a reverse proxy and TLS when crossing network boundaries. For development, `npm run dev:lan` explicitly binds to `0.0.0.0`; use it only on trusted networks.
+Open `http://<machine-ip>:39471`; the browser redirects to `/login`. Enter `PROXY_TOKEN` once to receive an HttpOnly, SameSite=Strict session cookie. The token is never embedded in the frontend bundle, sessions live in server memory, and a restart requires signing in again. Scripts may use `Authorization: Bearer <token>` or `X-Proxy-Token: <token>`.
+
+`PROXY_TOKEN` protects `/ollama/*` and every `/api/*` route (import, ModelScope, downloads, cache, export, metrics, daemon, and the catalog proxies). The server validates `Host`, `Origin`, `Sec-Fetch-Site`, and `Content-Type` to reject DNS rebinding and cross-site writes, and refuses to start on a non-loopback bind without a token. Add LAN DNS names to `ALLOWED_HOSTS` (comma-separated); set `COOKIE_SECURE=1` behind an HTTPS reverse proxy. `npm run dev:lan` also requires `PROXY_TOKEN`, or an explicit `ALLOW_INSECURE_BIND=1` for trusted networks only. A TLS reverse proxy is still recommended across network boundaries.
 
 ### Production
 
@@ -171,7 +171,7 @@ npm run build
 npm start
 ```
 
-`npm run build` builds both `dist/` and `server.js`; `npm start` listens on `127.0.0.1:3000` by default, serves the frontend statically, and streams `/ollama/*` to `OLLAMA_HOST`.
+`npm run build` builds both `dist/` and `server.js`; `npm start` listens on `127.0.0.1:39471` by default, serves the frontend statically, and streams `/ollama/*` to `OLLAMA_HOST`.
 
 ### Export GGUF
 
@@ -229,8 +229,8 @@ The browser talks to the same-origin `/ollama` proxy; the server forwards to `OL
 
 | Command | Purpose |
 | --- | --- |
-| `npm run dev` | Vite development server on `127.0.0.1:3000` |
-| `npm run dev:lan` | Explicitly bind `0.0.0.0:3000` (trusted networks only) |
+| `npm run dev` | Vite development server on `127.0.0.1:39471` |
+| `npm run dev:lan` | Explicitly bind `0.0.0.0:39471` (trusted networks only) |
 | `npm run build` | Build `dist/` + `server.js` |
 | `npm run build:web` / `build:server` | Build only the frontend / only the server bundle |
 | `npm run build:menu` | Build the macOS menu bar `.app` and DMG (macOS only) |

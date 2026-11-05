@@ -20,7 +20,7 @@
 
 Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和筛选模型、拉取与量化选择、对话与参数调节、用 Modelfile 派生模型、查看守护进程与推理遥测。界面按 Material 3 Expressive 风格实现，支持明暗主题、五套强调色和中英双语。
 
-当前是**可运行的 Web 应用**。默认只监听本机；如需局域网访问，可显式开启并配置共享令牌。
+当前是**可运行的 Web 应用**。默认只监听本机；如需局域网访问，可显式开启并配置访问令牌与会话登录。
 
 ## 平台支持
 
@@ -54,10 +54,10 @@ Ollama Studio 把本地模型的日常操作集中到一个界面里：浏览和
 - 遥测页显示真实连接状态、版本、模型/显存统计与事件日志；侧栏“已加载显存/运行模型数”与遥测页每 5 秒自动轮询 `/api/ps`，外部加载/卸载模型后无需手动刷新。`GET /api/metrics` 读取模型目录所在文件系统的磁盘总量/已用/可用、内存、CPU load 与 macOS `ioreg` GPU 利用率；不可用时明确显示原因，ANE 没有公开利用率 API。运行中模型卡片可确认后“全部卸载”（`keep_alive: 0`）。
 - 模型页支持把已安装模型的当前量化导出为 GGUF：服务端读取 manifest，复制 `model` 层，并把 `projector` 层导出为 `*-mmproj.gguf`；默认写入 `~/Downloads/Ollama Studio`，重名自动追加序号。只导出权重，不包含 template/license/params。大文件优先使用 APFS copy-on-write clone。
 - 遥测页“服务控制”面板显示 Ollama 由 Ollama.app、launchd、Homebrew、systemd 还是普通进程管理，生成可复制的启动/重启/停止命令；启动/重启/停止按钮只在该面板内（面板默认折叠），顶栏仅保留连接状态与刷新按钮，避免误触直接中断服务。自动执行默认关闭，只有设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且二次确认后才执行；开关未开启时按钮仍可点击并说明需要设置什么。启动与停止是幂等的，Ollama 已停止时点“重启”等同于启动。环境变量配置可生成 `ollama serve` 启动命令，但不会写入系统环境，需手动重启后生效。
-- 代理默认绑定 `127.0.0.1`；可选 `PROXY_TOKEN` 保护 `/ollama/*`、`/api/import`、`/api/modelscope/*`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics` 与 `/api/daemon`。
+- 代理默认绑定 `127.0.0.1`；设置 `PROXY_TOKEN` 后，`/ollama/*` 与全部 `/api/*` 需要先通过 `/login` 换取 HttpOnly 会话 Cookie（脚本可用 Bearer 令牌）；令牌不再嵌入前端产物。服务端同时校验 `Host`、`Origin` 与写请求的 `Content-Type`，拒绝 DNS rebinding 与跨站 CSRF。
 - 字体与 Material Symbols 已自托管，不再依赖 Google Fonts。
 - 可选的 **macOS 菜单栏 App** 复用同一套本地服务：启动内置 Node 运行时并监听 `127.0.0.1:3210`，在默认浏览器打开仪表盘，菜单栏提供“打开 Web / 打开日志 / 退出”。`npm run build:menu` 生成 `.app` 与 DMG；使用 ad-hoc 签名，仅 macOS，不支持登录项、自动更新与公证。
-- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（164 个测试）、GitHub Actions CI。
+- 工程化：TypeScript `strict`、ESLint、Prettier、Vitest（192 个测试）、GitHub Actions CI。
 - 已用 headless Chrome 对开发/生产首屏、真实模型列表、导出与遥测页做冒烟验证；**未做完整逐页人工视觉/a11y 验收**。
 - Hugging Face 由本地服务下载 GGUF 后再执行 `ollama create`；需要本机 `ollama` CLI，每个任务只下载一个 GGUF（上限 20 GB），不支持断点续传；分片 GGUF 与多模态 projector 不会自动合并。
 
@@ -110,7 +110,7 @@ npm ci
 npm run dev
 ```
 
-打开 `http://127.0.0.1:3000`。开发服务器默认只监听本机。
+打开 `http://127.0.0.1:39471`。开发服务器默认只监听本机。
 
 如果 `npm ci` 因默认 npm 缓存权限报 `EPERM`，使用仓库内缓存：
 
@@ -144,25 +144,25 @@ open "build/Ollama Studio Menu-<version>.dmg"   # 如 0.2.0
 
 ```bash
 OLLAMA_HOST=http://127.0.0.1:11434
-PORT=3000
+PORT=39471
 HOST=127.0.0.1
 ```
 
 前端默认走同源 `/ollama` 代理，不需要浏览器直连 Ollama。只有浏览器能直接访问 Ollama 时，才设置 `VITE_OLLAMA_BASE_URL`。
 
-### 局域网访问与共享令牌
+### 局域网访问与登录令牌
 
 默认只允许本机访问。需要同一可信网络访问时：
 
 ```bash
-# 生产：设置共享令牌后再绑定非 loopback
-PROXY_TOKEN=change-me HOST=0.0.0.0 npm start
-
-# 前端构建时必须使用相同令牌
-VITE_PROXY_TOKEN=change-me npm run build
+# 生成足够长的随机令牌（非 loopback 绑定要求至少 32 个字符）
+export PROXY_TOKEN="$(openssl rand -hex 32)"
+HOST=0.0.0.0 npm start
 ```
 
-`PROXY_TOKEN` 保护 `/ollama/*` 与本地管理 API（`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`）；未设置时代理无鉴权。`VITE_PROXY_TOKEN` 会嵌入前端产物，属于共享密钥，不是用户级认证；跨网段使用请再加反向代理与 TLS。开发时可用 `npm run dev:lan` 显式开放，仅限可信网络。
+启动后访问 `http://<本机 IP>:39471`，浏览器会跳转到 `/login`；输入一次 `PROXY_TOKEN` 即可换取 HttpOnly、SameSite=Strict 会话 Cookie。令牌不会进入前端 bundle，会话保存在服务端内存中，重启服务后需要重新登录。脚本可用 `Authorization: Bearer <token>` 或 `X-Proxy-Token: <token>`。
+
+`PROXY_TOKEN` 保护 `/ollama/*` 与全部 `/api/*`（含 import、ModelScope、下载、缓存、导出、指标、daemon 与模型库代理）。服务端会校验 `Host`、`Origin`、`Sec-Fetch-Site` 与 `Content-Type`，拒绝 DNS rebinding 和跨站写请求；非 loopback 绑定未设置令牌时会拒绝启动。通过 LAN 域名访问时把域名加入 `ALLOWED_HOSTS`（逗号分隔）；HTTPS 反向代理后设置 `COOKIE_SECURE=1`。开发时 `npm run dev:lan` 同样要求 `PROXY_TOKEN`，或显式设置 `ALLOW_INSECURE_BIND=1`（仅限可信网络）。跨网段使用仍建议再加 TLS 反向代理。
 
 ### 生产运行
 
@@ -171,7 +171,7 @@ npm run build
 npm start
 ```
 
-`npm run build` 同时构建 `dist/` 与 `server.js`；`npm start` 默认监听 `127.0.0.1:3000`，静态托管前端并把 `/ollama/*` 流式转发到 `OLLAMA_HOST`。
+`npm run build` 同时构建 `dist/` 与 `server.js`；`npm start` 默认监听 `127.0.0.1:39471`，静态托管前端并把 `/ollama/*` 流式转发到 `OLLAMA_HOST`。
 
 ### 导出 GGUF
 
@@ -229,8 +229,8 @@ npm run build
 
 | 命令                                   | 作用                                        |
 | -------------------------------------- | ------------------------------------------- |
-| `npm run dev`                          | Vite 开发服务器，`127.0.0.1:3000`           |
-| `npm run dev:lan`                      | 显式绑定 `0.0.0.0:3000`（仅可信网络）       |
+| `npm run dev`                          | Vite 开发服务器，`127.0.0.1:39471`          |
+| `npm run dev:lan`                      | 显式绑定 `0.0.0.0:39471`（仅可信网络）      |
 | `npm run build`                        | 构建 `dist/` + `server.js`                  |
 | `npm run build:web` / `build:server`   | 仅构建前端 / 仅打包服务端                   |
 | `npm run build:menu`                   | 构建 macOS 菜单栏 `.app` 与 DMG（仅 macOS） |
@@ -254,7 +254,7 @@ npm run build
 - 失败重试：CDP mock `/api/downloads` 分别注入 pull 与 ModelScope 失败任务，点击“重试”后 POST body 与原始任务一致（ModelScope 的 `file` 从持久化 source 恢复），轮询转为完成；失败卡片显示“将重跑：`ollama pull <model>`”，点“编辑命令”会把命令填回输入框并聚焦；旧 ModelScope 任务缺少 `kind/source` 时按 `.gguf` 文件名推断，不会误走 `ollama pull`；`pull model manifest: file does not exist` 会追加 HF/ModelScope 操作提示。
 - 拉取页渠道切换：在 ModelScope 输入框输入“MiniCPM5-2B”后切到 Hugging Face，输入内容保留，占位文案切换为 Hugging Face，旧结果清空，选中态移动到 Hugging Face。
 - 生产服务器（3101）与开发服务器（3001）：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、`/api/import` 校验与 headless Chrome 首屏渲染通过。
-- 代理令牌：无令牌 401、Bearer 令牌 200、`/api/import` 无令牌 401，均已验证。
+- 会话鉴权（2026-10-29）：未登录 API 401、登录换取 Cookie 后 200、Bearer 200、错误令牌 401；恶意 Host 403、跨站 Origin 403、`text/plain` 写请求 415；非 loopback 无令牌或弱令牌拒绝启动；前端 bundle 不含令牌；`/ollama` 上游不再收到 Authorization/Cookie。全部使用临时 fixture 与 echo 上游验证，未触碰真实模型或 daemon。
 - 图片/视频附件：CDP 选择 PNG + WebM，视频抽 3 帧；mock `/api/chat` 捕获到 4 个 `images` 和默认描述文本；未执行真实视觉推理。
 - GGUF 导出：fixture 通过 `POST /api/export` 导出 model + projector，内容与重名序号正确；越界目录 403、非法模型名 400；真实 0.8B 模型导出 529,297,312 字节，文件头为 `GGUF`，SHA256 与 manifest 的 `sha256:fb89581…` 一致，耗时约 1.2 秒（APFS clone）。CDP mock 验证模型页按钮请求 `{model:"diodel/qwen3.5-0.8b-q4_k_m-gguf:latest"}` 并显示含 mmproj 的成功 toast。
 - 系统指标与服务检测：`GET /api/metrics` 返回真实磁盘容量、内存、CPU load 与 macOS `ioreg` GPU 利用率（本机 Apple M1 Pro）；`GET /api/daemon` 识别 Ollama.app 与 PID，`POST /api/daemon/control` 在未设置 `ALLOW_DAEMON_CONTROL=1` 时返回 403；CDP 确认遥测页显示 GPU、磁盘已用、启动命令、全部卸载与服务控制面板。

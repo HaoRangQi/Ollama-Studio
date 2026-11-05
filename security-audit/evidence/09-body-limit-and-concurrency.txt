@@ -1,0 +1,23 @@
+# Evidence: proxy body buffering and unbounded download jobs
+
+## 1. /ollama buffers the full request body in memory (no size cap)
+status=200 body=b'{"ok":true,"seen":null,"path":"/api/echo"}' elapsed=0.05s sent=5242880
+Upstream observed:
+{'bytes': 5242880, 'method': 'POST', 'url': '/api/echo'}
+
+Cause: server.ts:238-245 concatenates every chunk into a Buffer before
+calling fetch. A 20 GB body, or several concurrent large bodies, can
+exhaust the process heap. No Content-Length check or request timeout exists.
+
+## 2. No cap on concurrent download jobs
+POST /api/downloads {"kind":"pull","model":"cap-<n>"} x 6:
+dl-352ce236-72fd-4696-9a79-2b86f60165ab running cap-1
+dl-2b2cf6c3-429e-4a52-9e86-3ebae108e1b0 running cap-2
+dl-cf1aa09a-b4cf-487c-86bd-8100f0ee96bf running cap-3
+dl-bc7647ff-0abd-45ae-8e76-516f7d1a1af7 running cap-4
+dl-83884689-72f2-4f3f-816b-8fe6b0a9ba86 running cap-5
+dl-00dc354f-4ff1-4588-83cb-eebd9bb941cd running cap-6
+GET /api/downloads jobs length: 7
+
+Cause: server/downloads.ts has a Map of jobs but no concurrency, queue, or
+disk-space admission control. Each job can write up to 20 GB.

@@ -1,0 +1,27 @@
+# Evidence: design-mock HTML is shipped and publicly served
+
+Files in public/ that Vite copies into dist/:
+public/assets/aistudio/Image_1_76aef02d.png
+public/assets/aistudio/Image_2_5dbfc01f.html
+public/assets/aistudio/Image_3_f02a5f9c.png
+public/assets/aistudio/Image_4_75d84bef.html
+public/assets/aistudio/Image_5_626fe4e6.png
+public/assets/aistudio/Image_6_e11529ef.html
+public/assets/aistudio/Image_7_b700eec9.png
+public/assets/aistudio/Image_8_f6d118c4.html
+public/assets/aistudio/Image_9_f7b5d1e4.markdown
+
+External scripts/styles referenced by the design mocks:
+https://cdn.tailwindcss.com
+https://fonts.googleapis.com
+https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap
+https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200
+https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap
+https://fonts.gstatic.com
+
+GET /assets/aistudio/Image_2_5dbfc01f.html -> HTTP 200 text/html; charset=UTF-8 41320 bytes
+
+These pages are not referenced by the app but are served from the same origin
+as the local APIs. Opening one executes remote scripts (cdn.tailwindcss.com)
+and inline scripts with access to the local origin. They should be moved out
+of public/ or excluded from the production build.

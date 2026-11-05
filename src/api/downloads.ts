@@ -1,4 +1,3 @@
-import { proxyAuthHeaders } from './ollama';
 import type { DownloadKind } from '../types';
 
 export type DownloadJobStatus = 'running' | 'success' | 'error' | 'cancelled';
@@ -74,8 +73,7 @@ export async function startDownloadJob(input: DownloadJobInput): Promise<Downloa
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        accept: 'application/json',
-        ...proxyAuthHeaders()
+        accept: 'application/json'
       },
       body: JSON.stringify(input)
     });
@@ -91,7 +89,7 @@ export async function startDownloadJob(input: DownloadJobInput): Promise<Downloa
 
 export async function listDownloadJobs(): Promise<DownloadJob[]> {
   const response = await fetch('/api/downloads', {
-    headers: { accept: 'application/json', ...proxyAuthHeaders() }
+    headers: { accept: 'application/json' }
   });
   if (!response.ok) return [];
   const payload = (await response.json()) as { jobs?: DownloadJob[] };
@@ -101,7 +99,7 @@ export async function listDownloadJobs(): Promise<DownloadJob[]> {
 /** 任务不存在或已被服务端清理时返回 null，便于调用方降级为“已中断”。 */
 export async function getDownloadJob(id: string): Promise<DownloadJob | null> {
   const response = await fetch(`/api/downloads/${encodeURIComponent(id)}`, {
-    headers: { accept: 'application/json', ...proxyAuthHeaders() }
+    headers: { accept: 'application/json' }
   });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`读取下载进度失败（HTTP ${response.status}）`);
@@ -111,6 +109,6 @@ export async function getDownloadJob(id: string): Promise<DownloadJob | null> {
 export async function cancelDownloadJob(id: string): Promise<void> {
   await fetch(`/api/downloads/${encodeURIComponent(id)}`, {
     method: 'DELETE',
-    headers: { accept: 'application/json', ...proxyAuthHeaders() }
+    headers: { accept: 'application/json' }
   }).catch(() => undefined);
 }

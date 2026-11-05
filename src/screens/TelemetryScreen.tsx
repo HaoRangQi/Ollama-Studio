@@ -1638,8 +1638,8 @@ export const TelemetryScreen: React.FC = () => {
             {!cacheReport.scanComplete && (
               <p className="rounded-xl border border-[#ffbd2e]/40 bg-[#ffbd2e]/10 px-3 py-2 text-[11px] leading-relaxed text-[#ffbd2e]">
                 {language === 'zh'
-                  ? 'manifest 目录存在损坏或悬空链接，未引用权重已锁定。请先修复或重新拉取相关模型，再执行清理。'
-                  : 'The manifest store has broken or dangling links, so unreferenced weights are locked. Repair or re-pull the affected models before cleaning.'}
+                  ? `manifest 目录缺失、为空或存在损坏/悬空链接（已解析 ${cacheReport.manifestFiles} 个 manifest），未引用权重已锁定。请先修复或重新拉取相关模型，再执行清理。`
+                  : `The manifest store is missing, empty, or contains broken links (${cacheReport.manifestFiles} manifests parsed), so unreferenced weights are locked. Repair or re-pull the affected models before cleaning.`}
               </p>
             )}
 
@@ -1706,8 +1706,8 @@ export const TelemetryScreen: React.FC = () => {
                   files: cacheReport.temp.dirs,
                   items: cacheReport.temp.items,
                   hidden: cacheReport.temp.hidden,
-                  locked: false,
-                  lockReason: ''
+                  locked: cacheReport.activeDownloads,
+                  lockReason: language === 'zh' ? '有下载任务进行中' : 'A download is running'
                 }
               ].map((row) => {
                 const checked = cleanupTargets[row.key] && !row.locked;

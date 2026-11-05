@@ -1,5 +1,3 @@
-import { proxyAuthHeaders } from './ollama';
-
 export interface DiskMetrics {
   path: string;
   totalBytes: number;
@@ -45,7 +43,7 @@ export async function fetchSystemMetrics(): Promise<SystemMetrics> {
   let response: Response;
   try {
     response = await fetch('/api/metrics', {
-      headers: { accept: 'application/json', ...proxyAuthHeaders() }
+      headers: { accept: 'application/json' }
     });
   } catch (error) {
     throw new Error('无法连接本地服务，无法读取系统指标。', { cause: error });

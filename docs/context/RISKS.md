@@ -15,24 +15,24 @@
 | R-005 | 仓库未初始化 Git | 2026-10-28 执行 `git init -b main` 并创建本地基线提交；2026-10-29 配置 `origin` 并推送 `main`（`ccc1ba4..f8b66d0`） | 协作与发布基线已建立 | 后续变更按 `AGENTS.md` 提交/验证规则执行 | 已解决 |
 | R-006 | 无测试、无 CI、无 ESLint/Prettier | 已添加 Vitest 133 个测试、`.github/workflows/ci.yml`、ESLint 10 flat config、Prettier 3 | 已建立回归保护；GitHub Actions 首次运行 `40739185722` 通过 | 按 D-123 维护；新增检查同步到 CI | 已解决 |
 | R-007 | 依赖与配置冗余、能力声明误导 | 已移除 `@google/genai`、`lucide-react`、`motion`、`tsx`、`autoprefixer`；`metadata.json` 不再声明 Gemini；包名改为 `ollama-studio` | 供应链面减小 | 新增依赖前确认实际引用 | 已解决 |
-| R-008 | 开发服务器绑定 `0.0.0.0` | `dev` 改为 `vite --port=3000 --host=127.0.0.1`；新增显式 `dev:lan` | 默认只本机可访问 | `dev:lan` 仅可信网络临时使用；生产默认 loopback | 已解决 |
+| R-008 | 开发服务器绑定 `0.0.0.0` | `dev` 改为 `vite --port=39471 --host=127.0.0.1`；新增显式 `dev:lan` | 默认只本机可访问 | `dev:lan` 仅可信网络临时使用；生产默认 loopback | 已解决 |
 | R-009 | GGUF 导入依赖本机 Ollama CLI | `importGgufStream` 在上传非空后预检 `ollama --version`，缺失返回 503；开发/生产均已用真实 GGUF 验证 | 远端 Ollama 部署受限 | 保留 503 明确错误；后续评估 Ollama API blob 上传或桌面壳 | 部分缓解（本机可用） |
 | R-010 | 国际化不完整 | 聊天、模型、拉取、实验室、遥测、命令面板、弹窗与演示模型/精选模型的描述均已按语言选择；拉取层状态保留 Ollama 返回的英文原文 | 英文模式下仅少数后端状态为英文 | 新增文案走 `translations.ts` 或 language 分支；后端状态原样展示 | 已解决（后端原文除外） |
 | R-011 | 无许可证 | 已添加 Apache-2.0 `LICENSE`，`package.json` 声明 | 复用/分发状态明确 | 按 D-122 执行；第三方资产许可需单独确认 | 已解决 |
 | R-012 | 外部字体/图标依赖网络 | 字体与 Material Symbols 已通过 npm 自托管，`index.html` 不再加载 Google Fonts | 离线可用；Material Symbols 全量 woff2 约 4 MB | 后续可做图标子集化 | 已解决（体积增大） |
 | R-013 | TypeScript 未启用 `strict`，且无 ESLint | `strict` 已开启；ESLint 10 + typescript-eslint + react-hooks 已配置；Prettier 已格式化 | 类型/风格问题减少 | 保持 `typecheck` + `lint` 在 CI 中执行 | 已解决 |
-| R-014 | 接入 Ollama 的安全边界未定 | 生产默认 `127.0.0.1`；可选 `PROXY_TOKEN` 保护 `/ollama` 与本地管理 API（含 import/modelscope/downloads/cache/export/metrics/daemon）；非 loopback 无令牌时启动警告 | 令牌是共享密钥，无 TLS/限流/审计 | 按 D-126 使用；跨网段部署前加反向代理与 TLS | 部分缓解 |
+| R-014 | 接入 Ollama 的安全边界 | 生产默认 `127.0.0.1`；设置 `PROXY_TOKEN` 后全部 `/ollama` 与 `/api` 需会话 Cookie；Host/Origin/CSRF 校验与代理头剥离已加；非 loopback 无令牌或弱令牌拒绝启动 | 会话无持久化；本机 HTTP 下 Cookie 无 `Secure`；无 TLS/限流/审计 | 按 D-145；跨网段部署前加反向代理与 TLS，并设置 `COOKIE_SECURE=1` | 已缓解（P0） |
 | R-015 | 可访问性与响应式未验证 | 新增移动端底部导航、`lg` 断点布局、`:focus-visible` 样式与 `aria-label`；未做屏幕阅读器/窄屏逐页验收 | 仍有组件级 a11y 缺陷可能漏过 | 按 D-131 评估 Playwright/axe 或人工审计 | 部分缓解 |
 | R-016 | 加载本地大模型会造成卡顿与内存压力 | 2026-10-28 真实聊天测试使用 1B 小模型，测试后卸载；本次开发未加载模型 | 测试可能拖慢机器 | 遵循 D-106/D-120：优先 tags/ps/mock；必须加载时用指定小模型并卸载 | 已缓解（有纪律） |
 | R-017 | npm 默认缓存权限导致安装失败 | `npm install` 曾报 `EPERM`；当前使用 `--cache .npm-cache` 成功 | 新环境直接安装可能失败；`.npm-cache/` 占空间 | 修复缓存所有权；CI 使用默认缓存不受影响 | 已绕过，未根治 |
 | R-018 | 流式解析缺少自动化测试 | 已添加 `streamChat`/`pullModel` 分片、错误、中止测试与 mapper/存储测试 | 回归风险显著降低 | 继续覆盖真实错误体与超时 | 已解决 |
-| R-019 | 生产代理无鉴权 | 默认 loopback；设置 `PROXY_TOKEN` 后 `/ollama`、`/api/import` 返回 401/200 已验证；新增 export/metrics/daemon 同受保护但未单独复测 401；`/api/catalog`、`/api/hf` 仍无鉴权 | 若暴露且未设令牌，同网段可调用模型/导入/控制 daemon | 按 D-126；不要把 `PROXY_TOKEN` 当用户级认证 | 部分缓解 |
+| R-019 | 生产代理鉴权 | 2026-10-29 起设置 `PROXY_TOKEN` 后全部 `/ollama` 与 `/api`（含 catalog/hf）要求会话 Cookie 或 Bearer；默认 loopback 无令牌模式保持无鉴权 | 未设置令牌时同网段仍可调用本地 API；这是默认本机使用的权衡 | 按 D-145；暴露到网络时必须设置令牌 | 已缓解（令牌模式） |
 | R-020 | 在线但 0 个模型时仍可能显示演示模型 | `App.tsx` 在线且 0 模型时把 `selectedModel`/`chatModel` 置空；Models/Chat/ModelfileLab 均有空状态 | 已不再请求不存在的演示模型 | 保留空状态测试（未做组件级单测） | 已解决 |
 | R-021 | 缺少浏览器端完整交互验收 | 2026-10-28 用 headless Chrome 验证生产 3101/开发 3001 首屏渲染、真实模型列表、代理与鉴权；未逐页点击/视觉/窄屏/a11y | 交互与样式问题可能漏过 | 人工验收清单；后续按 D-131 引入 E2E | 部分缓解 |
 | R-022 | 模型库搜索依赖 ollama.com HTML 结构 | `src/api/catalog.ts` 解析 HTML；代理只读；2026-10-28 曾验证 200 HTML | 官网改版/限流/离线会导致搜索失效 | 解析失败显示官网链接与本地精选；不持久化 HTML | 已缓解（只读兜底） |
 | R-023 | Hugging Face 搜索依赖 API 与文件名量化推断 | 使用 JSON API 与 siblings 文件名；量化标签为推断结果，下载时通过 `files` 映射到具体 GGUF，并排除分片与 `mmproj`/`projector`（2026-10-29） | 限流/离线时失败；标签可能缺失或误判；同一量化存在多个文件时只取第一个匹配 | 保留官网链接；UI 标注推断；下载前显示量化对应文件；失败显示任务错误并可重试 | 部分缓解 |
 | R-024 | 外部模型源下载被本机 DNS/代理阻断 | `us.aws.cdn.hf.co` 解析为 `198.18.x.x`（2026-10-29 复核仍如此）；Ollama 官方 registry 的 blob CDN `*.r2.cloudflarestorage.com` 解析为 `198.18.0.245`（2026-10-28 后台任务实测 `redirect target not allowed`）。Ollama 自带 `hf.co` pull 拒绝非公网重定向；但 Node `fetch` 可跟随 302 到 CDN，2026-10-29 已用服务端直下真实下载 1,185,376 字节 GGUF 并通过假 CLI 走完 `ollama create` 调用 | Ollama 原生 `hf.co` pull 仍不可用；Ollama 官方 registry 的 `ollama pull` 仍受限制；应用内 HF 下载已不再依赖 Ollama 的 HF 客户端 | 应用内 HF 改走 `/api/downloads` 的 `kind:"huggingface"` 服务端直下（D-141）；ModelScope 仍为默认渠道；原生 pull 只在正常网络复测。见 R-049 | 已缓解（应用内 HF 直下；Ollama 原生 pull 仍受限） |
-| R-025 | `PROXY_TOKEN` 是共享密钥并进入前端产物 | `VITE_PROXY_TOKEN` 在构建时嵌入 JS；无用户级身份、TLS、限流 | 拿到前端产物的人可获得令牌 | 仅在可信网络使用；需要更强边界时用反向代理/身份层 | 待接受/待评估 |
+| R-025 | 代理令牌曾是共享密钥并进入前端产物 | 2026-10-29 起移除 `VITE_PROXY_TOKEN`，改为 `/login` 换取 HttpOnly 会话 Cookie；动态验证 bundle 不含令牌 | 会话 Cookie 在 HTTP 下无 `Secure`；无用户级身份、限流或审计 | 本机 HTTP 风险低；跨网段用 TLS 反代并设置 `COOKIE_SECURE=1` | 已修复（OSA-01） |
 | R-026 | 字体图标自托管增加构建体积 | `material-symbols-outlined.woff2` 约 4 MB；构建输出包含多语言字体子集 | 首屏字体下载增大（本地应用影响较小） | 后续按实际使用图标子集化 | 已知，低 |
 | R-027 | TypeScript 固定 6.0.3 以兼容 lint 工具 | typescript-eslint peer 要求 `<6.1.0`；升级 TS 7 会 ERESOLVE | 无法使用 TS 7 新特性/性能改进 | 等 typescript-eslint 支持后升级并复验 | 已知，待后续 |
 | R-028 | 模型加载/卸载只做了请求级单测 | `loadModel`/`unloadModel` 的 `/api/generate`、`/api/embed`、`keep_alive` 已由 Vitest 校验；未在真实 UI 点击加载/释放 | 真实 `/api/ps` 状态变化与错误提示可能未覆盖 | 用 1B 小模型人工验收一次并卸载；记录 `/api/ps` | 未验证 |

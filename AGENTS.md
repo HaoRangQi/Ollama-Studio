@@ -74,7 +74,7 @@
 - 命令已配置不等于执行成功；历史结果不等于当前证据；文档步骤不构成执行授权。
 - 不把 API Key、令牌、个人设备路径写入仓库文档、日志或截图。
 - 开发脚本默认绑定 `127.0.0.1`；`npm run dev:lan` 显式绑定 `0.0.0.0`，只在可信网络使用；具体见 `docs/context/RUNBOOK.md`。
-- 生产服务器默认绑定 `127.0.0.1`；只有明确需要局域网访问时才设置 `HOST=0.0.0.0`，并设置 `PROXY_TOKEN` / `VITE_PROXY_TOKEN`，确认网络可信。令牌是共享密钥，不是用户级认证。
+- 生产服务器默认绑定 `127.0.0.1`；只有明确需要局域网访问时才设置 `HOST=0.0.0.0`，并设置至少 32 字符的 `PROXY_TOKEN`，确认网络可信。浏览器通过 `/login` 用令牌换取 HttpOnly 会话 Cookie，令牌不再进入前端产物；非 loopback 无令牌或弱令牌时服务拒绝启动（除非显式设置 `ALLOW_INSECURE_BIND=1` 接受风险）。`/api/export`、`/api/metrics`、`/api/daemon` 与全部 `/api/*` 同样受会话保护。
 - `/api/daemon/control` 默认只返回 403；只有显式设置 `ALLOW_DAEMON_CONTROL=1`、请求来自 loopback 且 `confirm: true` 时才执行重启/停止。未实测的系统分支不得写成已支持。`/api/export`、`/api/metrics`、`/api/daemon` 同样受可选 `PROXY_TOKEN` 保护。
 
 ## 7. 待核实与决策入口

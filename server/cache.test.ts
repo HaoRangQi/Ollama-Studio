@@ -2,8 +2,13 @@ import { mkdtemp, mkdir, rm, symlink, utimes, writeFile } from 'node:fs/promises
 import { existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { hasRunningDownloads } from './downloads';
 import { cleanCache, resolveRevealTarget, scanCache } from './cache';
+
+vi.mock('./downloads', () => ({
+  hasRunningDownloads: vi.fn(() => false)
+}));
 
 const MANIFEST = {
   schemaVersion: 2,
@@ -50,6 +55,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   delete process.env.OLLAMA_MODELS;
+  vi.mocked(hasRunningDownloads).mockReturnValue(false);
   await rm(modelsDir, { recursive: true, force: true });
   for (const directory of extraTempDirs.splice(0)) {
     await rm(directory, { recursive: true, force: true });
@@ -60,7 +66,7 @@ describe('scanCache', () => {
   it('separates referenced blobs from orphans', async () => {
     await writeBlob('sha256-' + 'a'.repeat(64), 100);
     await writeBlob('sha256-' + 'b'.repeat(64), 200);
-    await writeBlob('sha256-' + 'c'.repeat(64), 300);
+    await writeBlob('sha256-' + 'c'.repeat(64), 300, 20 * 60 * 1000);
 
     const report = await scanCache();
 
@@ -124,7 +130,7 @@ describe('scanCache', () => {
 
   it('returns per-file details with absolute paths and kinds', async () => {
     await writeBlob('sha256-' + 'a'.repeat(64), 100);
-    await writeBlob('sha256-' + 'c'.repeat(64), 300);
+    await writeBlob('sha256-' + 'c'.repeat(64), 300, 20 * 60 * 1000);
     await writeBlob('sha256-' + 'd'.repeat(64) + '-partial', 500, 20 * 60 * 1000);
     await writeBlob('sha256-' + 'd'.repeat(64) + '-partial-0', 50, 20 * 60 * 1000);
 
@@ -211,6 +217,52 @@ describe('scanCache', () => {
 
     expect(report.scanComplete).toBe(false);
   });
+
+  it('marks the scan incomplete when manifest roots are missing', async () => {
+    await rm(path.join(modelsDir, 'manifests'), { recursive: true, force: true });
+    await writeBlob('sha256-' + 'c'.repeat(64), 300, 20 * 60 * 1000);
+
+    const report = await scanCache();
+
+    expect(report.manifestRoots).toBe(0);
+    expect(report.scanComplete).toBe(false);
+    await expect(cleanCache(['orphan'])).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('marks the scan incomplete when no manifest file was parsed', async () => {
+    await rm(path.join(modelsDir, 'manifests'), { recursive: true, force: true });
+    await mkdir(path.join(modelsDir, 'manifests'), { recursive: true });
+    await writeBlob('sha256-' + 'c'.repeat(64), 300, 20 * 60 * 1000);
+
+    const report = await scanCache();
+
+    expect(report.manifestRoots).toBe(1);
+    expect(report.manifestFiles).toBe(0);
+    expect(report.scanComplete).toBe(false);
+  });
+
+  it('leaves recently written complete blobs out of the orphan list', async () => {
+    await writeBlob('sha256-' + 'c'.repeat(64), 300);
+
+    const report = await scanCache();
+
+    expect(report.blobs.orphan.files).toBe(0);
+    expect(report.skippedRecent).toBeGreaterThanOrEqual(1);
+  });
+
+  it('skips temp folders whose files were written recently', async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'ollama-studio-cache-test-'));
+    extraTempDirs.push(directory);
+    const file = path.join(directory, 'active.gguf');
+    await writeFile(file, Buffer.alloc(64));
+    const old = new Date(Date.now() - 20 * 60 * 1000);
+    await utimes(directory, old, old);
+
+    const report = await scanCache();
+
+    expect(report.temp.items.some((item) => item.name === path.basename(directory))).toBe(false);
+    expect(report.skippedRecent).toBeGreaterThanOrEqual(1);
+  });
 });
 
 describe('resolveRevealTarget', () => {
@@ -254,7 +306,7 @@ describe('resolveRevealTarget', () => {
 describe('cleanCache', () => {
   it('moves unreferenced blobs to quarantine instead of deleting them', async () => {
     await writeBlob('sha256-' + 'a'.repeat(64), 100);
-    await writeBlob('sha256-' + 'c'.repeat(64), 300);
+    await writeBlob('sha256-' + 'c'.repeat(64), 300, 20 * 60 * 1000);
 
     const result = await cleanCache(['orphan']);
 
@@ -322,5 +374,47 @@ describe('cleanCache', () => {
 
   it('rejects unknown targets', async () => {
     await expect(cleanCache(['everything'])).rejects.toMatchObject({ status: 400 });
+  });
+
+  it('keeps recently written complete blobs during cleanup', async () => {
+    await writeBlob('sha256-' + 'c'.repeat(64), 300);
+
+    const result = await cleanCache(['orphan']);
+
+    expect(result.removed.orphan).toBe(0);
+    expect(result.skippedRecent).toBeGreaterThanOrEqual(1);
+    expect(existsSync(path.join(modelsDir, 'blobs', 'sha256-' + 'c'.repeat(64)))).toBe(true);
+  });
+
+  it('refuses orphan and temp cleanup while a download is running', async () => {
+    vi.mocked(hasRunningDownloads).mockReturnValue(true);
+    await writeBlob('sha256-' + 'c'.repeat(64), 300, 20 * 60 * 1000);
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'ollama-studio-cache-test-'));
+    extraTempDirs.push(directory);
+    const file = path.join(directory, 'junk.gguf');
+    await writeFile(file, Buffer.alloc(123));
+    const old = new Date(Date.now() - 20 * 60 * 1000);
+    await utimes(directory, old, old);
+    await utimes(file, old, old);
+
+    await expect(cleanCache(['orphan'])).rejects.toMatchObject({ status: 409 });
+    await expect(cleanCache(['temp'])).rejects.toMatchObject({ status: 409 });
+    expect(existsSync(path.join(modelsDir, 'blobs', 'sha256-' + 'c'.repeat(64)))).toBe(true);
+    expect(existsSync(directory)).toBe(true);
+  });
+
+  it('refuses a second concurrent cleanup', async () => {
+    await writeFile(
+      path.join(modelsDir, '.ollama-studio-clean.lock'),
+      JSON.stringify({ pid: 1, at: Date.now() })
+    );
+
+    await expect(cleanCache(['partial'])).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('releases the cleanup lock after a successful run', async () => {
+    await cleanCache(['partial']);
+
+    expect(existsSync(path.join(modelsDir, '.ollama-studio-clean.lock'))).toBe(false);
   });
 });

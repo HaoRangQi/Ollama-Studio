@@ -72,7 +72,7 @@
 
 ### 6. 本地开发服务器与代理
 
-- 命令：`npm run dev` → `vite --port=3000 --host=127.0.0.1`
+- 命令：`npm run dev` → `vite --port=39471 --host=127.0.0.1`
 - 局域网显式开放：`npm run dev:lan`（`0.0.0.0`，仅可信网络）。
 - 本次验证使用：`npx vite --port 3001 --host 127.0.0.1`（3000 被既有进程占用，未终止该进程）。
 - 结果：**已执行（2026-10-28）通过**。
@@ -115,16 +115,24 @@
 - 2026-10-29 离线横幅验证：`OLLAMA_HOST=http://127.0.0.1:9 PORT=3111 node server.js`（指向不存在的端口），headless Chrome 在 1600×1000 截图确认横幅标题“Ollama 未连接 · 当前显示演示数据”为 16px 粗体红色，副标题与“重试连接”按钮不变；验证后停止 3111 进程。
 - 未覆盖：客户端中途断开、上游超时、非 NDJSON 错误体。
 
-### 8. 代理令牌鉴权
+### 8. 会话鉴权、Host 与 CSRF 校验
 
-- 命令：`PORT=3102 HOST=127.0.0.1 PROXY_TOKEN=test-secret node server.js`
-- 结果：**已执行（2026-10-28）通过**。
-  - `/healthz` → `authRequired:true`。
-  - 无令牌 `GET /ollama/api/version` → 401。
-  - `Authorization: Bearer test-secret` → 200。
-  - 无令牌 `POST /api/import` → 401。
-  - 带令牌 `POST /api/import?filename=a.txt` → 400（通过鉴权，进入文件校验）。
-- 备注：令牌保护 `/ollama/*`、`/api/import`、`/api/modelscope/*`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics` 与 `/api/daemon`；`/api/catalog`、`/api/hf` 是只读无鉴权代理。`VITE_PROXY_TOKEN` 构建时嵌入前端，属于共享密钥（`RISKS.md` R-025）。测试后进程已停止。
+- 前置：使用临时模型目录与 echo 上游，不触碰真实模型或 daemon。
+- 命令（2026-10-29 实际执行）：
+  ```bash
+  export PROXY_TOKEN="$(openssl rand -hex 32)"
+  PORT=3199 HOST=127.0.0.1 OLLAMA_MODELS=/tmp/.../models \
+    OLLAMA_HOST=http://127.0.0.1:3198 node server.js
+  ```
+- 结果：**已执行通过（15/15）**。
+  - 未登录 `GET /api/cache` → 401；`GET /healthz` → 200。
+  - `GET /`（Accept: text/html）→ 302 `/login`；`GET /login` → 200。
+  - `POST /api/auth/login` 正确令牌 → 200 + `Set-Cookie`（HttpOnly、SameSite=Strict）；带 Cookie `GET /api/cache` → 200；`Authorization: Bearer` → 200；错误令牌 → 401。
+  - `Host: evil.example` → 403；跨站 `Origin: https://evil.example` 的 JSON POST → 403；`Content-Type: text/plain` 的 POST → 415。
+  - `GET /ollama/api/version` 经代理后，echo 上游只收到 `host`、`connection`、`user-agent`、`accept`、`accept-language`、`sec-fetch-mode`、`accept-encoding`，未收到 Authorization/Cookie/Origin/Referer/X-Forwarded-*。
+  - `grep -R "$PROXY_TOKEN" dist/` 无命中。
+  - `HOST=0.0.0.0` 且无令牌 → 退出码 1；`HOST=0.0.0.0 PROXY_TOKEN=short` → 退出码 1。
+- 备注：令牌不再通过 `VITE_PROXY_TOKEN` 进入前端；会话保存在服务端内存，重启失效。跨网段使用 HTTPS 反代时设置 `COOKIE_SECURE=1`；LAN 域名加入 `ALLOWED_HOSTS`。`npm run dev:lan` 同样要求 `PROXY_TOKEN` 或 `ALLOW_INSECURE_BIND=1`。测试后进程已停止。
 
 ### 9. 真实模型与交互验证（2026-10-28 历史记录）
 

@@ -1,0 +1,15 @@
+# Evidence: missing Host validation / DNS rebinding
+
+## 1. Arbitrary Host header is accepted
+GET /healthz with Host: evil.example:45871 -> HTTP 200 application/json; charset=utf-8
+{"ok":true,"ollamaHost":"http://127.0.0.1:45872","authRequired":false}
+
+## 2. Request for an attacker-controlled hostname resolved to 127.0.0.1
+curl --resolve evil.example:45871:127.0.0.1 http://evil.example:45871/api/cache
+HTTP 200 application/json 480 bytes
+Response excerpt:
+{"modelsDir":"<FIXTURE_MODELS>","blobs":{"referenced":{"files":0,"bytes":0,"items":[],"hidden":0},"orphan":{"files":0,"bytes":0,"items":[],"hidden":0},"partial":{"files":0,"bytes":0,"items":[],"hidden":0},"chunks":{"files":0,"bytes":0,"items":[],"hidden":0}},"temp":{"dirs":0,"bytes":0,"path":"<TMPDIR>","items":[],"hidden":0},"reclaimableBytes":0,"scanComplete":true,"activeD
+
+A successful JSON response from a non-loopback Host proves the server does not
+validate Host. An attacker page that rebinds its own DNS name to 127.0.0.1 can
+therefore issue same-origin requests to every API, including DELETE requests.

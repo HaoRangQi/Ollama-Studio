@@ -1,0 +1,35 @@
+# Evidence: scanComplete can be true when no manifest store exists
+
+Fixture: a models directory with blobs/ and an empty manifests/ directory;
+manifests-v2/ does not exist.
+
+GET /api/cache:
+{
+  "modelsDir": "<FIXTURE_MODELS>",
+  "scanComplete": true,
+  "orphanFiles": 1,
+  "orphanBytes": 16,
+  "reclaimableBytes": 16
+}
+
+POST /api/cache/cleanup {"targets":["orphan"]}:
+{
+  "freedBytes": 16,
+  "quarantinedBytes": 16,
+  "removed": {
+    "orphan": 1,
+    "partial": 0,
+    "temp": 0
+  },
+  "quarantinePath": "<FIXTURE_MODELS>/.ollama-studio-trash/2026-10-29T15-46-54-775Z-38a14081",
+  "errors": []
+}
+
+Blob still in blobs/: no (moved to .ollama-studio-trash)
+
+Cause: readManifestDigests() starts complete=true; walk() returns silently on
+ENOENT (server/cache.ts:215-221), and both manifest roots are walked at
+server/cache.ts:256-257. If neither root yields a manifest, complete is still
+true and every blob is classified as orphan (server/cache.ts:386-455).
+cleanCache() only re-checks complete (server/cache.ts:486-494), so it moves
+all of them to .ollama-studio-trash.

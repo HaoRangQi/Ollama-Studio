@@ -37,8 +37,8 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 改遥测/日志/配置持久化/缓存清理/系统指标/服务控制 | `src/screens/TelemetryScreen.tsx`；`src/hooks/useOllama.ts`；`src/hooks/useDaemonControl.ts`；`src/api/cache.ts`；`src/api/metrics.ts`；`src/api/daemon.ts`；`src/lib/daemonConfig.ts`；`ollama_daemon_config_v1` |
 | 改离线/连接中/空模型提示 | `src/components/ConnectionBanner.tsx`；`src/screens/ModelsScreen.tsx`；`src/screens/ChatScreen.tsx` |
 | 改聊天流式输出、停止、思考、参数面板 | `src/screens/ChatScreen.tsx`；`src/api/ollama.ts` 的 `streamChat` |
-| 改开发代理、开发绑定、令牌注入 | `vite.config.ts`；`package.json` 的 `dev` / `dev:lan` |
-| 改生产静态托管/代理/鉴权/端口 | `server.ts`；`package.json` 的 `start` / `build:server` |
+| 改开发代理、开发绑定、会话鉴权 | `vite.config.ts`；`server/auth.ts`；`server/security.ts`；`package.json` 的 `dev` / `dev:lan` |
+| 改生产静态托管/代理/鉴权/端口 | `server.ts`；`server/auth.ts`（登录页、会话 Cookie）；`server/security.ts`（Host/CSRF）；`package.json` 的 `start` / `build:server` |
 | 改/打包 macOS 菜单栏 App（菜单项、内置服务、图标、DMG） | `macos/menu-bar/main.swift`；`build.sh`；`Info.plist`；`make-icon.swift` / `make-app-icon.swift`；`package.json` 的 `build:menu`；`docs/context/RUNBOOK.md` 19 |
 | 改页面或界面模块 | `src/screens/*.tsx`；共享组件在 `src/components/`；页面切换在 `src/App.tsx` |
 | 改移动端导航/响应式 | `src/components/MobileNav.tsx`；`src/components/Sidebar.tsx`；`src/App.tsx`；`src/index.css` |

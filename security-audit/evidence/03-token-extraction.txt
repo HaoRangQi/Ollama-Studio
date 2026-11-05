@@ -1,0 +1,22 @@
+# Evidence: PROXY_TOKEN is recoverable from unauthenticated static assets
+
+Build performed with VITE_PROXY_TOKEN=<TEST_TOKEN>; server started with the same
+PROXY_TOKEN. All requests below are unauthenticated unless noted.
+
+GET / -> HTTP 200 text/html; charset=UTF-8 1157 bytes
+index.html references: assets/index-BRzTzwfv.js
+GET /assets/index-BRzTzwfv.js -> HTTP 200 application/javascript; charset=UTF-8 530921 bytes
+Occurrences of the test token in the fetched bundle: 1
+Context: st be used within a ThemeProvider`);return e},ie=`<TEST_TOKEN>`,ae=`/ollama`;function P(){return{authorization:`
+
+GET /api/cache without a token -> HTTP 401
+GET /api/cache with the token extracted from the bundle -> HTTP 200
+
+Cause: server.ts mounts the token middleware only on /ollama and the listed
+/api/* routes (server.ts:47-59); express.static(distDir) is mounted after it
+with no auth (server.ts:290). src/api/ollama.ts:3-19 embeds
+VITE_PROXY_TOKEN into the browser bundle at build time.
+
+Conclusion: PROXY_TOKEN cannot be treated as an access control against any
+client that can reach the HTTP server. Any client can read /, follow the
+referenced JS asset, extract the token, and then authenticate.

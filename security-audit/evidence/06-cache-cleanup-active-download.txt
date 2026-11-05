@@ -1,0 +1,37 @@
+# Evidence: cleanup ignores active downloads for temp and orphan targets
+
+A pull job is held in running state by an audit echo upstream. The model
+directory has an empty manifests/ root (so scanComplete is true).
+
+Job: {'id': 'dl-d7d7fcb1-7b8e-498a-9442-d7e709fed39d', 'model': 'active-proof', 'status': 'running'}
+GET /api/cache activeDownloads: True
+
+Temp fixture before: <TMPDIR>/ollama-studio-active-proof
+Fresh blob before: -rw-r--r--@ 1 macos  wheel  28 Oct 29 23:47 <FIXTURE_MODELS>/blobs/sha256-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+
+POST /api/cache/cleanup {"targets":["orphan","temp"]} while that job is running:
+{
+  "freedBytes": 48,
+  "quarantinedBytes": 28,
+  "removed": {
+    "orphan": 1,
+    "partial": 0,
+    "temp": 1
+  },
+  "quarantinePath": "<FIXTURE_MODELS>/.ollama-studio-trash/2026-10-29T15-47-03-741Z-ad63fb0f",
+  "errors": [],
+  "report.activeDownloads": true,
+  "report.scanComplete": true
+}
+
+Temp fixture after: ls: <TMPDIR>/ollama-studio-active-proof: No such file or directory
+DELETED
+Fresh blob after: ls: <FIXTURE_MODELS>/blobs/sha256-eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee: No such file or directory
+QUARANTINED
+
+Cause: hasRunningDownloads() gates only the partial branch
+(server/cache.ts:533-536). The temp branch (server/cache.ts:558-572) never
+checks it, and the orphan branch (server/cache.ts:485-531) has neither an
+active-download check nor a recent-mtime guard. scanTempDirs() also keys
+recency on the directory mtime (server/cache.ts:353-356), which a long
+download does not update after the initial file creation.

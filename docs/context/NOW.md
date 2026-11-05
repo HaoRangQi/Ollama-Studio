@@ -2,9 +2,9 @@
 
 > 当前状态快照。接续任务先读这里；稳定事实见 `README.md` / `README.zh-CN.md` / `MAP.md`，决策见 `DECISIONS.md`，风险见 `RISKS.md`。
 >
-> 更新日期：2026-10-29
+> 更新日期：2026-11-03
 > 核验对象：仓库根目录、`src/`、`server/`、`server.ts`、`vite.config.ts`、`package.json`、`tsconfig.json`、`macos/menu-bar/`、测试与 CI 配置、`docs/context/`
-> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线；并接入 ModelScope 渠道、服务端后台下载任务、浮层外部点击关闭与 Ollama 缓存扫描/清理。2026-10-29 修复缓存清理忽略 `manifests-v2` symlink 的误删事故（D-140、R-042），把 Hugging Face 下载改为服务端直下 GGUF + `ollama create`（D-141、R-049），新增 macOS 菜单栏封装（D-142、R-050），并按首版复刻 Chat 导航图标（显式组合 `chat` + `_` + `spa` + `rk`）。2026-10-29 重写 README 安装/开发章节，修复切换模型库渠道清空输入，离线提示标题加大加粗标红，并更新菜单栏 App 外观与打包产物，发布首个 GitHub Release `v0.1.0`。2026-10-29 补 Ollama 一键启动并把启停入口从头菜单收到遥测页（D-143 修订）、模型卡片跳回下载来源的渠道页面与量化标签取消截断（D-144）、模型搜索词跨标签页保留、版本号收敛到 `package.json` 单一来源，发布 `v0.2.0`。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载；事故后真实 `~/.ollama/models` 仅只读扫描，未再执行清理。
+> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线；并接入 ModelScope 渠道、服务端后台下载任务、浮层外部点击关闭与 Ollama 缓存扫描/清理。2026-10-29 修复缓存清理忽略 `manifests-v2` symlink 的误删事故（D-140、R-042），把 Hugging Face 下载改为服务端直下 GGUF + `ollama create`（D-141、R-049），新增 macOS 菜单栏封装（D-142、R-050），并按首版复刻 Chat 导航图标（显式组合 `chat` + `_` + `spa` + `rk`）。2026-10-29 重写 README 安装/开发章节，修复切换模型库渠道清空输入，离线提示标题加大加粗标红，并更新菜单栏 App 外观与打包产物，发布首个 GitHub Release `v0.1.0`。2026-10-29 补 Ollama 一键启动并把启停入口从头菜单收到遥测页（D-143 修订）、模型卡片跳回下载来源的渠道页面与量化标签取消截断（D-144）、模型搜索词跨标签页保留、版本号收敛到 `package.json` 单一来源，发布 `v0.2.0`。2026-11-03 完成安全审计 P0 修复：会话 Cookie 鉴权、Host/CSRF 校验、缓存清理活动下载锁与跨进程锁、非回环失败关闭、代理头剥离。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载；事故后真实 `~/.ollama/models` 仅只读扫描，未再执行清理。
 
 ## 当前目标
 
@@ -33,8 +33,8 @@
 - [x] 空模型状态：在线且 0 模型时 `selectedModel`/`chatModel` 置空，Models/Chat/ModelfileLab 显示空状态与拉取入口。
 - [x] 下载任务元数据持久化到 `ollama_download_task_v1`；刷新后标记“上次任务已中断，可继续”，取消时清除记录（D-130）。
 - [x] GGUF 导入在上传非空后预检 `ollama --version`，CLI 缺失返回 503；空文件/非 `.gguf` 在 CLI 预检前返回 400。
-- [x] 可选代理令牌：`PROXY_TOKEN` + `VITE_PROXY_TOKEN` 保护 `/ollama/*` 与本地管理 API（`/api/import`、`/api/modelscope`、`/api/downloads`、`/api/cache`、`/api/export`、`/api/metrics`、`/api/daemon`）；无令牌 401、Bearer 200 已实测。
-- [x] 开发服务器默认 `127.0.0.1:3000`；新增 `dev:lan` 显式开放并文档警告。
+- [x] 会话鉴权（2026-11-03 替代旧令牌方案）：`PROXY_TOKEN` 通过 `/login` 换取 HttpOnly、SameSite=Strict 会话 Cookie，前端 bundle 不再包含令牌；`/ollama/*` 与全部 `/api/*` 受保护，脚本保留 Bearer/X-Proxy-Token。Host/Origin/Sec-Fetch-Site/JSON Content-Type 校验、代理上游头白名单、非回环无令牌/弱令牌拒绝启动、缓存清理活动下载锁与跨进程锁均已实现。
+- [x] 开发服务器默认 `127.0.0.1:39471`；新增 `dev:lan` 显式开放并文档警告。
 - [x] i18n 收口：聊天、模型、拉取、Modelfile、遥测、Command Palette、Pull/Quant 弹窗的主要文案按语言切换；移除假版本号/假 GPU/假通知。
 - [x] 移动端底部导航、`lg` 断点布局、`:focus-visible` 与减少动态效果样式；图标按钮补 `aria-label`。
 - [x] 模型库搜索与本地精选分区：搜索时只显示搜索结果并隐藏“本地精选分类”，清空或点击“返回本地精选”后恢复精选列表；分类 chips 不再暗示会筛选远程结果。
@@ -87,6 +87,7 @@
 - [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（164 个测试）、`npm run build` 全部通过（2026-10-29）。
 - [x] 模型来源跳转与量化标签修复（2026-10-29）：① 模型卡片“⋮”菜单新增“查看渠道页面”，下载成功时把来源写进 `ollama_model_origin_v1`（`src/lib/modelOrigin.ts`，上限 200 条，ModelScope 记 `namespace/name`、Hugging Face 记 `repo`），命中时渲染 `<a>` 指向 `https://huggingface.co/<repo>` 或 `https://modelscope.cn/models/<namespace>/<name>`，未登记的模型（含手动 `ollama pull`）显示 disabled 并提示未记录来源；CDP 实测本地模型条目 `查看渠道页面 · Hugging Face`、`href` 正确。② `extractQuants` 去掉 `slice(0, 12)`：模型页声明 15 个量化时原先只展示 12 个（`Q5_K_S`/`Q6_K`/`Q8_0` 被砍），“+N”永远展不全；CDP 实测修复后声明 15 个、卡片 8 个 + “+7”、展开后 15 个与 HF 页面文件列表一致。`quant` 经 `downloadQuantRef` 传递，避免闭包读到旧值。见 `RUNBOOK.md` 12/20、`DECISIONS.md` D-144。
 - [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（164 个测试）、`npm run build` 全部通过（2026-10-29）；菜单栏 App 已重新打包并替换安装到 `/Applications/Ollama Studio Menu.app`，服务引用新 bundle `assets/index-uqZ7ePF8.js`。
+- [x] 安全审计 P0 修复验证（2026-11-03）：`typecheck`、`lint`、`format:check`、192 个测试、`build` 通过；生产服务器用临时 fixture + echo 上游完成 15 项检查（未登录 401、登录 Cookie 200、Bearer 200、恶意 Host 403、跨站 Origin 403、`text/plain` 415、非回环无令牌/弱令牌拒绝启动、bundle 不含令牌、代理头剥离）。
 - [x] 构建体积：前端 JS 约 519.4 kB（gzip 141.1 kB），CSS 约 79.8 kB（gzip 17.1 kB），`server.js` 约 63.2 kB；字体/图标为本地资源（Material Symbols woff2 约 4 MB）。
 - [x] 生产服务器 3101：`/healthz`、`/ollama/api/version`、`/ollama/api/tags`、首屏 headless Chrome 通过。
 - [x] 开发服务器 3001：首屏、代理、`/api/import` 400 校验、headless Chrome 通过。
@@ -119,7 +120,7 @@
 | 外部模型源被本机 DNS/代理阻断 | `us.aws.cdn.hf.co` → `198.18.x.x`，`*.r2.cloudflarestorage.com`（Ollama 官方 registry blob）→ `198.18.0.245`，Ollama 原生 pull 报 `redirect target not allowed`；应用内 HF 已改为服务端 `fetch` 直下 + `ollama create`，小文件实测成功，Ollama 原生 pull 仍不可用 | `RISKS.md` R-024、R-049、`RUNBOOK.md` 5.1、13 |
 | ModelScope 下载依赖本地服务与 `ollama create` | 需要本机安装 Ollama CLI；单文件上限 20 GB；无断点续传（Range 续传已列为待办，用户要求暂缓）；结果质量依赖 ModelScope 搜索 | `RISKS.md` R-039 |
 | 远端 CI 仅覆盖 Ubuntu | 首次运行已通过，但未覆盖 macOS 运行时、菜单栏 App 构建与真实 Ollama；已手动发布 `v0.1.0`，无发布流水线 | `RISKS.md` R-029 |
-| 代理令牌为共享密钥 | `VITE_PROXY_TOKEN` 进入前端产物；无 TLS/限流/审计 | `RISKS.md` R-025、D-126 |
+| 代理会话与传输安全 | 已移除 `VITE_PROXY_TOKEN`；本机 HTTP 下会话 Cookie 无 `Secure`，跨网段仍需 TLS 反代与 `COOKIE_SECURE=1` | `RISKS.md` R-025、D-145 |
 | 人工验收未完成 | 视觉、窄屏、a11y、多步交互问题可能漏过 | `RISKS.md` R-015、R-021、D-131 |
 | 真实加载/卸载未点击验证 | keep_alive 与 `/api/ps` 的 UI 反馈未覆盖 | `RISKS.md` R-028 |
 | npm 默认缓存权限 `EPERM` | 直接 `npm install` 失败；当前使用 `.npm-cache/` 绕过 | `RISKS.md` R-017 |
@@ -137,6 +138,7 @@
 6. 缓存事故处理完成且 manifest 无悬空后，再评估是否从遥测页清理真实缓存；清理前记录 `GET /api/cache`，orphan 只会移入 `.ollama-studio-trash`，清理后复核 `/api/tags`、`ollama ps` 与回收站内容。
 7. 观察 GitHub Actions 首次运行；再决定 D-114（Tauri）与 D-131（Playwright/axe）。
 8. 视需要做图标子集化与 npm 缓存权限修复；发布流程已手动跑通，再评估是否改为 CI 自动发布。
+9. 按 `security-audit/` 继续 P1/P2：安全头与 CSP、请求体上限/超时、错误处理、下载准入控制、ModelScope 超时、CI 供应链加固；P0 已完成的项不要重复实施。
 
 > 以上是建议，不是已确认决策；执行前先在 `DECISIONS.md` 中确认。
 
