@@ -1,0 +1,113 @@
+/* Hallmark tokens · Console (deal 1/3) · declared theme block; light-dark pair for both modes. */
+:root {
+  color-scheme: dark;
+
+  /* Type scale: fixed app scope, no fluid heads. */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.44rem;
+  --text-2xl: 1.728rem;
+  --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem;
+  --text-display: 1.728rem;
+  --text-section: 1.2rem;
+  --text-title: 1rem;
+  --text-lead: 1rem;
+  --text-reading: 2.5rem;
+
+  /* Motion. */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+
+  /* Console palette. Amber is a person or primary action; cool is an instrument reading. */
+  --color-paper: light-dark(oklch(98% 0.006 85), oklch(17% 0.008 250));
+  --color-paper-2: light-dark(oklch(95.5% 0.007 85), oklch(21% 0.009 250));
+  --color-paper-3: light-dark(oklch(92% 0.008 85), oklch(13.5% 0.007 250));
+  --color-ink: light-dark(oklch(19% 0.01 60), oklch(95% 0.005 250));
+  --color-ink-2: light-dark(oklch(33% 0.01 60), oklch(83% 0.008 250));
+  --color-muted: light-dark(oklch(46% 0.012 70), oklch(71% 0.01 250));
+  --color-rule: light-dark(oklch(86% 0.008 85), oklch(31% 0.01 250));
+  --color-rule-2: light-dark(oklch(72% 0.01 85), oklch(42% 0.012 250));
+  --color-accent: light-dark(oklch(58% 0.14 70), oklch(82% 0.15 80));
+  --color-accent-ink: light-dark(oklch(8% 0.03 75), oklch(18% 0.04 75));
+  --color-accent-text: light-dark(oklch(48% 0.13 70), oklch(82% 0.15 80));
+  --color-accent-soft: light-dark(oklch(92% 0.045 80), oklch(29% 0.05 80));
+  --color-focus: light-dark(oklch(54% 0.18 70), oklch(82% 0.15 80));
+  --color-cool: light-dark(oklch(51% 0.14 250), oklch(77% 0.12 245));
+  --color-cool-soft: light-dark(oklch(92% 0.04 245), oklch(29% 0.05 245));
+  --color-ok: light-dark(oklch(50% 0.15 150), oklch(76% 0.15 150));
+  --color-ok-soft: light-dark(oklch(93% 0.04 150), oklch(24.5% 0.03 150));
+  --color-bad: light-dark(oklch(52% 0.18 25), oklch(70% 0.17 25));
+  --color-bad-soft: light-dark(oklch(94% 0.04 25), oklch(24.5% 0.035 25));
+  --color-error: var(--color-bad);
+  --color-success: var(--color-ok);
+
+  /* Faces: the project's existing families stand in for Host Grotesk / Atkinson. */
+  --font-display:
+    'Plus Jakarta Sans Variable', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --font-outlier: 'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace, monospace;
+  --display-weight: 500;
+  --tracking-display: -0.03em;
+
+  /* Form. */
+  --radius-card: 10px;
+  --radius-pill: 6px;
+  --radius-chip: 4px;
+  --shadow-card: none;
+  --rule-hair: 1px;
+
+  /* Space. */
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 144px;
+
+  /* Layout and stacking. */
+  --container: 1440px;
+  --gutter: 64px;
+  --gap-columns: 32px;
+  --section-gap-s: 120px;
+  --section-gap: 144px;
+  --section-gap-l: 176px;
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-sticky-nav: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+}
+
+@media (max-width: 60rem) {
+  :root {
+    --gutter: 24px;
+    --section-gap-s: 80px;
+    --section-gap: 96px;
+    --section-gap-l: 120px;
+  }
+}
+
+@media (max-width: 40rem) {
+  :root {
+    --gutter: 16px;
+    --gap-columns: 16px;
+    --section-gap-s: 56px;
+    --section-gap: 72px;
+    --section-gap-l: 96px;
+    --text-reading: 2rem;
+  }
+}

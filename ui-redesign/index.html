@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN" data-mode="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta
+      name="description"
+      content="Ollama Studio 的本地运行时控制台：查看已加载模型、系统资源、拉取、对话与 Modelfile。"
+    />
+    <link rel="icon" href="data:," />
+    <title>Ollama Studio: 运行</title>
+    <script>
+      (function () {
+        try {
+          var mode = localStorage.getItem('ollama_theme_mode');
+          if (mode === 'light' || mode === 'dark') {
+            document.documentElement.dataset.mode = mode;
+            document.documentElement.style.colorScheme = mode;
+          }
+          if (localStorage.getItem('ollama_language') === 'en') {
+            document.documentElement.lang = 'en';
+          }
+          var requested = new URLSearchParams(window.location.search).get('ui');
+          if (requested === 'legacy') window.location.replace('/');
+        } catch (error) {
+          /* Storage and URL parsing can fail in restricted contexts; the app still boots. */
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <noscript>
+      <p>此界面需要 JavaScript。可以返回经典界面继续使用。</p>
+      <p><a href="/">返回经典界面</a></p>
+    </noscript>
+    <div id="root"></div>
+    <script type="module" src="/ui-redesign/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+[
+ {
+  "mode": "redesign",
+  "depth": "full",
+  "scope": "app",
+  "shape": "Console workbench, five screens; runtime is the signature ledger",
+  "theme": "Console (deal 1/3): graphite and warm paper, amber operator, cool instrument readings",
+  "axes": "dark-and-light/grotesk-sans/chromatic-amber",
+  "hero": "Runtime: lede, four readings, loaded-model ledger",
+  "nav": "Two-row masthead: brand, status and controls, then five tab links",
+  "footer": "Product line, proxy endpoint, interface label, classic UI link",
+  "imagery": "No photographs; live API data, meters, sparklines and job states carry the screen",
+  "photos": [],
+  "entry": "ui-redesign/index.html served at /ui-redesign/; legacy / unchanged",
+  "fingerprint": "console-masthead/amber-operator/cool-readings/10px-panel-6px-control",
+  "sections": "Runtime, Models, Pull, Chat, Modelfile",
+  "signature": "Live loaded-model ledger: VRAM, kept-until and unload beside CPU, GPU, memory and disk readings",
+  "waived": [],
+  "prompt": "redesign in ui-redesign only, preserve existing files and business logic, keep classic UI as fallback",
+  "date": "2026-11-05"
+ }
+]

@@ -1,0 +1,19 @@
+{
+  "scanned": "2026-11-05",
+  "target": "src + http://127.0.0.1:39471 (live app)",
+  "findings": {
+    "fonts": "Plus Jakarta Sans Variable (headline), Geist Variable (body/code), JetBrains Mono Variable (code fallback), Material Symbols Outlined (icons) — src/index.css:30-33, src/main.tsx:1-4",
+    "palette": "CSS custom properties under :root (dark) and :root.light; runtime palettes in ThemeContext — src/index.css:36-77, src/context/ThemeContext.tsx:226",
+    "motion": "CSS transitions and Tailwind animate utilities; no motion library; prefers-reduced-motion fallback at src/index.css:181-189",
+    "spacing": "Tailwind 4 default spacing plus arbitrary values (rounded-[2.5rem], p-3.5, text-[10px], etc.); no --space-* token layer",
+    "framework": "React 19 + Vite 8 + Tailwind CSS 4 + Express server (package.json)"
+  },
+  "preserve": [
+    "the project's font stack",
+    "the dark/light CSS token palette",
+    "the real API-backed data and four data states",
+    "the model list plus parameter drawer workbench structure",
+    "the command palette and keyboard focus baseline"
+  ],
+  "introduce": []
+}
