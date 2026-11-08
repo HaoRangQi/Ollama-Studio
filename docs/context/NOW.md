@@ -129,6 +129,7 @@
 - [ ] daemon 自动控制在 Ollama.app 形态已实测（启动/停止/重启，2026-10-29）；剩余未实测：命令行形式安装（`process` 分支的 `ollama serve` 兜底启动）、launchd 独立托管形态、Linux systemd 与 Windows。默认 `ALLOW_DAEMON_CONTROL` 关闭。
 - [ ] 通过新 HF 直下路径执行真实大模型下载与真实 `ollama create`（小文件链路已用假 CLI 验证，未改动真实模型列表）；本机 DNS 仍把 CDN 解析为 `198.18.x.x`。
 - [x] GitHub Actions 首次远端运行：2026-10-29 推送 `f8b66d0`，运行 `40739185722` 在 `ubuntu-latest` + Node 24 上通过 typecheck、lint、format:check、test 与 build。
+- [x] UI3 与收藏工作已保存并推送：2026-11-08 创建分支 `redesign/ui-v2`（提交 `9709652`）并推送到 `origin`，GitHub Actions 运行 `42491072126` 全步骤通过；未创建 PR、未合并或推送 `main`。
 - [ ] Tauri 迁移触发条件（D-114，仍待决策）。
 - [ ] 图标子集化（Material Symbols 全量约 4 MB）。
 - [x] 发布流程/版本 tag（`origin` 已配置；2026-10-29 手动发布 `v0.1.0`，无自动发布流水线）。

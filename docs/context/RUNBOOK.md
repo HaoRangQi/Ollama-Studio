@@ -305,6 +305,7 @@
 - 2026-10-29：推送 `f41033d..0f76bae`（外观更新、离线提示、渠道输入、文档四个提交）；GitHub Actions 运行 `40810571295` 全步骤成功。
 - 2026-10-29：发布首个 GitHub Release `v0.1.0`（tag 指向 `0f76bae`），附件 `Ollama.Studio.Menu-0.1.0.dmg` 48,175,616 字节，SHA256 `e405e7f272c63e1cb7dd835f1737a443cc2dd44e12c8309788c9e3a9d0abefc6`；Releases 仅保留该版本（无草稿、无预发布）。发布手动执行，无自动发布流水线。未在 `/Applications` 安装该 DMG，也未通过 App 发起真实模型下载。
 - 2026-10-29：发布 `v0.2.0`，附件 `Ollama.Studio.Menu-0.2.0.dmg` 48,175,616 字节，SHA256 `d0edc737008b961556b7255a2347b5740a80980442aa143bde4f6464261e6f62`。DMG 名由 `package.json` 版本生成，包内 `CFBundleShortVersionString` / `CFBundleVersion` 同为 0.2.0（已用 `plutil` 核对）。该 DMG 已安装到 `/Applications/Ollama Studio Menu.app` 并启动，`GET /` 返回 200。发布手动执行，无自动发布流水线。
+- 2026-11-08：创建并推送分支 `redesign/ui-v2` 到 `origin`（新分支，提交 `9709652`），以 `git push -u` 设置 upstream；提交包含 UI3 并行界面、搜索结果收藏与相关文档同步。GitHub Actions 运行 `42491072126` 全步骤成功（typecheck、lint、format:check、test、build），job `verify` 用时 1m11s。未创建 PR、未合并或推送 `main`、未发布 Release。
 - 许可证：Apache-2.0（`LICENSE`）。
 
 ## 文档变更检查清单
