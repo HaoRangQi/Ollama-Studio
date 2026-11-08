@@ -2,9 +2,9 @@
 
 > 当前状态快照。接续任务先读这里；稳定事实见 `README.md` / `README.zh-CN.md` / `MAP.md`，决策见 `DECISIONS.md`，风险见 `RISKS.md`。
 >
-> 更新日期：2026-11-03
+> 更新日期：2026-11-08
 > 核验对象：仓库根目录、`src/`、`server/`、`server.ts`、`vite.config.ts`、`package.json`、`tsconfig.json`、`macos/menu-bar/`、测试与 CI 配置、`docs/context/`
-> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线；并接入 ModelScope 渠道、服务端后台下载任务、浮层外部点击关闭与 Ollama 缓存扫描/清理。2026-10-29 修复缓存清理忽略 `manifests-v2` symlink 的误删事故（D-140、R-042），把 Hugging Face 下载改为服务端直下 GGUF + `ollama create`（D-141、R-049），新增 macOS 菜单栏封装（D-142、R-050），并按首版复刻 Chat 导航图标（显式组合 `chat` + `_` + `spa` + `rk`）。2026-10-29 重写 README 安装/开发章节，修复切换模型库渠道清空输入，离线提示标题加大加粗标红，并更新菜单栏 App 外观与打包产物，发布首个 GitHub Release `v0.1.0`。2026-10-29 补 Ollama 一键启动并把启停入口从头菜单收到遥测页（D-143 修订）、模型卡片跳回下载来源的渠道页面与量化标签取消截断（D-144）、模型搜索词跨标签页保留、版本号收敛到 `package.json` 单一来源，发布 `v0.2.0`。2026-11-03 完成安全审计 P0 修复：会话 Cookie 鉴权、Host/CSRF 校验、缓存清理活动下载锁与跨进程锁、非回环失败关闭、代理头剥离。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载；事故后真实 `~/.ollama/models` 仅只读扫描，未再执行清理。
+> 更新范围：完成第三阶段工程化与功能收口：Vitest/ESLint/Prettier/strict/CI、依赖清理、模型参数默认值与显存 keep_alive、多会话、代码块渲染、i18n 补全、空模型状态、下载任务持久化、GGUF CLI 预检、可选代理令牌、开发服务器回环绑定、字体自托管、Apache-2.0 与 Git 基线；并接入 ModelScope 渠道、服务端后台下载任务、浮层外部点击关闭与 Ollama 缓存扫描/清理。2026-10-29 修复缓存清理忽略 `manifests-v2` symlink 的误删事故（D-140、R-042），把 Hugging Face 下载改为服务端直下 GGUF + `ollama create`（D-141、R-049），新增 macOS 菜单栏封装（D-142、R-050），并按首版复刻 Chat 导航图标（显式组合 `chat` + `_` + `spa` + `rk`）。2026-10-29 重写 README 安装/开发章节，修复切换模型库渠道清空输入，离线提示标题加大加粗标红，并更新菜单栏 App 外观与打包产物，发布首个 GitHub Release `v0.1.0`。2026-10-29 补 Ollama 一键启动并把启停入口从头菜单收到遥测页（D-143 修订）、模型卡片跳回下载来源的渠道页面与量化标签取消截断（D-144）、模型搜索词跨标签页保留、版本号收敛到 `package.json` 单一来源，发布 `v0.2.0`。2026-11-03 完成安全审计 P0 修复：会话 Cookie 鉴权、Host/CSRF 校验、缓存清理活动下载锁与跨进程锁、非回环失败关闭、代理头剥离。未做完整人工视觉/a11y 验收；未在真实 UI 点击验证模型加载/卸载；事故后真实 `~/.ollama/models` 仅只读扫描，未再执行清理。2026-11-08 新增 `/ui3/` 并行界面：源码在 `ui3/`，设计参考原样迁移到 `design/UI3/`，经典界面保持不变；已完成桌面/平板/移动端视觉冒烟，详见“UI3 并行界面”。同日新增搜索结果本地收藏与双界面收藏夹（不下载，共用 `ollama_favorite_models_v1` 快照）。
 
 ## 当前目标
 
@@ -13,6 +13,26 @@
 ## 本轮进展
 
 已完成：
+
+### UI3 并行界面（2026-11-08）
+
+- [x] 新增独立 Vite 多页入口 `/ui3/`（源码 `ui3/`，构建输出 `dist/ui3/`）；`/` 的经典界面、`src/`、`ui-legacy/`、`ui-redesign/` 均未改动，只有 `vite.config.ts` 增加多入口、`.prettierignore` 忽略设计参考目录。
+- [x] 将原根目录 `UI3/` 设计素材原样移动到 `design/UI3/`，解决 macOS 大小写不敏感文件系统将 `UI3/` 与 `ui3/` 视为同一目录、以及 Linux CI 路径不一致的问题。
+- [x] 完成五个页面：即时对话、模型库、发现与拉取、Modelfile 实验室、监控与设置；复用现有 API 与服务端任务，通过 `ui3/lib/legacy.ts` 只读重导出业务逻辑，不复制协议。
+- [x] 独立视觉系统：鼠尾草绿 / 可可棕 / 杏色 token，明暗主题与五套强调色，中英双语，⌘K 命令面板、主题调色盘、移动端底部导航。
+- [x] 桌面 1440px 五页、深色主题、1024px 平板五页、390px 移动端五页已用实际 Vite 开发服务器 + Puppeteer/headless Chrome 截图检查；无横向溢出、无页面脚本错误；⌘K 面板、账户菜单主题调色盘、移动端模型抽屉交互通过。
+- [x] `npm run typecheck`、`npm run lint`、`npm run format:check`、`npm test`（206 个测试）与 `npm run build` 通过；生产服务器 `PORT=3107 node server.js` 下 `/ui3/` 与入口 JS 均返回 200（2026-11-08）。全量测试首次在机器高负载下出现 1 个既有缓存测试超时，隔离与最终复跑通过。
+- [ ] 未点击真实模型加载/推理、下载、`ollama create` 或 daemon 启停；未做完整键盘/屏幕阅读器 a11y 验收。
+
+### 模型收藏（2026-11-08）
+
+- [x] 新增 `src/lib/favoriteModels.ts`：localStorage 键 `ollama_favorite_models_v1`，保存 `CatalogSearchResult` 快照 + 收藏时量化 + `savedAt`，上限 200 条；提供容错读取、切换、保存与量化回退；14 个单元测试覆盖去重、跨来源同名、上限、损坏存储与存储不可用。
+- [x] 经典界面：`CatalogResultRow` 增加星标；`PullScreen` 在搜索区上方增加可折叠收藏夹，支持下载、填入命令、打开来源页与取消收藏。
+- [x] UI3：搜索结果卡增加星标；`PullScreen` 在搜索行下方增加收藏夹，交互与经典界面一致；两个界面共用同一份收藏数据。
+- [x] 收藏夹默认收起，仅显示“收藏夹 N”和“展开”；展开/收起状态只对当前页面挂载有效，刷新后回到收起。
+- [x] 收藏不触发 `/api/pull`、`/api/downloads` 或 `/api/modelscope/pull`；`npm run typecheck`、`lint`、`format:check`、`npm test`（206）与 `npm run build` 通过。
+- [x] headless Chrome 双界面实测（2026-11-08）：拦截 ModelScope 搜索响应后收藏，快照包含 `Q4_K_M` 与 GGUF 文件列表；无下载 POST；刷新后收藏夹仍在；取消收藏后本地数据与收藏夹同时清空。
+- [ ] 未点击收藏项发起真实下载；收藏快照可能随远端仓库变化而过时，收藏项仅提供来源页核对。
 
 ### 工程基础
 
@@ -164,5 +184,6 @@
 - 生产代理、鉴权与静态托管：`server.ts`
 - 测试与 CI：`src/**/*.test.ts`、`server/**/*.test.ts`、`vitest.config.ts`、`.github/workflows/ci.yml`
 - 构建与脚本：`package.json`、`tsconfig.json`、`eslint.config.js`、`.prettierrc.json`
+- UI3 并行界面：`ui3/README.md`、`ui3/App.tsx`、`ui3/screens/`、`ui3/styles/`、`design/UI3/`、`vite.config.ts` 的 `build.rollupOptions.input`
 - 执行记录与验证命令：`RUNBOOK.md`
 - 已知风险：`RISKS.md`

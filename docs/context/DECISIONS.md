@@ -362,6 +362,14 @@
 - **理由**：3000 是常见开发端口，容易与本地其他服务冲突；39471 是未占用的高位注册端口。
 - **范围/风险**：macOS 菜单栏封装仍使用 3210；历史验证记录中的 3000/3001 是当时实际使用的端口，保留不改。
 
+### D-147 模型收藏只存本地搜索快照，不写入服务端
+
+- **状态**：已确认（2026-11-08）。
+- **内容**：搜索结果可收藏而不下载。新增 `src/lib/favoriteModels.ts`，用 localStorage 键 `ollama_favorite_models_v1` 保存 `CatalogSearchResult` 快照、收藏时选中的量化与 `savedAt`，上限 200 条、新的在前；经典界面与 UI3 共用同一份数据。收藏项可发起下载、填入 CLI 命令、打开来源页或取消收藏；收藏本身不触发 `/api/pull`、`/api/downloads` 或 `ollama create`。读取时忽略损坏条目，写入失败返回 false 并由界面提示。
+- **依据/来源**：`src/lib/favoriteModels.ts`、`src/lib/favoriteModels.test.ts`、`src/screens/PullScreen.tsx`、`src/components/CatalogResultRow.tsx`、`ui3/screens/PullScreen.tsx`、`ui3/copy.ts`、`ui3/lib/legacy.ts`；2026-11-08 headless Chrome 双界面收藏/刷新/取消实测与 206 个测试。
+- **理由**：当前项目没有服务端数据库或用户账户，会话、模型参数、下载来源与 daemon 界面配置都保存在 localStorage；收藏只是“稍后再看”的书签，引入服务端状态会增加鉴权、迁移与清理成本。保存完整快照可让收藏项在刷新、断网或远端仓库暂时不可达时仍能显示并发起下载。
+- **范围/风险**：收藏是浏览器本地数据，换浏览器或清空站点数据会丢失；快照可能过时（量化、描述、仓库地址变化），收藏项保留来源页链接供核对；下载时优先使用收藏时量化，若已不存在则回退到快照中的第一个量化；localStorage 写入失败时只在当前会话可见并提示。见 `RISKS.md` R-052。
+
 ## 待决策（尚未决定）
 
 以下事项**不是已选型**，不要据此声称已决定。确认后把对应条目移入“已确认”，写明理由、范围和来源。

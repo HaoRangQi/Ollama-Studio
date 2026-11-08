@@ -4,7 +4,7 @@
 
 ## 项目定位
 
-Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理与对话界面。已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（流式）、`POST /api/pull`（流式进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`、`/api/generate`（加载/释放）、`/api/embed`（embedding 加载）、同源代理、ModelScope（默认）/ Hugging Face / ollama.com 模型库搜索、ModelScope / Hugging Face 服务端下载 + `ollama create`、服务端后台下载任务（`/api/downloads`，刷新可接回）、Ollama 缓存扫描/清理（`/api/cache`）、GGUF 导入与导出（`/api/export`）、系统指标（`/api/metrics`）与守护进程检测/可选控制（`/api/daemon`）。会话支持每模型多会话，模型参数作为对话默认值持久化。另有可选的 macOS 菜单栏封装（`macos/menu-bar/`，Swift + 内置 Node 服务，`npm run build:menu` 生成 `.app` 与 DMG）。项目目标与实时状态见 `docs/context/NOW.md`。
+Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理与对话界面。已接入 `GET /api/version`、`GET /api/tags`、`GET /api/ps`、`POST /api/chat`（流式）、`POST /api/pull`（流式进度）、`DELETE /api/delete`、`POST /api/copy`、`POST /api/create`、`/api/generate`（加载/释放）、`/api/embed`（embedding 加载）、同源代理、ModelScope（默认）/ Hugging Face / ollama.com 模型库搜索、搜索结果本地收藏与收藏夹（不下载，经典界面与 UI3 共用）、ModelScope / Hugging Face 服务端下载 + `ollama create`、服务端后台下载任务（`/api/downloads`，刷新可接回）、Ollama 缓存扫描/清理（`/api/cache`）、GGUF 导入与导出（`/api/export`）、系统指标（`/api/metrics`）与守护进程检测/可选控制（`/api/daemon`）。会话支持每模型多会话，模型参数作为对话默认值持久化。另有可选的 macOS 菜单栏封装（`macos/menu-bar/`，Swift + 内置 Node 服务，`npm run build:menu` 生成 `.app` 与 DMG）。项目目标与实时状态见 `docs/context/NOW.md`。
 
 ## 事实权威
 
@@ -19,6 +19,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 改 Ollama API 客户端、流式解析、错误处理、加载/释放 | `src/api/ollama.ts` |
 | 改模型字段映射、分类、上下文/量化显示 | `src/api/ollamaMapper.ts` |
 | 改模型库关键字搜索、Hugging Face / ollama.com 结果解析 | `src/api/catalog.ts`；`src/screens/PullScreen.tsx`；`vite.config.ts` / `server.ts` 的 `/api/hf` 与 `/api/catalog` |
+| 改模型收藏 / 收藏夹（搜索结果本地快照、双界面入口、收藏后下载） | `src/lib/favoriteModels.ts`；`src/lib/favoriteModels.test.ts`；`src/components/CatalogResultRow.tsx`；`src/screens/PullScreen.tsx`；`ui3/screens/PullScreen.tsx`；`ui3/copy.ts`；`ui3/styles/app.css`；`ui3/lib/legacy.ts` |
 | 改 Hugging Face 直下（文件解析、GGUF 下载、`ollama create`） | `server/huggingface.ts`；`server/huggingface.test.ts`；`server/downloads.ts` 的 `runHuggingFaceJob`；`src/api/catalog.ts` 的 `extractGgufFiles` / `findQuantFile`；`src/api/downloads.ts`；`src/App.tsx` 的 `startHuggingFaceDownload`；`src/screens/PullScreen.tsx`；`src/lib/downloadTask.ts` |
 | 改 ModelScope 渠道（默认）、搜索与下载 | `server/modelscope.ts`；`server/downloads.ts` 的 `runModelScopeJob`；`src/api/catalog.ts` 的 `searchModelScopeCatalog`；`src/components/CatalogResultRow.tsx`；`server.ts` / `vite.config.ts` 的 `/api/modelscope/*` |
 | 改缓存扫描与清理（未引用 blob、未完成下载、临时目录、逐文件明细、文件管理器定位） | `server/cache.ts`；`server/cache.test.ts`；`src/api/cache.ts`；`src/screens/TelemetryScreen.tsx` 的缓存卡片与确认弹窗；`server.ts` / `vite.config.ts` 的 `/api/cache` |
@@ -41,6 +42,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 改生产静态托管/代理/鉴权/端口 | `server.ts`；`server/auth.ts`（登录页、会话 Cookie）；`server/security.ts`（Host/CSRF）；`package.json` 的 `start` / `build:server` |
 | 改/打包 macOS 菜单栏 App（菜单项、内置服务、图标、DMG） | `macos/menu-bar/main.swift`；`build.sh`；`Info.plist`；`make-icon.swift` / `make-app-icon.swift`；`package.json` 的 `build:menu`；`docs/context/RUNBOOK.md` 19 |
 | 改页面或界面模块 | `src/screens/*.tsx`；共享组件在 `src/components/`；页面切换在 `src/App.tsx` |
+| 改 UI3 并行界面、入口、主题或样式 | `ui3/README.md`；`ui3/App.tsx`；`ui3/screens/*.tsx`；`ui3/components/`；`ui3/styles/`；设计参考 `design/UI3/`；构建入口 `ui3/index.html` 与 `vite.config.ts` 的 `build.rollupOptions.input` |
 | 改移动端导航/响应式 | `src/components/MobileNav.tsx`；`src/components/Sidebar.tsx`；`src/App.tsx`；`src/index.css` |
 | 改主题、配色、明暗模式、自定义强调色 | `src/context/ThemeContext.tsx`（`resolvePalette` / `buildCustomPalette`）；`src/index.css`；`src/components/ThemePaletteModal.tsx` |
 | 改中英文案 | `src/i18n/translations.ts`；调用处 `useAppTheme().t` |
@@ -55,7 +57,7 @@ Ollama Studio 是一个 React + TypeScript + Vite 的 Ollama 本地模型管理�
 | 查为什么这样选 | `docs/context/DECISIONS.md` |
 | 查已知坑和未验证项 | `docs/context/RISKS.md` |
 | 找历史旧方案 | `docs/context/history/README.md`（先搜索再读） |
-| 看视觉参考 | `public/assets/aistudio/`（设计参考，未被应用代码引用） |
+| 看视觉参考 | `public/assets/aistudio/`（设计参考，未被应用代码引用）；UI3 参考在 `design/UI3/` |
 
 ## 当前不存在的结构（避免空找）
 

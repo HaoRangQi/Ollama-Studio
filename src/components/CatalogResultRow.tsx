@@ -7,8 +7,10 @@ interface CatalogResultRowProps {
   result: CatalogSearchResult;
   quantsExpanded: boolean;
   selectedQuant?: string;
+  isFavorite: boolean;
   onToggleQuants: () => void;
   onSelectQuant: (quant: string) => void;
+  onToggleFavorite: () => void;
   onDownload: (quant?: string) => void;
   onFillCommand: (quant?: string) => void;
 }
@@ -36,12 +38,14 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
   result,
   quantsExpanded,
   selectedQuant,
+  isFavorite,
   onToggleQuants,
   onSelectQuant,
+  onToggleFavorite,
   onDownload,
   onFillCommand
 }) => {
-  const { language } = useAppTheme();
+  const { language, t } = useAppTheme();
   const zh = language === 'zh';
   const quants = result.quants ?? [];
   const visibleQuants = quantsExpanded ? quants : quants.slice(0, QUANT_PREVIEW_COUNT);
@@ -92,6 +96,28 @@ export const CatalogResultRow: React.FC<CatalogResultRowProps> = ({
                 {result.pipelineTag.replace(/-/g, ' ')}
               </span>
             )}
+            <button
+              type="button"
+              onClick={onToggleFavorite}
+              aria-pressed={isFavorite}
+              aria-label={isFavorite ? t.pull.unfavorite : t.pull.favorite}
+              title={isFavorite ? t.pull.unfavorite : t.pull.favorite}
+              className="ml-auto flex items-center justify-center w-8 h-8 rounded-full shrink-0 text-[var(--app-text-muted)] hover:text-[var(--primary-accent)] hover:bg-[var(--app-surface-high)] transition-colors cursor-pointer"
+            >
+              <span
+                className="material-symbols-outlined text-[20px]"
+                style={
+                  isFavorite
+                    ? {
+                        color: 'var(--primary-accent)',
+                        fontVariationSettings: "'FILL' 1"
+                      }
+                    : undefined
+                }
+              >
+                star
+              </span>
+            </button>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-[var(--app-text-muted)] mt-1.5">

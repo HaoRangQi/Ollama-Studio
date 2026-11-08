@@ -1,0 +1,237 @@
+/* UI3 design tokens — meadow / cocoa / apricot, with light and dark surfaces. */
+
+:root {
+  color-scheme: light;
+
+  /* Legacy palette names used by the bundled BrandMark and early markup. */
+  --color-primary: #492724;
+  --color-primary-foreground: #fffdf8;
+  --color-surface: #f8f9f5;
+  --color-surface-foreground: #2d2423;
+  --color-surface-raised: #ffffff;
+  --color-muted: #6f756a;
+  --color-accent: #a5bf7d;
+  --color-danger: #a45c40;
+  --color-border: #e8ece5;
+  --color-sage-light: #dce7bf;
+  --color-sage-dark: #526b43;
+  --color-apricot: #f9cc87;
+  --color-apricot-light: #fff0d1;
+  --color-honey: #da941b;
+  --color-ochre: #856222;
+  --color-mist: #f2f6f6;
+  --color-stone: #89806d;
+
+  /* Semantic surface / ink tokens. */
+  --bg: #f4f6ef;
+  --bg-soft: #f8f9f5;
+  --bg-deep: #edf1e8;
+  --surface: #ffffff;
+  --surface-2: #f5f7f1;
+  --surface-3: #edf1e9;
+  --surface-glass: rgba(255, 255, 255, 0.62);
+  --sidebar-bg: rgba(255, 255, 255, 0.52);
+  --topbar-bg: rgba(251, 252, 247, 0.72);
+  --ink: #2d2423;
+  --ink-soft: #514843;
+  --muted: #6f756a;
+  --stone: #89806d;
+  --border: #e8ece5;
+  --border-strong: #d9e0d3;
+
+  /* Brand / action. */
+  --primary: #492724;
+  --primary-hover: #5b332d;
+  --on-primary: #fffdf8;
+  --nav-active-bg: #492724;
+  --nav-active-ink: #fffdf8;
+  --sage: #a5bf7d;
+  --sage-soft: #dce7bf;
+  --sage-ink: #526b43;
+  --apricot: #f9cc87;
+  --apricot-soft: #fff0d1;
+  --honey: #da941b;
+  --ochre: #856222;
+  --mist: #f2f6f6;
+  --danger: #a45c40;
+  --danger-soft: #f8e7e0;
+  --danger-ink: #7c3b21;
+  --success: #4f8a3d;
+  --success-soft: #e7f1dd;
+  --warning: #b87812;
+  --warning-soft: #fbf0d7;
+
+  /* Accent (overridden by data-accent). */
+  --accent: #a5bf7d;
+  --accent-soft: #dce7bf;
+  --accent-ink: #526b43;
+  --accent-contrast: #2d3a24;
+  --focus: color-mix(in srgb, var(--accent) 68%, #fff);
+
+  /* Code editor */
+  --code-bg: #2b2723;
+  --code-bar: #36312b;
+  --code-ink: #efe9dc;
+  --code-muted: #a99f8f;
+  --code-key: #f0b45f;
+  --code-string: #b7cf8e;
+  --code-number: #e8c98a;
+  --code-var: #9fc6d8;
+  --code-comment: #8d8474;
+
+  /* Type */
+  --font-sans:
+    'Avenir Next', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Trebuchet MS', Arial,
+    sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', 'SFMono-Regular', ui-monospace, monospace;
+
+  /* Shape / depth */
+  --radius-xs: 8px;
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --radius-2xl: 36px;
+  --pill: 999px;
+  --shadow-sm: 0 1px 2px rgb(57 55 38 / 0.04), 0 4px 12px rgb(57 55 38 / 0.04);
+  --shadow-md: 0 10px 26px -16px rgb(57 55 38 / 0.18), 0 3px 8px rgb(57 55 38 / 0.04);
+  --shadow-lg: 0 30px 60px -30px rgb(45 36 35 / 0.35), 0 12px 24px -18px rgb(45 36 35 / 0.2);
+  --shadow-pop: 0 18px 40px -18px rgb(45 36 35 / 0.3);
+
+  /* Layout */
+  --sidebar-w: 248px;
+  --topbar-h: 66px;
+  --sessions-w: 250px;
+  --rail-w: 300px;
+  --drawer-w: 346px;
+  --lab-left-w: 232px;
+  --lab-right-w: 320px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+:root[data-accent='apricot'] {
+  --accent: #e8b264;
+  --accent-soft: #fbeacb;
+  --accent-ink: #7a5420;
+  --accent-contrast: #3e2b10;
+}
+
+:root[data-accent='cocoa'] {
+  --accent: #a57662;
+  --accent-soft: #efe0d8;
+  --accent-ink: #694332;
+  --accent-contrast: #fff8f2;
+}
+
+:root[data-accent='honey'] {
+  --accent: #dda43c;
+  --accent-soft: #f8ecd0;
+  --accent-ink: #74500f;
+  --accent-contrast: #3c2908;
+}
+
+:root[data-accent='mist'] {
+  --accent: #a5b8b4;
+  --accent-soft: #e5eeec;
+  --accent-ink: #425b56;
+  --accent-contrast: #1f2f2c;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-surface: #191813;
+  --color-surface-foreground: #f0ece2;
+  --color-surface-raised: #23211c;
+  --color-muted: #aca698;
+  --color-border: #37352e;
+  --color-sage-light: #33402b;
+  --color-sage-dark: #c5d7a3;
+  --color-apricot-light: #453521;
+  --color-mist: #262b28;
+  --color-stone: #928a7b;
+
+  --bg: #171612;
+  --bg-soft: #1b1a16;
+  --bg-deep: #12110e;
+  --surface: #211f1a;
+  --surface-2: #27251f;
+  --surface-3: #2e2b24;
+  --surface-glass: rgba(32, 30, 25, 0.72);
+  --sidebar-bg: rgba(24, 23, 19, 0.72);
+  --topbar-bg: rgba(24, 23, 19, 0.78);
+  --ink: #f0ece2;
+  --ink-soft: #d6d0c2;
+  --muted: #aca698;
+  --stone: #938b7c;
+  --border: #37352e;
+  --border-strong: #464339;
+
+  --primary: #e3cbb8;
+  --primary-hover: #eedac9;
+  --on-primary: #2c1d17;
+  --nav-active-bg: #3b2d26;
+  --nav-active-ink: #f8efe4;
+  --sage-soft: #33402b;
+  --sage-ink: #c5d7a3;
+  --apricot-soft: #453521;
+  --ochre: #e3b878;
+  --danger: #cf8065;
+  --danger-soft: #432a23;
+  --danger-ink: #f2b6a3;
+  --success: #93c47a;
+  --success-soft: #2b3925;
+  --warning: #e0b263;
+  --warning-soft: #41331e;
+
+  --accent-soft: #33402b;
+  --accent-ink: #c5d7a3;
+  --focus: color-mix(in srgb, var(--accent) 58%, #16150f);
+
+  --code-bg: #17150f;
+  --code-bar: #211e18;
+  --code-ink: #eee6d7;
+  --code-muted: #9d9382;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.25), 0 4px 14px rgb(0 0 0 / 0.18);
+  --shadow-md: 0 12px 28px -18px rgb(0 0 0 / 0.7);
+  --shadow-lg: 0 34px 70px -30px rgb(0 0 0 / 0.8);
+  --shadow-pop: 0 20px 44px -20px rgb(0 0 0 / 0.8);
+}
+
+:root[data-theme='dark'][data-accent='sage'] {
+  --accent: #a9c586;
+  --accent-soft: #33402b;
+  --accent-ink: #c5d7a3;
+  --accent-contrast: #18200f;
+}
+
+:root[data-theme='dark'][data-accent='apricot'] {
+  --accent: #ecc17f;
+  --accent-soft: #443622;
+  --accent-ink: #f4d69d;
+  --accent-contrast: #33230c;
+}
+
+:root[data-theme='dark'][data-accent='cocoa'] {
+  --accent: #c79580;
+  --accent-soft: #42312b;
+  --accent-ink: #e3beae;
+  --accent-contrast: #2d1c15;
+}
+
+:root[data-theme='dark'][data-accent='honey'] {
+  --accent: #e2b45f;
+  --accent-soft: #443821;
+  --accent-ink: #f2cd85;
+  --accent-contrast: #332607;
+}
+
+:root[data-theme='dark'][data-accent='mist'] {
+  --accent: #aec3bf;
+  --accent-soft: #2d3736;
+  --accent-ink: #c3d6d2;
+  --accent-contrast: #16211f;
+}

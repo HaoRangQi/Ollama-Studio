@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light" data-accent="sage">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Ollama Studio · 模型工作室</title>
+    <meta
+      name="description"
+      content="Ollama Studio UI3：鼠尾草与可可色调的本地模型管理、对话与实验室界面。"
+    />
+    <meta name="theme-color" content="#f8f9f5" />
+    <link rel="icon" type="image/png" href="/assets/ollama-llama.png" />
+    <script>
+      // 在样式加载前决定明暗与强调色，避免首帧闪白或闪黑。
+      (function () {
+        try {
+          var stored = localStorage.getItem('ollama_ui3_theme');
+          var mode =
+            stored === 'dark' || stored === 'light'
+              ? stored
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.dataset.theme = mode;
+          var accent = localStorage.getItem('ollama_ui3_accent');
+          if (
+            accent === 'sage' ||
+            accent === 'apricot' ||
+            accent === 'cocoa' ||
+            accent === 'honey' ||
+            accent === 'mist'
+          ) {
+            document.documentElement.dataset.accent = accent;
+          }
+        } catch (error) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/ui3/main.tsx"></script>
+  </body>
+</html>

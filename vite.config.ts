@@ -131,6 +131,15 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(import.meta.dirname, '.')
       }
     },
+    build: {
+      rollupOptions: {
+        // 经典界面保留在 `/`；UI3 以独立入口并行提供在 `/ui3/`。
+        input: {
+          main: path.resolve(import.meta.dirname, 'index.html'),
+          ui3: path.resolve(import.meta.dirname, 'ui3/index.html')
+        }
+      }
+    },
     server: {
       host: '127.0.0.1',
       port: 39471,

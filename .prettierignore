@@ -6,7 +6,9 @@ coverage/
 server.js
 package-lock.json
 public/assets/
+design/
 docs/context/
+.hallmark/
 AGENTS.md
 PROJECT_INDEX.md
 README.md

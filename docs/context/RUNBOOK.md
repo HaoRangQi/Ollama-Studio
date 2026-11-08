@@ -53,8 +53,8 @@
 ### 4. 单元测试
 
 - 命令：`npm test`（监听：`npm run test:watch`；覆盖率：`npm run coverage`）
-- 结果：**已执行（2026-10-29）通过**：17 个测试文件、164 个测试。
-- 覆盖：NDJSON 分片/错误/中止、`pullModel`、`loadModel`/`unloadModel`（generate/embed/keep_alive）、模型映射、会话存储与 v1→v2 迁移、模型参数归一化、下载任务中断与失败任务 source 持久化、GGUF 名称与空上传、附件类型判定与 base64 转换、ModelScope URL/量化映射、Hugging Face URL/文件解析/下载管线（mock `ollama create`）、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF manifest 解析/model/projector 导出/重名与目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 解析与 daemon 命令构建、`ollama serve` 命令生成。
+- 结果：**已执行（2026-11-08）通过**：20 个测试文件、206 个测试（2026-10-29 为 17 个文件、164 个测试）。
+- 覆盖：NDJSON 分片/错误/中止、`pullModel`、`loadModel`/`unloadModel`（generate/embed/keep_alive）、模型映射、会话存储与 v1→v2 迁移、模型参数归一化、下载任务中断与失败任务 source 持久化、GGUF 名称与空上传、附件类型判定与 base64 转换、ModelScope URL/量化映射、Hugging Face URL/文件解析/下载管线（mock `ollama create`）、缓存扫描与清理安全边界、逐文件明细与文件管理器定位路径校验、GGUF manifest 解析/model/projector 导出/重名与目录校验、磁盘指标与 ioreg GPU 解析、launchd/ps/pgrep 解析与 daemon 命令构建、`ollama serve` 命令生成、收藏夹快照/去重/上限/损坏存储/量化回退。
 - 未覆盖：真实浏览器、真实 Ollama 流、真实模型加载/卸载、GGUF 成功导入（需 CLI）、真实视觉模型推理与视频解码兼容性。
 
 ### 5. 生产构建
@@ -261,6 +261,14 @@
 - 跳转：模型卡片“更多操作”菜单里的“查看渠道页面”条目，命中时渲染 `<a>` 指向 `https://huggingface.co/<repo>` 或 `https://modelscope.cn/models/<namespace>/<name>`（`target="_blank"` + `rel="noreferrer noopener"`），标题展示 `渠道名 · URL`；未登记的模型渲染 `disabled` 按钮并提示未记录来源。
 - 结果：**已执行（2026-10-29，CDP 实测）通过**。为本地模型 `handy-computer/qwen3-asr-1.7b-gguf:q8_0` 写入 HF 来源记录后打开卡片菜单，条目为可点击链接 `查看渠道页面 · Hugging Face`，`href` 为 `https://huggingface.co/handy-computer/qwen3-asr-1.7b-gguf`，未禁用。
 - 注意：来源是下载时快照，模型删除后记录仍在；同一个模型名重新从另一渠道下载会覆盖为最新来源。用户手动 `ollama pull` 的模型没有记录，条目呈 disabled。
+
+### 21. 模型收藏（本地快照）
+
+- 入口：经典界面与 UI3 的“发现与拉取”；搜索结果卡片星标收藏，搜索区/搜索结果上方显示收藏夹。收藏夹默认收起并显示数量，点“展开”查看条目；展开状态不持久化。
+- 存储：`localStorage` 键 `ollama_favorite_models_v1`（`src/lib/favoriteModels.ts`），保存搜索结果快照、收藏时选中的量化与 `savedAt`，上限 200 条；经典界面与 UI3 共用。
+- 行为：收藏不调用 `/api/pull`、`/api/downloads` 或 `/api/modelscope/pull`；收藏项可下载、填入命令、打开来源页、取消收藏。下载优先使用收藏时量化，缺失时回退到快照第一个量化。localStorage 不可用或超配额时只在当前会话可见，并显示“收藏未能保存到浏览器”。
+- 验证：**已执行（2026-11-08，headless Chrome + CDP）通过**。用 `Fetch` 拦截 ModelScope 搜索响应返回一条 GGUF 结果，在经典界面与 UI3 分别点击星标；`ollama_favorite_models_v1` 写入 1 条包含 `quant: "Q4_K_M"` 与两个 GGUF 文件的快照；页面刷新后收藏夹仍显示该条；点击取消收藏后存储变为 `[]` 且收藏夹消失。全程 `/api/pull`、`/api/downloads`（仅统计 POST）与 `/api/modelscope/pull` 调用均为 0。
+- 未验证：点击收藏项发起真实下载；远端仓库改名/删除后的来源页表现。收藏快照可能过时，见 `RISKS.md` R-052。
 
 ## Ollama 连通性检查
 

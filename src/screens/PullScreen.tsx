@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { CuratedHubModel, DownloadTask } from '../types';
 import { INITIAL_CURATED_MODELS } from '../data/mockData';
 import {
@@ -12,6 +12,14 @@ import { CatalogResultRow } from '../components/CatalogResultRow';
 import { useAppTheme } from '../context/ThemeContext';
 import { readStorageJson, writeStorageJson } from '../lib/storage';
 import { isGgufTask, isModelScopeTask } from '../lib/downloadTask';
+import {
+  favoriteKeyOf,
+  loadFavoriteModels,
+  resolveFavoriteQuant,
+  saveFavoriteModels,
+  toggleFavoriteModel
+} from '../lib/favoriteModels';
+import type { FavoriteModel } from '../lib/favoriteModels';
 
 /** 手动复现 ModelScope 下载时可执行的命令（应用内走服务端下载 + ollama create）。 */
 const buildModelScopeCommand = (modelId: string, file: string) => {
@@ -121,6 +129,10 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   const [selectedQuants, setSelectedQuants] = useState<Record<string, string>>({});
   // 记录"已展开"的错误文本本身，换新错误时自动回到折叠态，无需 effect
   const [expandedError, setExpandedError] = useState<string | null>(null);
+  const [favorites, setFavorites] = useState<FavoriteModel[]>(loadFavoriteModels);
+  // 收藏夹默认收起，避免占用搜索结果的空间；用户展开后仅本次挂载有效。
+  const [favoritesOpen, setFavoritesOpen] = useState(false);
+  const favoriteKeys = useMemo(() => new Set(favorites.map(favoriteKeyOf)), [favorites]);
 
   const revealDownloadTask = () => {
     window.setTimeout(() => {
@@ -133,6 +145,37 @@ export const PullScreen: React.FC<PullScreenProps> = ({
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  const favoriteSourceLabel = (source: CatalogSource) =>
+    source === 'modelscope'
+      ? 'ModelScope'
+      : source === 'huggingface'
+        ? 'Hugging Face'
+        : language === 'zh'
+          ? 'Ollama 库'
+          : 'Ollama library';
+
+  const persistFavorites = (next: FavoriteModel[], message: string) => {
+    setFavorites(next);
+    showToast(saveFavoriteModels(next) ? message : t.pull.favoriteSaveFailed);
+  };
+
+  const handleToggleFavorite = (result: CatalogSearchResult, quant?: string) => {
+    const wasFavorite = favorites.some(
+      (favorite) => favoriteKeyOf(favorite) === favoriteKeyOf(result)
+    );
+    persistFavorites(
+      toggleFavoriteModel(favorites, result, quant),
+      wasFavorite ? t.pull.unfavorited(result.name) : t.pull.favorited(result.name)
+    );
+  };
+
+  const handleRemoveFavorite = (favorite: FavoriteModel) => {
+    persistFavorites(
+      favorites.filter((item) => favoriteKeyOf(item) !== favoriteKeyOf(favorite)),
+      t.pull.unfavorited(favorite.name)
+    );
   };
 
   const handleClearInput = () => {
@@ -1023,6 +1066,129 @@ export const PullScreen: React.FC<PullScreenProps> = ({
           </p>
         </div>
 
+        {/* 收藏夹：保存搜索结果快照，不下载；两个界面共用同一份 localStorage */}
+        {favorites.length > 0 && (
+          <div className="flex flex-col gap-3 rounded-2xl bg-[var(--app-surface)] border border-[var(--app-border)] p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="material-symbols-outlined text-[18px]"
+                  style={{ color: 'var(--primary-accent)', fontVariationSettings: "'FILL' 1" }}
+                >
+                  star
+                </span>
+                <span className="text-[13px] font-semibold text-[var(--app-text)]">
+                  {t.pull.favorites}
+                </span>
+                <span className="text-[11px] font-code text-[var(--app-text-muted)]">
+                  {favorites.length}
+                </span>
+                <span className="hidden sm:inline text-[11px] text-[var(--app-text-muted)] truncate">
+                  {t.pull.favoritesHint}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFavoritesOpen((open) => !open)}
+                aria-expanded={favoritesOpen}
+                className="flex items-center gap-1 text-[11px] font-medium text-[var(--app-text-muted)] hover:text-[var(--app-text)] transition-colors cursor-pointer shrink-0"
+              >
+                <span className="material-symbols-outlined text-[16px]">
+                  {favoritesOpen ? 'expand_less' : 'expand_more'}
+                </span>
+                <span>{favoritesOpen ? t.pull.favoritesCollapse : t.pull.favoritesExpand}</span>
+              </button>
+            </div>
+
+            {favoritesOpen && (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+                {favorites.map((favorite) => {
+                  const quant = resolveFavoriteQuant(favorite);
+                  const canDownload = favorite.source === 'ollama' || Boolean(quant);
+                  return (
+                    <div
+                      key={favoriteKeyOf(favorite)}
+                      className="flex flex-col gap-2.5 rounded-2xl bg-[var(--app-surface-high)] border border-[var(--app-border)] p-3"
+                    >
+                      <div className="flex items-start gap-2 min-w-0">
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className="text-[13px] font-semibold text-[var(--app-text)] truncate"
+                            title={favorite.name}
+                          >
+                            {favorite.name}
+                          </p>
+                          {favorite.description && (
+                            <p className="text-[11px] text-[var(--app-text-muted)] line-clamp-1 mt-0.5">
+                              {favorite.description}
+                            </p>
+                          )}
+                          <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                            <span className="px-2 py-0.5 rounded-full bg-[var(--app-surface)] border border-[var(--app-border)] text-[10px] font-code text-[var(--app-text-muted)]">
+                              {favoriteSourceLabel(favorite.source)}
+                            </span>
+                            {quant && (
+                              <span className="px-2 py-0.5 rounded-full bg-[var(--app-surface)] border border-[var(--app-border)] text-[10px] font-code text-[var(--app-text-muted)]">
+                                {quant}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFavorite(favorite)}
+                          aria-label={t.pull.unfavorite}
+                          title={t.pull.unfavorite}
+                          className="flex items-center justify-center w-7 h-7 rounded-full shrink-0 text-[var(--primary-accent)] hover:bg-[var(--app-surface)] transition-colors cursor-pointer"
+                        >
+                          <span
+                            className="material-symbols-outlined text-[18px]"
+                            style={{ fontVariationSettings: "'FILL' 1" }}
+                          >
+                            star
+                          </span>
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadCatalogModel(favorite, quant)}
+                          disabled={!canDownload}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-white text-[11px] font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                          style={{ backgroundColor: 'var(--primary-accent)' }}
+                        >
+                          <span className="material-symbols-outlined text-[15px]">download</span>
+                          <span>{t.pull.favoriteDownload}</span>
+                        </button>
+                        {(favorite.source === 'ollama' || Boolean(quant)) && (
+                          <button
+                            type="button"
+                            onClick={() => handleUseCatalogModel(favorite, quant)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[var(--app-surface)] text-[var(--app-text-muted)] hover:text-[var(--app-text)] text-[11px] font-medium border border-[var(--app-border)] transition-colors cursor-pointer"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">terminal</span>
+                            <span>{t.pull.favoriteFillCommand}</span>
+                          </button>
+                        )}
+                        <a
+                          href={favorite.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label={t.pull.favoriteOpenSource}
+                          title={t.pull.favoriteOpenSource}
+                          className="ml-auto flex items-center justify-center w-7 h-7 rounded-full text-[var(--app-text-muted)] hover:text-[var(--primary-accent)] transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* 本地精选分类：只作用于精选列表，搜索模式下隐藏 */}
         {!catalogSearched && (
           <div className="flex flex-col gap-2">
@@ -1158,6 +1324,8 @@ export const PullScreen: React.FC<PullScreenProps> = ({
                         result={result}
                         quantsExpanded={Boolean(expandedQuants[key])}
                         selectedQuant={selectedQuant}
+                        isFavorite={favoriteKeys.has(favoriteKeyOf(result))}
+                        onToggleFavorite={() => handleToggleFavorite(result, selectedQuant)}
                         onToggleQuants={() =>
                           setExpandedQuants((previous) => ({
                             ...previous,
